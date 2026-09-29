@@ -1,0 +1,10 @@
+# 本机开发覆盖项：只保留与基线的差异。
+# 该文件随 --spring.profiles.active=local 生效，也是默认激活的 profile。
+logging:
+  level:
+    cn.orangenode.forge: DEBUG
+
+# 管理端 Swagger UI 仅在开发环境开启，便于核对接口文档
+springdoc:
+  swagger-ui:
+    enabled: true

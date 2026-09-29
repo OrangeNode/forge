@@ -1,0 +1,19 @@
+# 测试 profile：不连接真实中间件，供后续阶段使用测试替身或测试容器时覆盖。
+spring:
+  flyway:
+    enabled: false
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          url: jdbc:mysql://127.0.0.1:3306/orange_forge_test?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+          username: ${FORGE_TEST_MASTER_USERNAME:forge}
+          password: ${FORGE_TEST_MASTER_PASSWORD:}
+  data:
+    redis:
+      host: ${FORGE_TEST_REDIS_HOST:127.0.0.1}
+      port: ${FORGE_TEST_REDIS_PORT:6379}
+
+logging:
+  level:
+    cn.orangenode.forge: DEBUG

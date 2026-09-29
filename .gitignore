@@ -1,0 +1,51 @@
+# 各层级的环境文件可能含实际凭据；只提交无敏感值的示例。
+.env
+.env.*
+!.env.example
+
+# 私钥与密钥库
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Java / Maven 构建产物
+target/
+*.class
+
+# 应用运行日志与诊断文件
+logs/
+*.log
+*.hprof
+hs_err_pid*
+
+# Node / 前端构建产物与测试报告
+node_modules/
+dist/
+*.tsbuildinfo
+.pnpm-store/
+.vite/
+.eslintcache
+coverage/
+test-results/
+playwright-report/
+
+# IDE 与操作系统
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 编辑器临时文件
+*.swp
+*.swo
+*~

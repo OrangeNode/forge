@@ -1,0 +1,7 @@
+# 文本在仓库中统一为 LF；Windows 命令脚本检出时使用 CRLF。
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Markdown 行尾双空格表示显式换行。
+*.md whitespace=-blank-at-eol

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  forge-audit：登录日志与操作审计的保存和查询，不反向依赖账号模块。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.orangenode</groupId>
+        <artifactId>forge-backend</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>forge-audit</artifactId>
+    <name>forge-audit</name>
+    <description>审计日志模块</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.orangenode</groupId>
+            <artifactId>forge-framework</artifactId>
+        </dependency>
+    </dependencies>
+</project>

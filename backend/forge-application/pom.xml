@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  forge-application：唯一可执行模块，负责模块装配、环境配置与启动入口。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.orangenode</groupId>
+        <artifactId>forge-backend</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>forge-application</artifactId>
+    <name>forge-application</name>
+    <description>应用装配与启动入口</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.orangenode</groupId>
+            <artifactId>forge-framework</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.orangenode</groupId>
+            <artifactId>forge-system</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.orangenode</groupId>
+            <artifactId>forge-member</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.orangenode</groupId>
+            <artifactId>forge-file</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.orangenode</groupId>
+            <artifactId>forge-audit</artifactId>
+        </dependency>
+        <!-- 移除示例模块时删除下面这一项即可 -->
+        <dependency>
+            <groupId>cn.orangenode</groupId>
+            <artifactId>forge-example</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 仅测试使用：内存库验证数据源装配与 Mapper 扫描，不参与运行 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 架构约束检查：在可执行模块内做整体装配校验，业务模块不各自引入 -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>1.4.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>cn.orangenode.forge.ForgeApplication</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

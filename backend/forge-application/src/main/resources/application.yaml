@@ -1,0 +1,126 @@
+# Orange Forge 应用基线配置。
+#
+# 约定：本文件是项目级常量与可调参数的唯一来源。新增可调参数时先在这里加带注释的配置项，
+# 再在 Java 侧用 @ConfigurationProperties 或 @Value 读取，不在代码里写死取值。
+# 连接信息与凭据一律来自环境变量；缺省值只用于本机开发，不得写入真实凭据。
+# 协议不变式（HTTP 200、code/message/data/traceId 四字段、body.code 语义）不在这里配置。
+server:
+  port: ${FORGE_SERVER_PORT:8080}
+
+spring:
+  application:
+    name: orange-forge
+  profiles:
+    default: local
+
+  # 数据源：dynamic-datasource 统一管理，strict 保证未声明的名称直接报错而不回退主库
+  datasource:
+    dynamic:
+      strict: true
+      primary: ${FORGE_PRIMARY_DATASOURCE:master}
+      datasource:
+        master:
+          url: ${FORGE_MASTER_URL:jdbc:mysql://127.0.0.1:3306/orange_forge?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+          username: ${FORGE_MASTER_USERNAME:forge}
+          password: ${FORGE_MASTER_PASSWORD:}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          hikari:
+            # 连接池上限与超时；本地开发用小池，部署时按实际并发调整
+            maximum-pool-size: ${FORGE_DB_POOL_MAX:10}
+            minimum-idle: ${FORGE_DB_POOL_MIN_IDLE:2}
+            connection-timeout: 10000
+            idle-timeout: 600000
+            max-lifetime: 1800000
+            pool-name: forge-master-pool
+
+  # 迁移：只针对主库执行，目录按模块划分，见 db/migration/迁移说明.md
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  # Redis：登录令牌、限流与必要缓存
+  data:
+    redis:
+      host: ${FORGE_REDIS_HOST:127.0.0.1}
+      port: ${FORGE_REDIS_PORT:6379}
+      password: ${FORGE_REDIS_PASSWORD:}
+      database: ${FORGE_REDIS_DATABASE:0}
+      timeout: 3s
+      connect-timeout: 3s
+      lettuce:
+        pool:
+          max-active: ${FORGE_REDIS_POOL_MAX_ACTIVE:16}
+          max-idle: 8
+          min-idle: 0
+        shutdown-timeout: 1s
+
+  # JSON：接口时间统一为带时区的 ISO 8601，UTC 以 Z 结尾
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: UTC
+
+  # 上传硬上限：管理员配置不得高于该值
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${FORGE_UPLOAD_MAX_FILE_SIZE:50MB}
+      max-request-size: ${FORGE_UPLOAD_MAX_REQUEST_SIZE:60MB}
+
+# MyBatis-Plus：自增主键与逻辑删除字段约定
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# API 文档：开发环境开启，生产默认关闭（覆盖项见 application-local.yaml）
+springdoc:
+  api-docs:
+    enabled: ${FORGE_API_DOCS_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${FORGE_SWAGGER_UI_ENABLED:true}
+    path: /swagger-ui.html
+
+# 项目自定义配置：所有可调常量集中在此
+forge:
+  # 数据源约定
+  datasource:
+    # 主库名称，必须与 spring.datasource.dynamic.datasource 下的键一致。
+    # Flyway 以及其他只应作用于主库的能力都读取该值。
+    primary-name: ${FORGE_PRIMARY_DATASOURCE:master}
+
+  # 分页约定：分页入参的默认值、上限与排序白名单
+  page:
+    default-page-num: 1
+    default-page-size: 20
+    # 每页条数上限，超过即视为非法分页参数
+    max-size: 100
+
+  # Web 与追踪约定
+  web:
+    # 展示时区；数据库统一存 UTC，本值只影响需要按业务时区计算边界的场景
+    display-zone: ${FORGE_DISPLAY_ZONE:UTC}
+    # 是否写入追踪编号（响应头 + 请求属性）
+    trace-enabled: true
+    # 追踪编号响应头名称
+    trace-header-name: X-Trace-Id
+
+# 日志级别：按包名调整，避免为排查单个模块而改动代码
+logging:
+  level:
+    root: INFO
+    cn.orangenode.forge: DEBUG
+    # 配置装配信息（主库名称、追踪头名、迁移目录）用 INFO 输出，便于启动后核对配置是否生效
+    cn.orangenode.forge.framework.config: INFO
+    com.baomidou.dynamic.datasource: INFO
+    com.baomidou.mybatisplus: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} : %msg%n"
