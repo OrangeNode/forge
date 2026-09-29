@@ -59,6 +59,15 @@ public class ForgeSecurityProperties {
     private String superRoleCode = "super_admin";
 
     /**
+     * 权限缓存存活秒数。
+     *
+     * <p>权限解析结果按管理员缓存该时长，缓存键包含全局权限版本：任何角色、权限或管理员角色关系变更
+     * 都会递增版本，使所有缓存立即失效，不需要通配扫描删除旧键。</p>
+     */
+    @Min(value = 1, message = "权限缓存存活时间必须大于 0 秒")
+    private long permissionCacheTtlSeconds = 300;
+
+    /**
      * 匿名放行的路径模式，支持 Spring 的路径匹配写法。
      *
      * <p>至少保留登录接口；CORS 预检请求由过滤链单独放行，不需要写在这里。</p>

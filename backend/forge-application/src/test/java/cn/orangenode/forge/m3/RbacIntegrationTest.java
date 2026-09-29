@@ -23,6 +23,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
+import cn.orangenode.forge.support.RedisTestDouble;
+import cn.orangenode.forge.system.service.AdminAuthorityService;
+
 /**
  * 方法级权限校验的端到端验证。
  *
@@ -71,6 +74,12 @@ class RbacIntegrationTest {
     private M3FixtureService fixture;
 
     /**
+     * 权限解析服务，用于在直接改库后显式失效权限缓存。
+     */
+    @Autowired
+    private AdminAuthorityService authorityService;
+
+    /**
      * 按端口构建的测试客户端。
      */
     private RestTestClient restTestClient;
@@ -78,7 +87,7 @@ class RbacIntegrationTest {
     /**
      * 内存版 Redis 替身。
      */
-    private M3RedisDouble redisDouble;
+    private RedisTestDouble redisDouble;
 
     /**
      * 普通权限管理员 ID。
@@ -107,7 +116,7 @@ class RbacIntegrationTest {
     void prepareData() {
         restTestClient = RestTestClient.bindToServer().baseUrl("http://127.0.0.1:" + port).build();
         M3TestSupport.recreateSystemTables(jdbcTemplate);
-        redisDouble = new M3RedisDouble(stringRedisTemplate);
+        redisDouble = new RedisTestDouble(stringRedisTemplate);
         redisDouble.clear();
         roleId = fixture.createRole(M3TestSupport.ROLE_CODE, "运维角色");
         probePermissionId = fixture.createPermission(M3TestSupport.PROBE_PERMISSION, "探针查看");
@@ -175,6 +184,9 @@ class RbacIntegrationTest {
 
     /**
      * 验证权限变更在下一次请求立即生效，不需要等待令牌过期。
+     *
+     * <p>权限解析带版本化缓存，因此直接改库后显式递增权限版本；
+     * 通过管理接口修改授权时的自动失效由 M5 的系统管理用例验证。</p>
      */
     @Test
     @DisplayName("权限变更立即生效")
@@ -184,10 +196,12 @@ class RbacIntegrationTest {
                 .contains("\"code\":403");
 
         fixture.linkRolePermission(roleId, probePermissionId);
+        authorityService.evictAllPermissions();
         assertThat(exchange(HttpMethod.GET, M3TestSupport.PERMISSION_PROBE, null, token).body())
                 .contains("\"code\":0");
 
         fixture.unlinkRolePermission(roleId, probePermissionId);
+        authorityService.evictAllPermissions();
         assertThat(exchange(HttpMethod.GET, M3TestSupport.PERMISSION_PROBE, null, token).body())
                 .contains("\"code\":403");
     }

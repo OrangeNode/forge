@@ -22,5 +22,12 @@
             <groupId>cn.orangenode</groupId>
             <artifactId>forge-framework</artifactId>
         </dependency>
+        <!--
+          对象存储适配：S3 兼容服务使用同步客户端，版本由父工程的 AWS SDK BOM 统一管理。
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
     </dependencies>
 </project>

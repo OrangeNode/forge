@@ -62,7 +62,21 @@ M2 已提供的公共能力与位置（业务模块直接复用，不重复实�
 | 登录失败限流 | `framework` 的 `security`（`LoginAttemptGuard`） | 登录前 `assertAllowed`、失败 `recordFailure`、成功 `clear`；不要在各业务里另写计数 |
 | 方法级权限 | `Spring Security` 的 `@PreAuthorize` 与 `framework` 的 `GlobalExceptionHandler` | 权限码为 `模块:资源:动作`；方法级拒绝与过滤链拒绝都由统一出口写成 403，不要在业务里 catch 后返回自定义结构 |
 
-M3 已落地的安全装配：`SecurityConfig` 使用无状态过滤链，只放行配置中的匿名路径与 CORS 预检，其余路径（含未知路径）一律要求认证；`PasswordEncoder` 使用 Spring Security 的 BCrypt 实现，业务模块不自建散列。权限解析按请求实时查询数据库，不缓存，权限调整在下一次请求立即生效。
+M3 已落地的安全装配：`SecurityConfig` 使用无状态过滤链，只放行配置中的匿名路径与 CORS 预检，其余路径（含未知路径）一律要求认证；`PasswordEncoder` 使用 Spring Security 的 BCrypt 实现，业务模块不自建散列。
+
+M4 与 M5 已提供的公共能力（业务模块直接复用）：
+
+| 能力 | 位置 | 使用要点 |
+| --- | --- | --- |
+| 存储适配端口 | `framework` 的 `storage`（`StorageProvider`） | 只做对象读写与连接检测；实现由文件模块按配置版本创建，业务不直接调用 |
+| 凭据加解密 | `framework` 的 `crypto`（`CredentialCipher`、`AesGcmCredentialCipher`） | 每次加密使用新 nonce；主密钥来自 `forge.file.encryption-key`，缺失时明确失败，不打印明文 |
+| 操作审计 | `framework` 的 `audit`（`@AuditOperation`、`@AuditResourceId`、`AuditOperationAspect`） | 写接口加注解即可，业务不写审计逻辑；结果码映射与响应侧保持一致，审计写入失败只记日志 |
+| 登录日志 | `framework` 的 `audit`（`LoginLogRecorder`） | 登录用例在成功与各失败路径调用；身份与追踪编号取自安全上下文与请求 |
+| 公开文件服务 | `file` 的 `FileService` | 业务模块通过该接口上传、按 ID 读取与删除，不直接依赖存储适配或文件 Mapper |
+| 权限解析与缓存 | `system` 的 `AdminAuthorityService` | 读权限走缓存（键含全局版本）；任何角色、权限或管理员角色变更在提交后调用 `evictAllPermissions()` 失效，不使用通配扫描 |
+| 分页入参构造 | `framework` 的 `ForgePageProperties` | 查询接口按请求构造分页入参并校验，不把分页入参装配成单例 Bean |
+
+M5 起权限解析带版本化缓存（`auth:perm:v{版本}:{管理员ID}`）：读取缓存失败按 Redis 不可用处理并返回 503，缓存内容损坏按未命中重新解析数据库。分页上限、默认页码与条数统一来自 `forge.page.*`，Controller 不再各自写死。
 
 技术配置优先使用类型化配置类；环境配置必须有用途说明和必要校验，不能到处散落字符串 Key。
 

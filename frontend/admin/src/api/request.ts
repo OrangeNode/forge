@@ -11,6 +11,11 @@ import { clearSessionToken, readSessionToken } from '@/utils/session'
 export const API_PREFIX = '/api/admin/v1'
 
 /**
+ * 接口基础地址，来自本应用环境配置；为空表示同源相对路径。
+ */
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
+/**
  * 受保护接口共用的请求工厂。
  *
  * 令牌由本应用注入，公共请求包不保存令牌；收到 code=401 时清理会话并跳转登录页。
@@ -18,7 +23,7 @@ export const API_PREFIX = '/api/admin/v1'
  */
 export const request = new RequestFactory(
   {
-    baseUrl: import.meta.env.VITE_API_BASE_URL || '',
+    baseUrl: API_BASE_URL,
     tokenProvider: readSessionToken,
   },
   {
@@ -36,8 +41,31 @@ export const request = new RequestFactory(
  * 因此登录调用不带未认证钩子，由登录页自行提示凭据错误。
  */
 export const anonymousRequest = new RequestFactory({
-  baseUrl: import.meta.env.VITE_API_BASE_URL || '',
+  baseUrl: API_BASE_URL,
 })
+
+/**
+ * 拼接完整的接口地址，供需要直接使用 fetch 的场景（例如文件下载）复用同一套地址规则。
+ *
+ * @param path 以 / 开头的接口路径
+ * @param query 查询参数，值为 undefined 的键会被忽略
+ * @returns 完整地址
+ */
+export function urlWithQuery(
+  path: string,
+  query?: Record<string, string | number | boolean | undefined>,
+): string {
+  const search = new URLSearchParams()
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined) {
+        search.set(key, String(value))
+      }
+    }
+  }
+  const queryString = search.toString()
+  return `${API_BASE_URL}${path}${queryString ? `?${queryString}` : ''}`
+}
 
 /**
  * 判断异常是否为统一业务异常。

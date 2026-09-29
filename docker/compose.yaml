@@ -63,7 +63,40 @@ services:
       retries: 5
       start_period: 10s
 
+  # MinIO：S3 兼容对象存储，仅用于文件存储的 S3 适配验收，按需启用。
+  #
+  # 启用方式：
+  #   1. 把下面 minio 服务与文件末尾 minio-data 卷前面的注释去掉（不要改端口映射到 0.0.0.0）；
+  #   2. 在 .env.local 中设置 MINIO_ROOT_USER 与 MINIO_ROOT_PASSWORD（凭据不进入版本库）；
+  #   3. docker compose up -d minio，控制台 http://127.0.0.1:9001，S3 端点 http://127.0.0.1:9000；
+  #   4. 后端在管理端「存储配置」里新增 s3 方案：endpoint=http://<主机>:9000、region 任意（如 us-east-1）、
+  #      bucket 需先创建、path-style 打开；凭据加密主密钥来自 FORGE_FILE_ENCRYPTION_KEY。
+  #
+  # 说明：镜像标签固定为 latest 便于验收；生产或长期环境请改为具体的 RELEASE.* 标签并记录来源。
+  # minio:
+  #   image: minio/minio:latest
+  #   restart: unless-stopped
+  #   command: ["server", "/data", "--console-address", ":9001"]
+  #   environment:
+  #     TZ: UTC
+  #     MINIO_ROOT_USER: ${MINIO_ROOT_USER:?请在 .env.local 中设置 MINIO_ROOT_USER}
+  #     MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?请在 .env.local 中设置 MINIO_ROOT_PASSWORD}
+  #   ports:
+  #     - "127.0.0.1:${MINIO_PORT:-9000}:9000"
+  #     - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+  #   volumes:
+  #     - minio-data:/data
+  #   healthcheck:
+  #     # 使用镜像自带的 mc 客户端探测本机实例；失败重试由 compose 负责。
+  #     test: ["CMD", "mc", "ready", "local"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 6
+  #     start_period: 20s
+
 # 卷名由 Compose 项目名隔离；停止或重建容器不删除卷。
 volumes:
   mysql-data:
   redis-data:
+  # 启用 MinIO 时同时取消下面一行的注释
+  # minio-data:

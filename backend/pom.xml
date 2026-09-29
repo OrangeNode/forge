@@ -41,6 +41,7 @@
         <mybatis-plus.version>3.5.17</mybatis-plus.version>
         <dynamic-datasource.version>4.5.0</dynamic-datasource.version>
         <springdoc.version>3.1.1</springdoc.version>
+        <awssdk.version>2.55.7</awssdk.version>
         <checkstyle.version>10.26.1</checkstyle.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
     </properties>
@@ -114,6 +115,18 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-common</artifactId>
                 <version>${springdoc.version}</version>
+            </dependency>
+
+            <!--
+              对象存储：AWS SDK for Java 2.x。使用 BOM 统一管理各构件版本，
+              业务模块只声明需要的构件，不写版本号；MinIO 等兼容服务通过 endpoint + path-style 接入。
+            -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${awssdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

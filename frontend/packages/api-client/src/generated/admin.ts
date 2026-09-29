@@ -4,6 +4,354 @@
  */
 
 export interface paths {
+    "/api/admin/v1/system/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询角色详情
+         * @description 返回角色基础信息、是否为内置超级管理员角色，以及已授予的权限与菜单 ID
+         */
+        get: operations["detail"];
+        /**
+         * 修改角色
+         * @description 内置超级管理员角色的代码不允许修改，尝试修改返回 body.code=400
+         */
+        put: operations["update"];
+        post?: never;
+        /**
+         * 删除角色
+         * @description 被管理员引用的角色返回 body.code=409；内置超级管理员角色不允许删除；删除为逻辑删除并清理该角色的授权关系
+         */
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/roles/{id}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 角色授权
+         * @description 提交的权限与菜单集合即最终结果；关系表物理删除后重建，变更提交后权限缓存立即失效
+         */
+        put: operations["replaceGrants"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/permissions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 修改权限
+         * @description 只允许修改名称与说明，权限代码不可修改；权限不存在返回 body.code=404
+         */
+        put: operations["update_1"];
+        post?: never;
+        /**
+         * 删除权限
+         * @description 已被角色授予的权限返回 body.code=409；删除为逻辑删除，权限代码仍占用唯一键
+         */
+        delete: operations["delete_1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/menus/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 修改菜单
+         * @description 父菜单不能是菜单自身或其子菜单，否则返回 body.code=400；路由标识唯一冲突返回 body.code=409
+         */
+        put: operations["update_2"];
+        post?: never;
+        /**
+         * 删除菜单
+         * @description 存在子菜单或已被角色授予可见性时返回 body.code=409；删除为逻辑删除，路由标识仍占用唯一键
+         */
+        delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/admins/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询管理员详情
+         * @description 返回账号基础信息与当前角色摘要；账号不存在返回 body.code=404
+         */
+        get: operations["detail_1"];
+        /**
+         * 修改管理员
+         * @description 只允许修改显示名称；账号不存在返回 body.code=404
+         */
+        put: operations["update_3"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/admins/{id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 分配管理员角色
+         * @description 提交的角色集合即最终结果，未提交的角色会被解除；关系表物理删除后重建，变更提交后权限缓存立即失效
+         */
+        put: operations["replaceRoles"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/storage-configs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 修改存储配置
+         * @description 只允许修改尚未被文件引用的版本；已被引用返回 body.code=409 并提示创建新版本；凭据留空表示保持原凭据
+         */
+        put: operations["update_4"];
+        post?: never;
+        /**
+         * 删除存储配置版本
+         * @description 逻辑删除；已被文件引用或仍是默认方案时返回 body.code=409，需先切换默认方案
+         */
+        delete: operations["delete_3"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/storage-configs/{id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 切换默认存储方案
+         * @description 更新默认指针单行，只影响之后的新上传；历史文件仍按记录中固定的配置版本读取
+         */
+        put: operations["switchDefault"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询角色
+         * @description 按名称关键字筛选；列表只返回角色基础信息，授权明细由详情接口返回
+         */
+        get: operations["page"];
+        put?: never;
+        /**
+         * 新增角色
+         * @description 角色代码去空格并转为小写后保存，唯一性由数据库唯一约束兜底并返回 body.code=409；可同时提交初始权限与菜单 ID
+         */
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询权限
+         * @description 按权限代码与名称关键字筛选，结果按权限代码排序
+         */
+        get: operations["page_1"];
+        put?: never;
+        /**
+         * 新增权限
+         * @description 权限代码必须符合 模块:资源:动作 格式且只允许小写字母、数字、下划线与连字符，格式不合法返回 body.code=400，代码重复返回 body.code=409
+         */
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询菜单树
+         * @description 返回全部有效菜单并按父子关系组装为树，节点含 ID、父 ID、名称、路由标识与排序号
+         */
+        get: operations["tree"];
+        put?: never;
+        /**
+         * 新增菜单
+         * @description 父菜单为空或 0 表示顶级；路由标识唯一冲突返回 body.code=409；菜单可见性变更提交后权限缓存立即失效
+         */
+        post: operations["create_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询管理员
+         * @description 按用户名关键字与账号状态筛选；分页默认值与每页上限来自 forge.page 配置，越界的分页参数返回 body.code=400
+         */
+        get: operations["page_2"];
+        put?: never;
+        /**
+         * 新增管理员
+         * @description 用户名按规范化规则处理并校验长度，密码按创建规则校验后只保存编码结果；用户名重复由数据库唯一约束兜底并返回 body.code=409
+         */
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/storage-configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询存储配置列表
+         * @description 返回全部方案与版本，按方案代码升序、版本倒序，并标记当前默认方案；不返回凭据
+         */
+        get: operations["list"];
+        put?: never;
+        /**
+         * 新增存储配置版本
+         * @description 同代码下版本号自动递增；local 必填相对目录，s3 必填访问地址、桶名称与凭据；单文件大小上限不得高于应用硬上限，否则返回 body.code=400
+         */
+        post: operations["create_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/storage-configs/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 检测存储连接
+         * @description 构造存储适配并检测目标可用性，返回耗时与结果；目标不可用时 available=false，提示不包含访问地址与凭据
+         */
+        post: operations["test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询文件
+         * @description 按文件名包含匹配与存储配置精确匹配筛选，按创建时间倒序；每页条数上限来自 forge.page.max-size
+         */
+        get: operations["page_3"];
+        put?: never;
+        /**
+         * 上传文件
+         * @description multipart/form-data，字段名 file；校验扩展名白名单与大小上限，返回文件 ID 与安全元数据；超过大小上限返回 body.code=413，尚未配置默认方案返回 body.code=404
+         */
+        post: operations["upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/example/validation/nested": {
         parameters: {
             query?: never;
@@ -54,6 +402,106 @@ export interface paths {
          * @description 校验用户名与密码并签发不透明令牌；凭据错误返回 body.code=401，同一用户名失败次数超过配置上限返回 body.code=429，两者 HTTP 状态都是 200
          */
         post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/system/admins/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 启用或停用管理员
+         * @description 状态已经一致或账号不存在返回 body.code=409；不允许停用当前登录账号，停用成功后该账号全部令牌立即失效
+         */
+        patch: operations["changeStatus"];
+        trace?: never;
+    };
+    "/api/admin/v1/system/admins/{id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 重置管理员密码
+         * @description 新密码按创建规则校验后只保存编码结果，成功后撤销该账号全部令牌；响应不包含任何密码相关内容
+         */
+        patch: operations["resetPassword"];
+        trace?: never;
+    };
+    "/api/admin/v1/system/roles/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询角色下拉选项
+         * @description 返回全部有效角色的 ID、代码与名称，按展示顺序排序
+         */
+        get: operations["options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/storage-configs/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询当前默认方案
+         * @description 返回当前默认存储配置；默认指针缺失时按 forge.file.default-config-code 解析，仍未配置返回 body.code=404
+         */
+        get: operations["defaultConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/files/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 下载文件
+         * @description 成功时返回二进制流并设置 Content-Disposition；失败发生在流开始前时返回 HTTP 200 与 JSON 错误体，前端先识别约定的 JSON 错误再按文件处理
+         */
+        get: operations["download"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -132,10 +580,301 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/audit/operation-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询操作日志
+         * @description 按操作者名称（包含匹配）、动作代码、结果码与带时区的 ISO 8601 时间范围筛选，按创建时间倒序；时间格式非法返回 body.code=400，缺少 audit:operation:view 权限返回 body.code=403
+         */
+        get: operations["pageOperationLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/audit/login-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询登录日志
+         * @description 按用户名（包含匹配）、结果与带时区的 ISO 8601 时间范围筛选，按创建时间倒序；时间格式非法返回 body.code=400，缺少 audit:login:view 权限返回 body.code=403
+         */
+        get: operations["pageLoginLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/files/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 删除文件
+         * @description 先清理存储对象再逻辑删除文件记录；对象清理失败返回 body.code=503 且记录保持不变，可重试
+         */
+        delete: operations["delete_4"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        RoleUpdateRequest: {
+            code: string;
+            name: string;
+            description?: string;
+            /** Format: int32 */
+            sortNo?: number;
+        };
+        ApiResponseRoleDetailResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["RoleDetailResponse"];
+            traceId?: string;
+        };
+        RoleDetailResponse: {
+            id?: string;
+            code?: string;
+            name?: string;
+            description?: string;
+            /** Format: int32 */
+            sortNo?: number;
+            superRole?: boolean;
+            permissionIds?: string[];
+            menuIds?: string[];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        RoleGrantRequest: {
+            permissionIds?: string[];
+            menuIds?: string[];
+        };
+        ApiResponseVoid: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: unknown;
+            traceId?: string;
+        };
+        PermissionUpdateRequest: {
+            name: string;
+            description?: string;
+        };
+        ApiResponsePermissionResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PermissionResponse"];
+            traceId?: string;
+        };
+        PermissionResponse: {
+            id?: string;
+            code?: string;
+            name?: string;
+            description?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        MenuUpdateRequest: {
+            parentId?: string;
+            name: string;
+            routeKey?: string;
+            /** Format: int32 */
+            sortNo: number;
+        };
+        ApiResponseMenuNodeResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MenuNodeResponse"];
+            traceId?: string;
+        };
+        MenuNodeResponse: {
+            id?: string;
+            parentId?: string;
+            name?: string;
+            routeKey?: string;
+            /** Format: int32 */
+            sortNo?: number;
+            children?: components["schemas"]["MenuNodeResponse"][];
+        };
+        AdminUpdateRequest: {
+            displayName: string;
+        };
+        AdminDetailResponse: {
+            id?: string;
+            username?: string;
+            displayName?: string;
+            status?: string;
+            roles?: components["schemas"]["RoleOptionResponse"][];
+            /** Format: date-time */
+            lastLoginAt?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        ApiResponseAdminDetailResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AdminDetailResponse"];
+            traceId?: string;
+        };
+        RoleOptionResponse: {
+            id?: string;
+            code?: string;
+            name?: string;
+        };
+        AdminRoleAssignRequest: {
+            roleIds?: string[];
+        };
+        StorageConfigUpdateRequest: {
+            name: string;
+            provider: string;
+            baseDir?: string;
+            endpoint?: string;
+            region?: string;
+            bucket?: string;
+            pathStyle?: boolean;
+            accessKey?: string;
+            secretKey?: string;
+            /** Format: int64 */
+            maxFileSize: number;
+            allowedExtensions?: string;
+        };
+        ApiResponseStorageConfigResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["StorageConfigResponse"];
+            traceId?: string;
+        };
+        StorageConfigResponse: {
+            id?: string;
+            code?: string;
+            /** Format: int32 */
+            version?: number;
+            name?: string;
+            provider?: string;
+            baseDir?: string;
+            endpoint?: string;
+            region?: string;
+            bucket?: string;
+            pathStyle?: boolean;
+            credentialConfigured?: boolean;
+            /** Format: int64 */
+            maxFileSize?: number;
+            allowedExtensions?: string[];
+            defaultConfig?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        RoleCreateRequest: {
+            code: string;
+            name: string;
+            description?: string;
+            /** Format: int32 */
+            sortNo?: number;
+            permissionIds?: string[];
+            menuIds?: string[];
+        };
+        PermissionCreateRequest: {
+            code: string;
+            name: string;
+            description?: string;
+        };
+        MenuCreateRequest: {
+            parentId?: string;
+            name: string;
+            routeKey?: string;
+            /** Format: int32 */
+            sortNo: number;
+        };
+        AdminCreateRequest: {
+            username: string;
+            password: string;
+            displayName: string;
+            roleIds?: string[];
+        };
+        StorageConfigCreateRequest: {
+            code: string;
+            name: string;
+            provider: string;
+            baseDir?: string;
+            endpoint?: string;
+            region?: string;
+            bucket?: string;
+            pathStyle?: boolean;
+            accessKey?: string;
+            secretKey?: string;
+            /** Format: int64 */
+            maxFileSize: number;
+            allowedExtensions?: string;
+        };
+        ApiResponseStorageTestResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["StorageTestResponse"];
+            traceId?: string;
+        };
+        StorageTestResponse: {
+            id?: string;
+            provider?: string;
+            available?: boolean;
+            /** Format: int64 */
+            elapsedMillis?: number;
+            message?: string;
+        };
+        ApiResponseFileUploadResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["FileUploadResponse"];
+            traceId?: string;
+        };
+        FileUploadResponse: {
+            id?: string;
+            originalName?: string;
+            contentType?: string;
+            /** Format: int64 */
+            sizeBytes?: number;
+            /** Format: date-time */
+            createdAt?: string;
+        };
         NestedSample: {
             name: string;
             /** Format: int32 */
@@ -162,13 +901,6 @@ export interface components {
             pageSize?: number;
             status?: string;
         };
-        ApiResponseVoid: {
-            /** Format: int32 */
-            code?: number;
-            message?: string;
-            data?: unknown;
-            traceId?: string;
-        };
         AdminLoginRequest: {
             username: string;
             password: string;
@@ -191,6 +923,125 @@ export interface components {
             message?: string;
             data?: components["schemas"]["AdminLoginResponse"];
             traceId?: string;
+        };
+        AdminStatusRequest: {
+            status: string;
+        };
+        AdminPasswordResetRequest: {
+            newPassword: string;
+        };
+        ApiResponsePageResponseRoleDetailResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseRoleDetailResponse"];
+            traceId?: string;
+        };
+        PageResponseRoleDetailResponse: {
+            records?: components["schemas"]["RoleDetailResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
+        ApiResponseListRoleOptionResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["RoleOptionResponse"][];
+            traceId?: string;
+        };
+        ApiResponsePageResponsePermissionResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponsePermissionResponse"];
+            traceId?: string;
+        };
+        PageResponsePermissionResponse: {
+            records?: components["schemas"]["PermissionResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
+        ApiResponseListMenuNodeResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MenuNodeResponse"][];
+            traceId?: string;
+        };
+        ApiResponsePageResponseAdminDetailResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseAdminDetailResponse"];
+            traceId?: string;
+        };
+        PageResponseAdminDetailResponse: {
+            records?: components["schemas"]["AdminDetailResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
+        ApiResponseListStorageConfigResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["StorageConfigResponse"][];
+            traceId?: string;
+        };
+        FileRecordPageRequest: {
+            /** Format: int32 */
+            defaultPageNum?: number;
+            /** Format: int32 */
+            defaultPageSize?: number;
+            /** Format: int32 */
+            configuredMaxPageSize?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+            originalName?: string;
+            storageConfigId?: string;
+            /** Format: int64 */
+            offset?: number;
+        };
+        ApiResponsePageResponseFileRecordResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseFileRecordResponse"];
+            traceId?: string;
+        };
+        FileRecordResponse: {
+            id?: string;
+            storageConfigId?: string;
+            originalName?: string;
+            contentType?: string;
+            /** Format: int64 */
+            sizeBytes?: number;
+            uploaderId?: string;
+            uploaderName?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        PageResponseFileRecordResponse: {
+            records?: components["schemas"]["FileRecordResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
         };
         ApiResponseHelloResponse: {
             /** Format: int32 */
@@ -230,6 +1081,99 @@ export interface components {
             data?: components["schemas"]["AdminProfileResponse"];
             traceId?: string;
         };
+        OperationLogQueryRequest: {
+            /** Format: int32 */
+            defaultPageNum?: number;
+            /** Format: int32 */
+            defaultPageSize?: number;
+            /** Format: int32 */
+            configuredMaxPageSize?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+            operatorName?: string;
+            action?: string;
+            resultCode?: string;
+            startTime?: string;
+            endTime?: string;
+            /** Format: int64 */
+            offset?: number;
+        };
+        ApiResponsePageResponseOperationLogResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseOperationLogResponse"];
+            traceId?: string;
+        };
+        OperationLogResponse: {
+            id?: string;
+            operatorType?: string;
+            operatorId?: string;
+            operatorName?: string;
+            action?: string;
+            resourceType?: string;
+            resourceId?: string;
+            /** Format: int32 */
+            resultCode?: number;
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        PageResponseOperationLogResponse: {
+            records?: components["schemas"]["OperationLogResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
+        LoginLogQueryRequest: {
+            /** Format: int32 */
+            defaultPageNum?: number;
+            /** Format: int32 */
+            defaultPageSize?: number;
+            /** Format: int32 */
+            configuredMaxPageSize?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+            username?: string;
+            result?: string;
+            startTime?: string;
+            endTime?: string;
+            /** Format: int64 */
+            offset?: number;
+        };
+        ApiResponsePageResponseLoginLogResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseLoginLogResponse"];
+            traceId?: string;
+        };
+        LoginLogResponse: {
+            id?: string;
+            username?: string;
+            result?: string;
+            reason?: string;
+            clientIp?: string;
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        PageResponseLoginLogResponse: {
+            records?: components["schemas"]["LoginLogResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -239,6 +1183,647 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRoleDetailResponse"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRoleDetailResponse"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    replaceGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    update_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PermissionUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePermissionResponse"];
+                };
+            };
+        };
+    };
+    delete_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MenuUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMenuNodeResponse"];
+                };
+            };
+        };
+    };
+    delete_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    detail_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminDetailResponse"];
+                };
+            };
+        };
+    };
+    update_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminDetailResponse"];
+                };
+            };
+        };
+    };
+    replaceRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRoleAssignRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminDetailResponse"];
+                };
+            };
+        };
+    };
+    update_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageConfigUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseStorageConfigResponse"];
+                };
+            };
+        };
+    };
+    delete_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    switchDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    page: {
+        parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+                name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseRoleDetailResponse"];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRoleDetailResponse"];
+                };
+            };
+        };
+    };
+    page_1: {
+        parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+                code?: string;
+                name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponsePermissionResponse"];
+                };
+            };
+        };
+    };
+    create_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PermissionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePermissionResponse"];
+                };
+            };
+        };
+    };
+    tree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMenuNodeResponse"];
+                };
+            };
+        };
+    };
+    create_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MenuCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMenuNodeResponse"];
+                };
+            };
+        };
+    };
+    page_2: {
+        parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+                username?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseAdminDetailResponse"];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminDetailResponse"];
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListStorageConfigResponse"];
+                };
+            };
+        };
+    };
+    create_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageConfigCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseStorageConfigResponse"];
+                };
+            };
+        };
+    };
+    test: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseStorageTestResponse"];
+                };
+            };
+        };
+    };
+    page_3: {
+        parameters: {
+            query: {
+                request: components["schemas"]["FileRecordPageRequest"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseFileRecordResponse"];
+                };
+            };
+        };
+    };
+    upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFileUploadResponse"];
+                };
+            };
+        };
+    };
     nested: {
         parameters: {
             query?: never;
@@ -306,6 +1891,118 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponseAdminLoginResponse"];
                 };
+            };
+        };
+    };
+    changeStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminDetailResponse"];
+                };
+            };
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListRoleOptionResponse"];
+                };
+            };
+        };
+    };
+    defaultConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseStorageConfigResponse"];
+                };
+            };
+        };
+    };
+    download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -390,6 +2087,72 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseAdminProfileResponse"];
+                };
+            };
+        };
+    };
+    pageOperationLogs: {
+        parameters: {
+            query: {
+                request: components["schemas"]["OperationLogQueryRequest"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseOperationLogResponse"];
+                };
+            };
+        };
+    };
+    pageLoginLogs: {
+        parameters: {
+            query: {
+                request: components["schemas"]["LoginLogQueryRequest"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseLoginLogResponse"];
+                };
+            };
+        };
+    };
+    delete_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };

@@ -52,9 +52,13 @@ export interface RequestErrorHandlers {
  */
 export interface RequestOptions {
   /**
-   * 查询参数，值为 undefined 的键会被忽略。
+   * 查询参数。
+   *
+   * 只接受对象：值不是字符串、数字或布尔时会被忽略，值为 undefined 的键会被忽略。
+   * 之所以不把类型收窄为 Record，是因为调用方通常传入带可选字段的接口类型，
+   * 接口类型没有隐式索引签名，收窄后会在每个调用点产生无意义的类型错误。
    */
-  query?: Record<string, string | number | boolean | undefined>
+  query?: object
   /**
    * 请求体，由 axios 按 JSON 序列化。
    */
@@ -209,18 +213,20 @@ export class RequestFactory {
 }
 
 /**
- * 移除查询参数中值为 undefined 的键，避免拼出无意义参数。
+ * 过滤查询参数，只保留字符串、数字与布尔值。
+ *
+ * 其余类型的值与 undefined 一起被忽略，避免把对象或空值拼成无意义参数。
  *
  * @param query 原始查询参数
  * @returns 过滤后的查询参数
  */
-function compactQuery(query: RequestOptions['query']): Record<string, string | number | boolean> | undefined {
+function compactQuery(query: object | undefined): Record<string, string | number | boolean> | undefined {
   if (!query) {
     return undefined
   }
   const result: Record<string, string | number | boolean> = {}
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined) {
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
       result[key] = value
     }
   }

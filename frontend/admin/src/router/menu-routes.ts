@@ -11,6 +11,14 @@ import type { AdminMenuPayload } from '@/api/auth'
  */
 const MENU_ROUTE_WHITELIST: Record<string, string> = {
   home: 'home',
+  'system-admin': 'system-admin',
+  'system-role': 'system-role',
+  'system-menu': 'system-menu',
+  'system-permission': 'system-permission',
+  'file-list': 'file-list',
+  'storage-config': 'storage-config',
+  'audit-operation': 'audit-operation',
+  'audit-login': 'audit-login',
 }
 
 /**
@@ -30,7 +38,8 @@ export function resolveMenuRoute(routeKey: string | null | undefined): RouteLoca
 /**
  * 把后端菜单树转换为侧边栏菜单项。
  *
- * 白名单之外的节点不会渲染，因此后端配置错误只会导致菜单缺失，不会把用户带到不存在的页面。
+ * 顶级目录渲染为分组标题，页面节点渲染为可点击项；白名单之外的节点不渲染，
+ * 因此后端配置错误只会导致菜单缺失，不会把用户带到不存在的页面。
  *
  * @param menus 后端返回的菜单树
  * @returns 侧边栏菜单项
@@ -40,14 +49,21 @@ export function toMenuOptions(menus: AdminMenuPayload[]): MenuOption[] {
   for (const menu of menus) {
     const children = toMenuOptions(menu.children ?? [])
     const route = resolveMenuRoute(menu.routeKey)
-    if (!route && children.length === 0) {
+    if (route) {
+      options.push({
+        key: String(menu.routeKey),
+        label: menu.name ?? '',
+      })
       continue
     }
-    options.push({
-      key: route ? String(menu.routeKey) : `menu-${menu.id ?? menu.name}`,
-      label: menu.name,
-      children: children.length > 0 ? children : undefined,
-    })
+    if (children.length > 0) {
+      options.push({
+        type: 'group',
+        key: `group-${menu.id ?? menu.name}`,
+        label: menu.name ?? '',
+        children,
+      })
+    }
   }
   return options
 }

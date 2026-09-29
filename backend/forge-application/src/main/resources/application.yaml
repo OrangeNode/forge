@@ -123,6 +123,8 @@ forge:
     login-attempt-window-seconds: ${FORGE_LOGIN_ATTEMPT_WINDOW_SECONDS:300}
     # 超级管理员角色代码；拥有该角色的管理员在权限解析时获得全部有效权限
     super-role-code: ${FORGE_SUPER_ROLE_CODE:super_admin}
+    # 权限解析结果缓存秒数；缓存键包含全局权限版本，权限变更递增版本使全部缓存立即失效
+    permission-cache-ttl-seconds: ${FORGE_PERMISSION_CACHE_TTL_SECONDS:300}
     # 匿名放行路径：只有登录接口、容器错误转发与接口文档，其余路径（含未知路径）一律要求认证。
     # 接口文档本身默认关闭（springdoc 配置见文件末尾），只在开发 profile 开启；
     # 需要在受保护环境保留文档时，把文档路径从本列表移除并改由令牌访问。
@@ -140,6 +142,29 @@ forge:
       username: ${FORGE_INIT_ADMIN_USERNAME:}
       password: ${FORGE_INIT_ADMIN_PASSWORD:}
       display-name: ${FORGE_INIT_ADMIN_DISPLAY_NAME:初始管理员}
+
+  # 文件与存储：本地根目录与临时目录来自环境，后台只能配置根目录下的相对目录；
+  # 凭据加密主密钥只从环境读取，缺失时保存 S3 凭据会明确失败（本地存储不受影响）。
+  file:
+    local-root: ${FORGE_FILE_LOCAL_ROOT:./data/forge-files}
+    temp-dir: ${FORGE_FILE_TEMP_DIR:./data/forge-tmp}
+    # 临时文件保留小时数，超过后由维护任务清理
+    temp-retention-hours: ${FORGE_FILE_TEMP_RETENTION_HOURS:24}
+    # 凭据加密主密钥：Base64 编码的 32 字节值；未提供时无法保存对象存储凭据
+    encryption-key: ${FORGE_FILE_ENCRYPTION_KEY:}
+    # 未指定存储方案时使用的默认方案代码
+    default-config-code: ${FORGE_FILE_DEFAULT_CONFIG_CODE:default}
+    temp-cleanup-enabled: ${FORGE_FILE_TEMP_CLEANUP_ENABLED:true}
+    # 临时文件清理任务执行间隔（小时）
+    temp-cleanup-interval-hours: ${FORGE_FILE_TEMP_CLEANUP_INTERVAL_HOURS:6}
+
+  # 审计：日志保留期限与清理任务；审计表只追加，清理只删除超过期限的记录
+  audit:
+    login-log-retention-days: ${FORGE_AUDIT_LOGIN_RETENTION_DAYS:90}
+    operation-log-retention-days: ${FORGE_AUDIT_OPERATION_RETENTION_DAYS:180}
+    cleanup-enabled: ${FORGE_AUDIT_CLEANUP_ENABLED:true}
+    # 日志清理任务执行间隔（小时）
+    cleanup-interval-hours: ${FORGE_AUDIT_CLEANUP_INTERVAL_HOURS:24}
 
   # Redis 约定：键前缀必须包含项目与环境，缓存必须有明确存活时间
   redis:

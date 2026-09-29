@@ -36,6 +36,8 @@ import cn.orangenode.forge.system.config.InitialAdminBootstrap;
 import cn.orangenode.forge.system.mapper.SysAdminMapper;
 import cn.orangenode.forge.system.mapper.SysAdminRoleMapper;
 import cn.orangenode.forge.system.mapper.SysRoleMapper;
+import cn.orangenode.forge.support.RedisTestDouble;
+import cn.orangenode.forge.system.service.AdminAuthorityService;
 
 /**
  * 认证、令牌会话与登录限流的端到端验证。
@@ -137,6 +139,12 @@ class AuthIntegrationTest {
     private PasswordEncoder passwordEncoder;
 
     /**
+     * 权限与角色解析，用于在直接改库后显式失效权限缓存。
+     */
+    @Autowired
+    private AdminAuthorityService authorityService;
+
+    /**
      * 按端口构建的测试客户端。
      */
     private RestTestClient restTestClient;
@@ -144,7 +152,7 @@ class AuthIntegrationTest {
     /**
      * 内存版 Redis 替身。
      */
-    private M3RedisDouble redisDouble;
+    private RedisTestDouble redisDouble;
 
     /**
      * 测试管理员 ID。
@@ -168,7 +176,7 @@ class AuthIntegrationTest {
     void prepareData() {
         restTestClient = RestTestClient.bindToServer().baseUrl("http://127.0.0.1:" + port).build();
         M3TestSupport.recreateSystemTables(jdbcTemplate);
-        redisDouble = new M3RedisDouble(stringRedisTemplate);
+        redisDouble = new RedisTestDouble(stringRedisTemplate);
         redisDouble.clear();
         roleId = fixture.createRole(M3TestSupport.ROLE_CODE, "运维角色");
         probePermissionId = fixture.createPermission(M3TestSupport.PROBE_PERMISSION, "探针查看");
@@ -303,8 +311,11 @@ class AuthIntegrationTest {
         assertThat(profile.body()).contains("\"displayName\":\"" + M3TestSupport.ADMIN_DISPLAY_NAME + "\"");
         assertThat(profile.body()).contains(M3TestSupport.PROBE_PERMISSION);
 
+        // 直接改库不会经过服务层的缓存失效，因此这里显式递增权限版本；
+        // 走管理接口修改授权的自动失效由 M5 的系统管理用例验证。
         Long newPermissionId = fixture.createPermission(M3TestSupport.OTHER_PERMISSION, "探针修改");
         fixture.linkRolePermission(roleId, newPermissionId);
+        authorityService.evictAllPermissions();
         ResponseSnapshot afterChange = exchange(HttpMethod.GET, "/api/admin/v1/auth/me", null, token);
         assertThat(afterChange.body()).contains(M3TestSupport.OTHER_PERMISSION);
 
@@ -365,7 +376,7 @@ class AuthIntegrationTest {
 
         ResponseSnapshot afterLogout = exchange(HttpMethod.GET, "/api/admin/v1/auth/me", null, token);
         assertThat(afterLogout.body()).contains("\"code\":401");
-        assertThat(redisDouble.keys()).isEmpty();
+        assertThat(redisDouble.keys()).noneMatch(key -> key.contains(":auth:session:"));
     }
 
     /**
