@@ -26,8 +26,12 @@ public final class AdminCredentialPolicy {
 
     /**
      * 密码最小长度，只用于创建与修改密码。
+     *
+     * <p>2026-09-29 按用户明确要求由 8 位放宽到 5 位：初始管理员与演示环境使用 {@code admin} 这类口令，
+     * 8 位下限会直接拒绝部署者提供的初始口令。上限仍为 64 位，登录只校验非空与上限，
+     * 避免历史密码因强度规则变化而无法登录；生产环境应通过管理接口设置更强的口令。</p>
      */
-    public static final int PASSWORD_MIN_LENGTH = 8;
+    public static final int PASSWORD_MIN_LENGTH = 5;
 
     /**
      * 密码最大长度，与数据库编码结果列长度和登录校验保持一致。

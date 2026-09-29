@@ -140,7 +140,7 @@ class InitialAdminBootstrapTest {
     @Test
     @DisplayName("初始密码过短时拒绝启动")
     void shouldFailWhenPasswordTooShort() {
-        bootstrapProperties.setPassword("short");
+        bootstrapProperties.setPassword("1234");
         when(adminMapper.selectCount(any())).thenReturn(0L);
 
         assertThatThrownBy(() -> bootstrap.run(null)).isInstanceOf(IllegalStateException.class);

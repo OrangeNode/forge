@@ -15,7 +15,7 @@ import jakarta.validation.constraints.Size;
  * 密码按创建规则校验长度后只保存编码结果。</p>
  *
  * @param username    登录用户名，4—32 个字符，保存前去空格并转小写
- * @param password    登录密码明文，8—64 个字符，不写入日志与响应
+ * @param password    登录密码明文，5—64 个字符，不写入日志与响应
  * @param displayName 显示名称，不超过 64 个字符
  * @param roleIds     初始角色 ID 集合，允许为空表示暂不分配角色
  */
@@ -27,7 +27,8 @@ public record AdminCreateRequest(
 
         @NotBlank(message = "请输入密码")
         @Size(min = AdminCredentialPolicy.PASSWORD_MIN_LENGTH, max = AdminCredentialPolicy.PASSWORD_MAX_LENGTH,
-                message = "密码长度需为 8—64 个字符")
+                message = "密码长度需为 " + AdminCredentialPolicy.PASSWORD_MIN_LENGTH + "—"
+                        + AdminCredentialPolicy.PASSWORD_MAX_LENGTH + " 个字符")
         String password,
 
         @NotBlank(message = "请输入显示名称")

@@ -109,7 +109,8 @@ public class InitialAdminBootstrap implements ApplicationRunner {
                 || !AdminCredentialPolicy.isValidNewPassword(password)) {
             throw new IllegalStateException("数据库中没有任何管理员账号，且未提供合法的初始管理员凭据："
                     + "请通过环境变量 FORGE_INIT_ADMIN_USERNAME（4—32 个字符）与 FORGE_INIT_ADMIN_PASSWORD"
-                    + "（8—64 个字符）提供后重启应用");
+                    + "（" + AdminCredentialPolicy.PASSWORD_MIN_LENGTH + "—"
+                    + AdminCredentialPolicy.PASSWORD_MAX_LENGTH + " 个字符）提供后重启应用");
         }
         SysRoleEntity superRole = findSuperRole();
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);

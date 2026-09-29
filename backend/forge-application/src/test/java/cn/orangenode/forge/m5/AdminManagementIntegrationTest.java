@@ -81,7 +81,7 @@ class AdminManagementIntegrationTest extends M5ManagementTestSupport {
     @Test
     @DisplayName("密码过短返回 400")
     void shouldRejectShortPassword() {
-        String body = "{\"username\":\"m5-short-pass\",\"password\":\"short\",\"displayName\":\"密码过短\"}";
+        String body = "{\"username\":\"m5-short-pass\",\"password\":\"1234\",\"displayName\":\"密码过短\"}";
 
         String rejected = assertCode(exchange(HttpMethod.POST, ADMIN_PATH, body, superToken()), 400);
 
