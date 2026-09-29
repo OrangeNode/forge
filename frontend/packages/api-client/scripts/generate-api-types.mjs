@@ -3,7 +3,7 @@
  * 从运行中的后端导出 OpenAPI 规范并生成前端接口类型。
  *
  * 约定：
- * - 规范来源为后端分组文档 `/v3/api-docs/admin` 与 `/v3/api-docs/app`，与管理端、用户端分组一致。
+ * - 规范来源为后端分组文档 `/v3/api-docs/admin`，与后端唯一的管理端分组一致。
  * - 生成结果写入 `src/generated/`，由脚本重新生成，不手工修改。
  * - 后端地址通过 `FORGE_OPENAPI_BASE_URL` 覆盖，默认本机 8080，不写死域名。
  * - 生成直接调用 `openapi-typescript` 的编程接口，不经由子进程执行 pnpm：
@@ -26,7 +26,7 @@ const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const baseUrl = process.env.FORGE_OPENAPI_BASE_URL ?? 'http://127.0.0.1:8080'
 
 /** 需要生成类型的分组，与后端 OpenAPI 分组名称一致。 */
-const groups = ['admin', 'app']
+const groups = ['admin']
 
 /**
  * 读取单个分组的 OpenAPI 规范。

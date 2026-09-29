@@ -8,7 +8,7 @@ Maven groupId 为 `cn.orangenode`，Java 根包为 `cn.orangenode.forge`。包�
 
 推荐命名（业务名仅作示例，按实际业务替换）：`NoticeController`、`NoticeEntity`、`NoticeCreateRequest`、`NoticeUpdateRequest`、`NoticePageRequest`、`NoticeDetailResponse`、`NoticeService`、`NoticeServiceImpl`、`NoticeMapper`、`NoticeConverter`。
 
-管理员与用户 Controller 放在 `controller.admin`、`controller.app`。Service 面向业务用例，不能只暴露 MyBatis-Plus 通用 CRUD。
+后台管理接口的 Controller 放在 `controller.admin`，不再区分用户端包。Service 面向业务用例，不能只暴露 MyBatis-Plus 通用 CRUD。
 
 ## 2. 方法与类说明
 
@@ -23,9 +23,9 @@ Lombok、代码生成器生成的方法不逐个补注释。Lambda 不要求伪�
 
 ~~~java
 /**
- * 注册普通用户。
+ * 启用管理员账号。
  */
-MemberRegisterResponse register(MemberRegisterRequest request);
+AdminStatusResponse enable(AdminStatusRequest request);
 ~~~
 
 简单方法一句说明即可。复杂方法按需要增加 `@param`、`@return`、`@throws`，说明调用者真正需要知道的约束。重写实现需要写职责，不能只用 `@Override` 或仅用继承注释代替。

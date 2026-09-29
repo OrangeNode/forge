@@ -2,9 +2,8 @@
 .env
 .env.*
 !.env.example
-# 双前端的公共开发默认值可提交，覆盖文件仍保持忽略。
+# 后台管理前端的公共开发默认值可提交，覆盖文件仍保持忽略。
 !frontend/admin/.env
-!frontend/portal/.env
 
 # 私钥与密钥库
 *.key

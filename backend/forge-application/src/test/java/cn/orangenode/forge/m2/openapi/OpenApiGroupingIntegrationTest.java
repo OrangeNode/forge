@@ -20,10 +20,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 /**
  * OpenAPI 分组与文档声明验证。
  *
- * <p>验证管理端与用户端两组文档可访问、分组只包含各自前缀的接口，
+ * <p>验证管理端分组文档可访问、只包含 {@code /api/admin/**} 前缀的接口，
  * 并验证对外 ID 在文档中声明为 string，避免出现“后端字符串、文档 int64”的不一致。</p>
  *
- * <p>使用随机端口启动真实应用，文档路径固定为 {@code /v3/api-docs/<group>}；
+ * <p>使用随机端口启动真实应用，文档路径固定为 {@code /v3/api-docs/admin}；
  * 生产环境通过配置关闭文档。响应体按 UTF-8 解码后再做中文断言。</p>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -68,28 +68,16 @@ class OpenApiGroupingIntegrationTest {
     }
 
     /**
-     * 验证管理端分组文档可访问并包含示例接口。
+     * 验证管理端分组文档可访问、包含示例接口且不含分组前缀之外的接口。
      */
     @Test
-    @DisplayName("管理端分组文档可访问且包含示例接口")
-    void shouldExposeAdminGroup() {
+    @DisplayName("管理端分组文档可访问且只收录管理端接口")
+    void shouldExposeAdminGroupOnly() {
         String body = readDocument("admin").body();
 
         assertThat(body).contains("/api/admin/v1/example/hello");
         assertThat(body).contains("/api/admin/v1/example/validation");
-        assertThat(body).doesNotContain("/api/app/v1/m2/ping");
-    }
-
-    /**
-     * 验证用户端分组只收录用户端前缀的接口。
-     */
-    @Test
-    @DisplayName("用户端分组只收录用户端接口")
-    void shouldExposeAppGroupWithoutAdminPaths() {
-        String body = readDocument("app").body();
-
-        assertThat(body).contains("/api/app/v1/m2/ping");
-        assertThat(body).doesNotContain("/api/admin/v1/example/hello");
+        assertThat(body).doesNotContain("/api/probe/v1/m2/ping");
     }
 
     /**

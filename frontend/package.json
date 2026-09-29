@@ -9,7 +9,6 @@
   },
   "scripts": {
     "dev:admin": "pnpm --filter @orange-forge/admin dev",
-    "dev:portal": "pnpm --filter @orange-forge/portal dev",
     "build": "pnpm -r build",
     "type-check": "pnpm -r type-check",
     "lint": "eslint .",

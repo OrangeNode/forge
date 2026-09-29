@@ -186,10 +186,10 @@ describe('RequestFactory 结果判定', () => {
       data: { code: 0, message: '操作成功', data: [], traceId: 't-6' },
     })
 
-    await createFactory().get('/members', { query: { pageNum: 1, pageSize: undefined } })
+    await createFactory().get('/notices', { query: { pageNum: 1, pageSize: undefined } })
 
     expect(mockRequest).toHaveBeenCalledWith(
-      expect.objectContaining({ params: { pageNum: 1 }, method: 'GET', url: '/members' }),
+      expect.objectContaining({ params: { pageNum: 1 }, method: 'GET', url: '/notices' }),
     )
   })
 })

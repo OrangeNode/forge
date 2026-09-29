@@ -6,7 +6,7 @@ import globals from 'globals'
 /**
  * 前端统一 ESLint 平坦配置。
  *
- * 覆盖 admin、portal 与共享包；共享包为纯 TypeScript，不强制 Vue 规则。
+ * 覆盖后台管理前端与共享包；共享包为纯 TypeScript，不强制 Vue 规则。
  * 生成代码与构建产物不参与检查。
  */
 export default [

@@ -28,10 +28,6 @@
         </dependency>
         <dependency>
             <groupId>cn.orangenode</groupId>
-            <artifactId>forge-member</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>cn.orangenode</groupId>
             <artifactId>forge-file</artifactId>
         </dependency>
         <dependency>

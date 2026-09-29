@@ -1,6 +1,5 @@
 packages:
   - 'admin'
-  - 'portal'
   - 'packages/*'
 minimumReleaseAgeExclude:
   - '@vitejs/plugin-vue@6.0.9'

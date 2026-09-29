@@ -15,7 +15,7 @@
 
 - 项目名 orange-forge，Maven groupId cn.orangenode，Java 根包 cn.orangenode.forge。
 - orangenode.cn 只作为命名依据及可替换配置示例，禁止在业务代码中硬编码，不因此执行服务器部署。
-- 后端模块化单体，两个前端独立。管理员和普通用户账号、身份、会话隔离。
+- 后端模块化单体，前端只有一个后台管理应用（`frontend/admin`）。身份只有管理员一种，不设普通用户注册、用户端接口与用户端页面。
 - 业务 Service 使用接口与 Impl，构造器注入，Request/Response/Entity 分离，转换显式编写。
 - 所有手写 Java 方法与构造器必须中文多行 Javadoc，包含 private、接口、实现、重写、配置工厂与测试方法；Lombok 自动生成的方法除外。
 - Lombok 不使用 @Data；禁止字段注入、万能 Controller、反射批量复制和 Controller 直接访问 Mapper。

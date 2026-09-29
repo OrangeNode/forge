@@ -26,7 +26,6 @@
         <module>forge-core</module>
         <module>forge-framework</module>
         <module>forge-system</module>
-        <module>forge-member</module>
         <module>forge-file</module>
         <module>forge-audit</module>
         <module>forge-example</module>
@@ -62,11 +61,6 @@
             <dependency>
                 <groupId>cn.orangenode</groupId>
                 <artifactId>forge-system</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>cn.orangenode</groupId>
-                <artifactId>forge-member</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

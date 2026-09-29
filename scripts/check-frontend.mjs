@@ -19,7 +19,7 @@ await once(upstream, 'listening')
 const target = `http://127.0.0.1:${upstream.address().port}`
 
 try {
-  for (const app of ['admin', 'portal']) {
+  for (const app of ['admin']) {
     const directory = new URL(`../frontend/${app}/`, import.meta.url)
     const require = createRequire(new URL('package.json', directory))
     const { createServer } = await import(pathToFileURL(require.resolve('vite')).href)

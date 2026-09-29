@@ -31,7 +31,6 @@ class ModuleDependencyTest {
      */
     private static final String[] BUSINESS_PACKAGES = {
         "cn.orangenode.forge.system..",
-        "cn.orangenode.forge.member..",
         "cn.orangenode.forge.file..",
         "cn.orangenode.forge.audit..",
         "cn.orangenode.forge.example.."
@@ -112,13 +111,11 @@ class ModuleDependencyTest {
         ArchRule rule = noClasses()
                 .that().resideInAnyPackage(
                         "cn.orangenode.forge.system..",
-                        "cn.orangenode.forge.member..",
                         "cn.orangenode.forge.file..",
                         "cn.orangenode.forge.audit..",
                         "cn.orangenode.forge.example..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "cn.orangenode.forge.system..",
-                        "cn.orangenode.forge.member..",
                         "cn.orangenode.forge.file..",
                         "cn.orangenode.forge.audit..")
                 .because("模块之间只能通过公开契约协作，不能直接引用彼此实现");

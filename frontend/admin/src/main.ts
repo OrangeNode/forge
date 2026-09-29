@@ -5,9 +5,9 @@ import App from './App.vue'
 import { router } from './router'
 
 /**
- * 创建并挂载管理端应用。
+ * 创建并挂载后台管理应用。
  *
- * 管理端与用户端各自维护路由、状态与身份，不共享运行时实例。
+ * 路由、状态与身份令牌由本应用自己维护，公共请求包不保存运行时实例。
  */
 const app = createApp(App)
 
