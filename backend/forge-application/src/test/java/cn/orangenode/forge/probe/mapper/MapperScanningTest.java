@@ -24,7 +24,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     "spring.datasource.dynamic.datasource.master.username=sa",
     "spring.datasource.dynamic.datasource.master.password=",
     "spring.datasource.dynamic.datasource.master.driverClassName=org.h2.Driver",
-    "spring.flyway.enabled=false"
+    "spring.flyway.enabled=false",
+    // M3 起初始管理员引导默认开启；本用例不建系统表，显式关闭引导。
+    "forge.system.bootstrap.enabled=false"
 })
 class MapperScanningTest {
 

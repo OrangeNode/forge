@@ -32,7 +32,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
     "spring.datasource.dynamic.datasource.master.password=",
     "spring.datasource.dynamic.datasource.master.driverClassName=org.h2.Driver",
     "spring.flyway.enabled=false",
-    "forge.mybatis-plus.db-type=H2"
+    "forge.mybatis-plus.db-type=H2",
+    // M3 起初始管理员引导默认开启；本用例不建系统表，显式关闭引导。
+    // 文档路径在安全配置中显式放行，因此读取文档不需要令牌。
+    "forge.system.bootstrap.enabled=false"
 })
 class OpenApiGroupingIntegrationTest {
 

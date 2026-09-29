@@ -14,6 +14,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -357,6 +358,26 @@ public class GlobalExceptionHandler {
             HttpServletRequest request, HttpServletResponse response) {
         log.error("依赖不可用，traceId={}", errorWriter.resolveTraceId(request), exception);
         errorWriter.write(request, response, exception.getCode(), exception.getMessage());
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 处理方法级权限校验失败。
+     *
+     * <p>{@code @PreAuthorize} 的拒绝发生在 DispatcherServlet 内，不会经过安全过滤链的
+     * 拒绝访问处理器；M3 实测发现缺少本处理器时它会被未预期异常分支映射成 500，
+     * 因此在这里显式映射为 403，与过滤链的拒绝出口保持同一语义。</p>
+     *
+     * @param exception 拒绝访问异常
+     * @param request   当前请求
+     * @param response  当前响应
+     * @return 已写出响应体的空返回
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Void> handleAccessDenied(AccessDeniedException exception, HttpServletRequest request,
+            HttpServletResponse response) {
+        log.warn("请求被拒绝访问，traceId={}，路径={}", errorWriter.resolveTraceId(request), request.getRequestURI());
+        errorWriter.write(request, response, ErrorCode.FORBIDDEN, "没有访问该资源的权限");
         return ResponseEntity.ok().build();
     }
 

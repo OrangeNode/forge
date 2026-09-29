@@ -12,13 +12,24 @@ spring:
           password: ""
           driver-class-name: org.h2.Driver
   flyway:
-    # 内存库每次启动都是空的，且当前没有业务迁移脚本，演示启动时关闭迁移
+    # 内存库每次启动都是空的，演示启动时关闭迁移；M3 的 MySQL 迁移脚本不适用于 H2。
     enabled: false
 
 forge:
   mybatis-plus:
     # 内存库使用 H2 方言生成分页 SQL
     db-type: H2
+  system:
+    bootstrap:
+      # 演示 profile 没有系统表，关闭初始管理员引导；需要真实登录验证时用 local profile 连接 MySQL 与 Redis
+      enabled: false
+
+# 演示 profile 保留接口文档，便于核对统一响应与认证接口定义
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
 
 logging:
   level:

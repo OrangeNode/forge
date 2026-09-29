@@ -192,4 +192,30 @@ describe('RequestFactory 结果判定', () => {
       expect.objectContaining({ params: { pageNum: 1 }, method: 'GET', url: '/notices' }),
     )
   })
+
+  it('注入应用令牌作为 Bearer 请求头', async () => {
+    mockRequest.mockResolvedValue({
+      status: 200,
+      data: { code: 0, message: '操作成功', data: null, traceId: 't-8' },
+    })
+    const factory = new RequestFactory({ baseUrl: '', tokenProvider: () => 'token-abc' })
+
+    await factory.get('/auth/me')
+
+    expect(mockRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: { Authorization: 'Bearer token-abc' } }),
+    )
+  })
+
+  it('未登录时不添加认证请求头', async () => {
+    mockRequest.mockResolvedValue({
+      status: 200,
+      data: { code: 0, message: '操作成功', data: null, traceId: 't-9' },
+    })
+    const factory = new RequestFactory({ baseUrl: '', tokenProvider: () => undefined })
+
+    await factory.post('/auth/login', { body: { username: 'admin' } })
+
+    expect(mockRequest).toHaveBeenCalledWith(expect.objectContaining({ headers: undefined }))
+  })
 })

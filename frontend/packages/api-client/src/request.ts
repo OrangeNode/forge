@@ -20,6 +20,12 @@ export interface RequestFactoryOptions {
    * 请求超时时间，单位毫秒。
    */
   timeoutMs?: number
+  /**
+   * 当前应用令牌读取函数，由应用注入；返回空值时不添加认证请求头。
+   *
+   * 公共包只负责把令牌写进请求头，不保存令牌，也不管理登录状态。
+   */
+  tokenProvider?: () => string | undefined
 }
 
 /**
@@ -77,13 +83,19 @@ export class RequestFactory {
   private readonly handlers: RequestErrorHandlers
 
   /**
+   * 当前应用的令牌读取函数，未注入时视为匿名请求。
+   */
+  private readonly tokenProvider?: () => string | undefined
+
+  /**
    * 构造请求工厂。
    *
-   * @param options 基础地址、超时与凭据策略
+   * @param options 基础地址、超时、凭据策略与令牌读取函数
    * @param handlers 失败分支处理钩子
    */
   constructor(options: RequestFactoryOptions = {}, handlers: RequestErrorHandlers = {}) {
     this.handlers = handlers
+    this.tokenProvider = options.tokenProvider
     this.client = axios.create({
       baseURL: options.baseUrl ?? '',
       timeout: options.timeoutMs ?? 15000,
@@ -164,7 +176,7 @@ export class RequestFactory {
       method,
       url,
       params: compactQuery(options.query),
-      headers: options.headers,
+      headers: this.withAuthorization(options.headers),
       data: options.body,
     }
 
@@ -176,6 +188,23 @@ export class RequestFactory {
     }
 
     return resolveResponse<T>(response.data, this.handlers)
+  }
+
+  /**
+   * 在请求头上补充当前应用的 Bearer 令牌。
+   *
+   * 令牌由应用注入的读取函数提供：读取不到令牌时不添加请求头，
+   * 由后端按未认证返回 body.code=401，公共包不伪造身份。
+   *
+   * @param headers 调用方传入的额外请求头
+   * @returns 含 Authorization 的请求头
+   */
+  private withAuthorization(headers: Record<string, string> | undefined): Record<string, string> | undefined {
+    const token = this.tokenProvider?.()
+    if (!token) {
+      return headers
+    }
+    return { ...headers, Authorization: `Bearer ${token}` }
   }
 }
 

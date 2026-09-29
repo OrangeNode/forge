@@ -56,7 +56,13 @@ M2 已提供的公共能力与位置（业务模块直接复用，不重复实�
 | 参数校验扩展 | `framework` 的 `validation`（`@ForgeEnum`） | 枚举参数按稳定代码校验，不自行 `valueOf` |
 | 分页 | `framework` 的 `page`（`PageRequest`、`PageResponses`） | 入参用 `PageRequest`，查询用其页码条数构造 MyBatis-Plus `Page`，返回用 `PageResponses.from(...)`；不向接口层暴露 `IPage`。排序由具体业务查询的 SQL 决定，白名单等机制等真实列表接口出现时再设计 |
 | 多数据源 | `framework` 的 `datasource` 与 `@DS` | 只在非事务入口方法上声明；名称来自配置与代码，不接受请求参数选择连接 |
-| Redis | `framework` 的 `redis`（`ForgeRedisTemplate`） | 逻辑键名交给封装拼前缀，写入必须带 TTL，不用通配扫描删除 |
+| Redis | `framework` 的 `redis`（`ForgeRedisTemplate`） | 逻辑键名交给封装拼前缀，写入必须带 TTL，不用通配扫描删除；计数用 `increment(key, ttl)` |
+| 令牌会话 | `framework` 的 `security`（`AdminTokenService`、`BearerTokens`、`AuthenticatedAdmin`） | 业务模块只负责登录用例：校验凭据后调用令牌会话签发；撤销当前令牌用 `revoke`，停用或改密用 `revokeAllForAdmin`。不自行生成或解析令牌 |
+| 账号目录端口 | `framework` 的 `security`（`AdminAccountDirectory`、`AdminAccountView`） | 认证过滤链只依赖端口；由拥有账号表的业务模块实现，基础模块不接触密码编码结果与账号 Mapper |
+| 登录失败限流 | `framework` 的 `security`（`LoginAttemptGuard`） | 登录前 `assertAllowed`、失败 `recordFailure`、成功 `clear`；不要在各业务里另写计数 |
+| 方法级权限 | `Spring Security` 的 `@PreAuthorize` 与 `framework` 的 `GlobalExceptionHandler` | 权限码为 `模块:资源:动作`；方法级拒绝与过滤链拒绝都由统一出口写成 403，不要在业务里 catch 后返回自定义结构 |
+
+M3 已落地的安全装配：`SecurityConfig` 使用无状态过滤链，只放行配置中的匿名路径与 CORS 预检，其余路径（含未知路径）一律要求认证；`PasswordEncoder` 使用 Spring Security 的 BCrypt 实现，业务模块不自建散列。权限解析按请求实时查询数据库，不缓存，权限调整在下一次请求立即生效。
 
 技术配置优先使用类型化配置类；环境配置必须有用途说明和必要校验，不能到处散落字符串 Key。
 

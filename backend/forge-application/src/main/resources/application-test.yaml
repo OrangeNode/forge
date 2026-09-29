@@ -14,6 +14,12 @@ spring:
       host: ${FORGE_TEST_REDIS_HOST:127.0.0.1}
       port: ${FORGE_TEST_REDIS_PORT:6379}
 
+forge:
+  system:
+    bootstrap:
+      # 测试不自动创建管理员：用例自行建表并按需插入账号，避免用例之间的隐式依赖
+      enabled: false
+
 logging:
   level:
     cn.orangenode.forge: DEBUG

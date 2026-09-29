@@ -4,7 +4,10 @@ logging:
   level:
     cn.orangenode.forge: DEBUG
 
-# 管理端 Swagger UI 仅在开发环境开启，便于核对接口文档
+# 管理端接口文档仅在开发环境开启，便于核对接口文档；
+# 基线默认关闭，满足“生产默认关闭文档”的约定。
 springdoc:
+  api-docs:
+    enabled: true
   swagger-ui:
     enabled: true

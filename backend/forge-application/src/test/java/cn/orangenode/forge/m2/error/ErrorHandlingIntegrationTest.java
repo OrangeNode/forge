@@ -43,7 +43,12 @@ import org.springframework.test.web.servlet.client.RestTestClient;
     "spring.datasource.dynamic.datasource.master.password=",
     "spring.datasource.dynamic.datasource.master.driverClassName=org.h2.Driver",
     "spring.flyway.enabled=false",
-    "forge.mybatis-plus.db-type=H2"
+    "forge.mybatis-plus.db-type=H2",
+    // M3 起真实安全策略要求认证；本用例只验证统一错误出口，因此只放行本用例的探针路径，
+    // 认证与授权行为由 M3 的认证、权限集成用例验证。
+    "forge.system.bootstrap.enabled=false",
+    "forge.security.permit-all-paths[0]=/api/admin/v1/m2/probe/**",
+    "forge.security.permit-all-paths[1]=/error"
 })
 class ErrorHandlingIntegrationTest {
 
@@ -252,15 +257,18 @@ class ErrorHandlingIntegrationTest {
     }
 
     /**
-     * 验证未知路径走框架默认错误出口，返回 HTTP 200 与 404。
+     * 验证未认证访问未知路径时先被安全过滤链拒绝，返回 HTTP 200 与 401。
+     *
+     * <p>M3 收紧安全策略后未知路径不再默认放行：先要求认证，认证通过后才由框架错误出口给出 404。
+     * 已认证访问未知路径返回 404 的行为由 M3 认证集成用例验证。</p>
      */
     @Test
-    @DisplayName("未知路径返回 HTTP 200 与 404")
-    void shouldReturnUnifiedNotFound() {
+    @DisplayName("未认证访问未知路径返回 HTTP 200 与 401")
+    void shouldReturnUnauthorizedForUnknownPathWithoutToken() {
         ResponseSnapshot snapshot = exchange(HttpMethod.GET, "/api/admin/v1/m2/not-exists", null, null);
 
         assertThat(snapshot.status()).isEqualTo(HttpStatus.OK);
-        assertThat(snapshot.body()).contains("\"code\":404");
+        assertThat(snapshot.body()).contains("\"code\":401");
         assertThat(snapshot.body()).contains("\"traceId\":\"");
     }
 

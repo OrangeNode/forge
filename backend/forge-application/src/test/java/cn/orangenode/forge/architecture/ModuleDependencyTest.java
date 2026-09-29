@@ -23,18 +23,29 @@ import org.junit.jupiter.api.Test;
  * <p>覆盖范围说明：当前已存在类的模块都会被扫描。M1 只有 core、framework、example
  * 与 application 含 Java 类，其余模块尚无代码，因此“业务模块互不依赖”等规则在
  * 出现对应类时才会产生实际约束力；层级与 Controller 访问 Mapper 等规则在 M2 补充。</p>
+ *
+ * <p>M3 修正：初版的“业务模块互不依赖”把同一组包同时写在“检查对象”和“禁止依赖”两侧，
+ * system 一旦出现类，它对本模块实体与服务的正常依赖就被当成跨模块违规（实测报出 148 条）。
+ * 现在按模块逐个构造规则，禁止依赖的集合排除模块自身。</p>
  */
 class ModuleDependencyTest {
 
     /**
+     * 业务模块包名前缀，供逐模块构造“不互相依赖”的规则使用。
+     */
+    private static final String[] BUSINESS_MODULE_PACKAGES = {
+        "cn.orangenode.forge.system",
+        "cn.orangenode.forge.file",
+        "cn.orangenode.forge.audit",
+        "cn.orangenode.forge.example"
+    };
+
+    /**
      * 业务模块包名，供反向依赖规则复用。
      */
-    private static final String[] BUSINESS_PACKAGES = {
-        "cn.orangenode.forge.system..",
-        "cn.orangenode.forge.file..",
-        "cn.orangenode.forge.audit..",
-        "cn.orangenode.forge.example.."
-    };
+    private static final String[] BUSINESS_PACKAGES = Arrays.stream(BUSINESS_MODULE_PACKAGES)
+            .map(modulePackage -> modulePackage + "..")
+            .toArray(String[]::new);
 
     /**
      * 已编译类集合，排除测试类与测试依赖代码。
@@ -103,24 +114,26 @@ class ModuleDependencyTest {
     /**
      * 验证业务模块之间不相互依赖。
      *
-     * <p>跨模块协作必须通过公开契约，不能直接引用其他业务模块的内部实现。</p>
+     * <p>跨模块协作必须通过公开契约，不能直接引用其他业务模块的内部实现。
+     * 规则按模块逐个构造，禁止依赖的包集合排除模块自身，因此模块内部的分层依赖不会误报；
+     * 尚无生产类的模块（如 file、audit）允许匹配为空，避免阶段推进中被误判为规则失效。</p>
      */
     @Test
     @DisplayName("业务模块之间不互相依赖")
     void businessModulesShouldNotDependOnEachOther() {
-        ArchRule rule = noClasses()
-                .that().resideInAnyPackage(
-                        "cn.orangenode.forge.system..",
-                        "cn.orangenode.forge.file..",
-                        "cn.orangenode.forge.audit..",
-                        "cn.orangenode.forge.example..")
-                .should().dependOnClassesThat().resideInAnyPackage(
-                        "cn.orangenode.forge.system..",
-                        "cn.orangenode.forge.file..",
-                        "cn.orangenode.forge.audit..")
-                .because("模块之间只能通过公开契约协作，不能直接引用彼此实现");
+        for (String modulePackage : BUSINESS_MODULE_PACKAGES) {
+            String[] otherModules = Arrays.stream(BUSINESS_MODULE_PACKAGES)
+                    .filter(candidate -> !candidate.equals(modulePackage))
+                    .map(candidate -> candidate + "..")
+                    .toArray(String[]::new);
+            ArchRule rule = noClasses()
+                    .that().resideInAPackage(modulePackage + "..")
+                    .should().dependOnClassesThat().resideInAnyPackage(otherModules)
+                    .because("模块之间只能通过公开契约协作，不能直接引用彼此实现")
+                    .allowEmptyShould(true);
 
-        rule.check(productionClasses);
+            rule.check(productionClasses);
+        }
     }
 
     /**

@@ -106,6 +106,26 @@ public class ForgeRedisTemplate {
     }
 
     /**
+     * 原子递增计数键，并重新设置存活时间。
+     *
+     * <p>用于会话版本递增与失败次数统计：键不存在时从 1 开始。每次递增都会刷新过期时间，
+     * 因此计数键不会长期占用 Redis；存活时间必须为正数。</p>
+     *
+     * @param key 逻辑键名
+     * @param ttl 递增后重新设置的存活时间，必须为正数
+     * @return 递增后的计数值
+     */
+    public long increment(String key, Duration ttl) {
+        if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+            throw new IllegalArgumentException("计数键存活时间必须为正数");
+        }
+        String fullKey = key(key);
+        Long value = stringRedisTemplate.opsForValue().increment(fullKey);
+        stringRedisTemplate.expire(fullKey, ttl);
+        return value == null ? 0L : value;
+    }
+
+    /**
      * 删除单个键。
      *
      * @param key 逻辑键名

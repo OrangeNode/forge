@@ -20,6 +20,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 退出登录
+         * @description 撤销当前请求使用的令牌；撤销后该令牌立即失效，未认证时返回 body.code=401
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 管理员登录
+         * @description 校验用户名与密码并签发不透明令牌；凭据错误返回 body.code=401，同一用户名失败次数超过配置上限返回 body.code=429，两者 HTTP 状态都是 200
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/example/validation/{id}": {
         parameters: {
             query?: never;
@@ -44,6 +84,46 @@ export interface paths {
             cookie?: never;
         };
         get: operations["hello"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 当前管理员菜单
+         * @description 按当前管理员的角色返回菜单树，routeKey 为前端本地路由标识，前端只渲染白名单内的标识
+         */
+        get: operations["menus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 当前管理员身份
+         * @description 返回当前管理员的 ID、用户名、显示名称与实时解析的权限代码
+         */
+        get: operations["me"];
         put?: never;
         post?: never;
         delete?: never;
@@ -82,6 +162,36 @@ export interface components {
             pageSize?: number;
             status?: string;
         };
+        ApiResponseVoid: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: unknown;
+            traceId?: string;
+        };
+        AdminLoginRequest: {
+            username: string;
+            password: string;
+        };
+        AdminLoginResponse: {
+            accessToken?: string;
+            tokenType?: string;
+            /** Format: int64 */
+            expiresIn?: number;
+            admin?: components["schemas"]["AdminSummaryResponse"];
+        };
+        AdminSummaryResponse: {
+            id?: string;
+            username?: string;
+            displayName?: string;
+        };
+        ApiResponseAdminLoginResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AdminLoginResponse"];
+            traceId?: string;
+        };
         ApiResponseHelloResponse: {
             /** Format: int32 */
             code?: number;
@@ -93,6 +203,32 @@ export interface components {
             application?: string;
             /** Format: date-time */
             serverTime?: string;
+        };
+        AdminMenuResponse: {
+            id?: string;
+            name?: string;
+            routeKey?: string;
+            children?: components["schemas"]["AdminMenuResponse"][];
+        };
+        ApiResponseListAdminMenuResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AdminMenuResponse"][];
+            traceId?: string;
+        };
+        AdminProfileResponse: {
+            id?: string;
+            username?: string;
+            displayName?: string;
+            permissionCodes?: string[];
+        };
+        ApiResponseAdminProfileResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AdminProfileResponse"];
+            traceId?: string;
         };
     };
     responses: never;
@@ -123,6 +259,52 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseValidationSampleResponse"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header: {
+                Authorization: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminLoginResponse"];
                 };
             };
         };
@@ -168,6 +350,46 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseHelloResponse"];
+                };
+            };
+        };
+    };
+    menus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAdminMenuResponse"];
+                };
+            };
+        };
+    };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminProfileResponse"];
                 };
             };
         };

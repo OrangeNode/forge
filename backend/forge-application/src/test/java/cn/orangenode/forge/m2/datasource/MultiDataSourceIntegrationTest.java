@@ -32,7 +32,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     "forge.secondary-datasource.username=sa",
     "forge.secondary-datasource.password=",
     "forge.secondary-datasource.driver-class-name=org.h2.Driver",
-    "forge.mybatis-plus.db-type=H2"
+    "forge.mybatis-plus.db-type=H2",
+    // M3 起初始管理员引导默认开启；本用例不建系统表，显式关闭引导。
+    "forge.system.bootstrap.enabled=false"
 })
 class MultiDataSourceIntegrationTest {
 

@@ -28,7 +28,14 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * 连接参数由 FORGE_MASTER_URL、FORGE_MASTER_USERNAME、FORGE_MASTER_PASSWORD、
  * FORGE_REDIS_HOST、FORGE_REDIS_PORT、FORGE_REDIS_PASSWORD 提供。</p>
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+    // 本探针只验证核心依赖组合装配与示例接口，不验证安全策略：
+    // M3 起受保护路径要求认证，因此这里显式放行示例接口，并关闭初始管理员引导
+    // （探针可能运行在尚未初始化管理员的库上）。认证与授权由 M3 的集成用例验证。
+    "forge.security.permit-all-paths[0]=/api/admin/v1/example/**",
+    "forge.security.permit-all-paths[1]=/error",
+    "forge.system.bootstrap.enabled=false"
+})
 @EnabledIfEnvironmentVariable(named = "FORGE_MASTER_URL", matches = ".+")
 class DependencyProbeTest {
 

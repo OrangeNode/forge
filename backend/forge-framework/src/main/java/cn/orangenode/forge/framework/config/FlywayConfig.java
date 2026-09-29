@@ -5,6 +5,7 @@ import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.flyway.autoconfigure.FlywayProperties;
 import org.springframework.context.annotation.Bean;
@@ -22,6 +23,10 @@ import lombok.extern.slf4j.Slf4j;
  * {@link Flyway}，只使用主库连接，并按装配模块的 classpath 目录迁移。</p>
  *
  * <p>客户外接数据库不在此处初始化或迁移；新增数据源也不会自动纳入迁移范围。</p>
+ *
+ * <p>M3 实测发现：初版虽然接收了 {@code spring.flyway.enabled}，但装配时没有判断该开关，
+ * 导致把它设为 {@code false} 仍然会执行迁移；在只有 MySQL 迁移脚本的内存库测试里直接启动失败。
+ * 现在通过 {@link ConditionalOnProperty} 遵循该开关，关闭时不注册 Flyway 组件。</p>
  */
 @Slf4j
 @Configuration
@@ -41,6 +46,7 @@ public class FlywayConfig {
      */
     @Bean(initMethod = "migrate")
     @ConditionalOnMissingBean(Flyway.class)
+    @ConditionalOnProperty(prefix = "spring.flyway", name = "enabled", havingValue = "true", matchIfMissing = true)
     public Flyway flyway(DataSource routingDataSource, FlywayProperties properties,
             ForgeDataSourceProperties dataSourceProperties) {
         String primaryName = dataSourceProperties.getPrimaryName();

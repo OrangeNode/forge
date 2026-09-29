@@ -113,6 +113,34 @@ forge:
     # 每页条数上限，超过即视为非法分页参数
     max-size: 100
 
+  # 认证与权限：令牌有效期、登录失败限流、超级管理员角色与匿名放行路径
+  security:
+    # 令牌有效期秒数；首版不提供刷新令牌，到期必须重新登录
+    token-ttl-seconds: ${FORGE_TOKEN_TTL_SECONDS:7200}
+    # 同一用户名在统计窗口内允许的登录失败次数上限，超过返回 body.code=429
+    login-max-attempts: ${FORGE_LOGIN_MAX_ATTEMPTS:5}
+    # 登录失败计数的统计窗口秒数，每次失败重新计时
+    login-attempt-window-seconds: ${FORGE_LOGIN_ATTEMPT_WINDOW_SECONDS:300}
+    # 超级管理员角色代码；拥有该角色的管理员在权限解析时获得全部有效权限
+    super-role-code: ${FORGE_SUPER_ROLE_CODE:super_admin}
+    # 匿名放行路径：只有登录接口、容器错误转发与接口文档，其余路径（含未知路径）一律要求认证。
+    # 接口文档本身默认关闭（springdoc 配置见文件末尾），只在开发 profile 开启；
+    # 需要在受保护环境保留文档时，把文档路径从本列表移除并改由令牌访问。
+    permit-all-paths:
+      - /api/admin/v1/auth/login
+      - /error
+      - /v3/api-docs/**
+      - /swagger-ui/**
+      - /swagger-ui.html
+
+  # 初始管理员引导：只在账号表为空时创建，凭据只从环境变量读取，密码不进入版本库
+  system:
+    bootstrap:
+      enabled: ${FORGE_INIT_ADMIN_ENABLED:true}
+      username: ${FORGE_INIT_ADMIN_USERNAME:}
+      password: ${FORGE_INIT_ADMIN_PASSWORD:}
+      display-name: ${FORGE_INIT_ADMIN_DISPLAY_NAME:初始管理员}
+
   # Redis 约定：键前缀必须包含项目与环境，缓存必须有明确存活时间
   redis:
     # 键前缀，格式建议 项目:环境；同一 Redis 实例被多个项目或环境共用时防止键冲突
@@ -129,13 +157,13 @@ forge:
     # 追踪编号响应头名称
     trace-header-name: X-Trace-Id
 
-# API 文档：开发环境开启，生产默认关闭（覆盖项见 application-local.yaml）
+# API 文档：按接口规范生产默认关闭，开发 profile 显式开启（见 application-local.yaml）
 springdoc:
   api-docs:
-    enabled: ${FORGE_API_DOCS_ENABLED:true}
+    enabled: ${FORGE_API_DOCS_ENABLED:false}
     path: /v3/api-docs
   swagger-ui:
-    enabled: ${FORGE_SWAGGER_UI_ENABLED:true}
+    enabled: ${FORGE_SWAGGER_UI_ENABLED:false}
     path: /swagger-ui.html
 
 # 日志级别：按包名调整，避免为排查单个模块而改动代码
