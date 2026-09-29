@@ -90,20 +90,21 @@ describe('RequestFactory 结果判定', () => {
     expect(onForbidden).toHaveBeenCalledTimes(1)
   })
 
-  it('code=400 时携带字段错误并触发统一错误钩子', async () => {
+  it('code=400 时从 data.fieldErrors 读取字段错误并触发统一错误钩子', async () => {
     const onError = vi.fn()
     const factory = new RequestFactory({ baseUrl: '' }, { onError })
     mockRequest.mockResolvedValue({
       status: 200,
       data: {
         code: 400,
-        message: '参数错误',
-        data: null,
+        message: '参数校验失败',
+        data: {
+          fieldErrors: [
+            { field: 'username', message: '用户名不能为空' },
+            { field: 12, message: '结构非法，应被忽略' },
+          ],
+        },
         traceId: 't-5',
-        fieldErrors: [
-          { field: 'username', message: '用户名不能为空' },
-          { field: 12, message: '结构非法，应被忽略' },
-        ],
       },
     })
 
@@ -113,6 +114,20 @@ describe('RequestFactory 结果判定', () => {
     expect(error.code).toBe(400)
     expect(error.fieldErrors).toEqual([{ field: 'username', message: '用户名不能为空' }])
     expect(onError).toHaveBeenCalledWith(error)
+  })
+
+  it('字段错误结构非法时返回空列表而不是抛出协议异常', async () => {
+    const factory = new RequestFactory({ baseUrl: '' })
+    mockRequest.mockResolvedValue({
+      status: 200,
+      data: { code: 400, message: '参数校验失败', data: { fieldErrors: 'not-an-array' }, traceId: 't-7' },
+    })
+
+    const failure = await factory.get('/example/validation/1').catch((error: unknown) => error)
+
+    const error = failure as ApiError
+    expect(error.code).toBe(400)
+    expect(error.fieldErrors).toEqual([])
   })
 
   it('响应体不是统一结构时抛出协议异常，不触发业务钩子', async () => {
@@ -171,7 +186,7 @@ describe('RequestFactory 结果判定', () => {
       data: { code: 0, message: '操作成功', data: [], traceId: 't-6' },
     })
 
-    await createFactory().get('/members', { query: { pageNum: 1, sortBy: undefined } })
+    await createFactory().get('/members', { query: { pageNum: 1, pageSize: undefined } })
 
     expect(mockRequest).toHaveBeenCalledWith(
       expect.objectContaining({ params: { pageNum: 1 }, method: 'GET', url: '/members' }),

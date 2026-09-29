@@ -62,6 +62,17 @@ public class TraceIdFilter extends OncePerRequestFilter {
     }
 
     /**
+     * 读取当前请求已分配的追踪编号，供统一响应体与日志关联使用。
+     *
+     * @param request 当前 HTTP 请求
+     * @return 已分配的追踪编号，未分配时返回 {@code null}
+     */
+    public static String currentTraceId(HttpServletRequest request) {
+        Object traceId = request.getAttribute(TRACE_ID_ATTRIBUTE);
+        return traceId instanceof String text ? text : null;
+    }
+
+    /**
      * 生成 32 位无连字符的随机追踪编号。
      *
      * <p>长度由 UUID 决定，属于协议不变式，不做成配置项。</p>

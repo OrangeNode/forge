@@ -91,6 +91,15 @@
                 <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
+            <!--
+              MyBatis-Plus 3.5.9 起分页等 SQL 解析插件拆分到该模块，
+              使用 PaginationInnerInterceptor 必须显式引入，否则分页参数不会改写 SQL。
+            -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-jsqlparser</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>dynamic-datasource-spring-boot4-starter</artifactId>
@@ -101,6 +110,15 @@
             <dependency>
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+            <!--
+              文档分组与 OpenAPI 描述的装配在 framework 完成，
+              因此 framework 直接依赖 springdoc 核心；可执行模块仍依赖 UI starter 提供 Swagger UI。
+            -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-common</artifactId>
                 <version>${springdoc.version}</version>
             </dependency>
         </dependencies>

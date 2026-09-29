@@ -1,0 +1,25 @@
+# 本机演示启动覆盖项：不依赖外部 MySQL 与 Redis，仅用于本机验证接口与文档。
+# 工作目录：backend；启动命令：
+#   .\mvnw.cmd -B -pl forge-application -am spring-boot:run "-Dspring-boot.run.profiles=standalone"
+# 该文件只定义内存数据库连接，不代表生产部署方案。
+spring:
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          url: jdbc:h2:mem:forge_standalone;DB_CLOSE_DELAY=-1;MODE=MySQL
+          username: sa
+          password: ""
+          driver-class-name: org.h2.Driver
+  flyway:
+    # 内存库每次启动都是空的，且当前没有业务迁移脚本，演示启动时关闭迁移
+    enabled: false
+
+forge:
+  mybatis-plus:
+    # 内存库使用 H2 方言生成分页 SQL
+    db-type: H2
+
+logging:
+  level:
+    cn.orangenode.forge: DEBUG

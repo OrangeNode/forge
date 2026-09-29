@@ -20,9 +20,9 @@ spring:
       primary: ${FORGE_PRIMARY_DATASOURCE:master}
       datasource:
         master:
-          url: ${FORGE_MASTER_URL:jdbc:mysql://127.0.0.1:3306/orange_forge?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+          url: ${FORGE_MASTER_URL:jdbc:mysql://172.16.112.183:3307/orange_forge?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
           username: ${FORGE_MASTER_USERNAME:forge}
-          password: ${FORGE_MASTER_PASSWORD:}
+          password: ${FORGE_MASTER_PASSWORD:forge_app_2026}
           driver-class-name: com.mysql.cj.jdbc.Driver
           hikari:
             # 连接池上限与超时；本地开发用小池，部署时按实际并发调整
@@ -43,9 +43,9 @@ spring:
   # Redis：登录令牌、限流与必要缓存
   data:
     redis:
-      host: ${FORGE_REDIS_HOST:127.0.0.1}
-      port: ${FORGE_REDIS_PORT:6379}
-      password: ${FORGE_REDIS_PASSWORD:}
+      host: ${FORGE_REDIS_HOST:172.16.112.183}
+      port: ${FORGE_REDIS_PORT:6380}
+      password: ${FORGE_REDIS_PASSWORD:redis_2026}
       database: ${FORGE_REDIS_DATABASE:0}
       timeout: 3s
       connect-timeout: 3s
@@ -80,15 +80,6 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
-# API 文档：开发环境开启，生产默认关闭（覆盖项见 application-local.yaml）
-springdoc:
-  api-docs:
-    enabled: ${FORGE_API_DOCS_ENABLED:true}
-    path: /v3/api-docs
-  swagger-ui:
-    enabled: ${FORGE_SWAGGER_UI_ENABLED:true}
-    path: /swagger-ui.html
-
 # 项目自定义配置：所有可调常量集中在此
 forge:
   # 数据源约定
@@ -97,12 +88,37 @@ forge:
     # Flyway 以及其他只应作用于主库的能力都读取该值。
     primary-name: ${FORGE_PRIMARY_DATASOURCE:master}
 
+  # 第二数据源：可选示例库。默认关闭，关闭时不注册，使用该名称会明确报错而不回退主库。
+  # 启用后连接信息必须完整，凭据只从环境变量读取。
+  secondary-datasource:
+    enabled: ${FORGE_SECONDARY_ENABLED:false}
+    name: ${FORGE_SECONDARY_NAME:secondary}
+    url: ${FORGE_SECONDARY_URL:}
+    username: ${FORGE_SECONDARY_USERNAME:}
+    password: ${FORGE_SECONDARY_PASSWORD:}
+    driver-class-name: ${FORGE_SECONDARY_DRIVER:com.mysql.cj.jdbc.Driver}
+    pool-name: forge-secondary-pool
+    # 连接池上限；按第二库的实际并发能力调整
+    maximum-pool-size: ${FORGE_SECONDARY_POOL_MAX:5}
+    minimum-idle: 1
+
+  # MyBatis-Plus 分页插件：方言按部署数据库选择，避免写死
+  mybatis-plus:
+    db-type: ${FORGE_DB_TYPE:MYSQL}
+
   # 分页约定：分页入参的默认值、上限与排序白名单
   page:
     default-page-num: 1
     default-page-size: 20
     # 每页条数上限，超过即视为非法分页参数
     max-size: 100
+
+  # Redis 约定：键前缀必须包含项目与环境，缓存必须有明确存活时间
+  redis:
+    # 键前缀，格式建议 项目:环境；同一 Redis 实例被多个项目或环境共用时防止键冲突
+    key-prefix: ${FORGE_REDIS_KEY_PREFIX:forge:local}
+    # 未显式指定 TTL 的缓存默认存活秒数
+    default-ttl-seconds: ${FORGE_REDIS_DEFAULT_TTL_SECONDS:600}
 
   # Web 与追踪约定
   web:
@@ -112,6 +128,15 @@ forge:
     trace-enabled: true
     # 追踪编号响应头名称
     trace-header-name: X-Trace-Id
+
+# API 文档：开发环境开启，生产默认关闭（覆盖项见 application-local.yaml）
+springdoc:
+  api-docs:
+    enabled: ${FORGE_API_DOCS_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${FORGE_SWAGGER_UI_ENABLED:true}
+    path: /swagger-ui.html
 
 # 日志级别：按包名调整，避免为排查单个模块而改动代码
 logging:

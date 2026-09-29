@@ -43,6 +43,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!--
+          安全基础设施：M2 只装配过滤链与统一错误出口（401/403 也返回 HTTP 200 + body.code），
+          具体账号、令牌与权限规则在 M3 实现；本阶段不启用任何认证方式。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
@@ -58,11 +66,29 @@
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+        </dependency>
+        <!--
+          dynamic-datasource 的 @DS 依赖 Spring AOP 代理生效；
+          缺少 AOP 自动配置时注解会被静默忽略（全部走主库），因此显式引入并保留回归用例。
+          Spring Boot 4 中该 starter 由 spring-boot-starter-aop 更名为 spring-boot-starter-aspectj。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
             <artifactId>dynamic-datasource-spring-boot4-starter</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+        </dependency>
+        <!-- OpenAPI 分组与文档描述在 framework 装配，UI 由可执行模块提供 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-common</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>

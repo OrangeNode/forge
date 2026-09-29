@@ -23,23 +23,27 @@ export function isApiResponse(value: unknown): value is ApiResponse<unknown> {
   if (candidate.traceId !== undefined && candidate.traceId !== null && typeof candidate.traceId !== 'string') {
     return false
   }
-  return candidate.fieldErrors === undefined || candidate.fieldErrors === null || Array.isArray(candidate.fieldErrors)
+  return true
 }
 
 /**
- * 读取响应中的字段错误列表。
+ * 读取参数校验失败时的字段错误列表。
  *
- * 只保留 field 与 message 均为字符串且字段名非空的条目，
+ * 错误明细位于 `data.fieldErrors`；只保留 field 与 message 均为字符串且字段名非空的条目，
  * 忽略结构异常的明细，避免把未知内容渲染到页面。
  *
- * @param value 解析后的未知数据
+ * @param body 解析后的统一响应结构
  * @returns 规范化后的字段错误数组
  */
-export function readFieldErrors(value: unknown): FieldError[] {
-  if (typeof value !== 'object' || value === null) {
+export function readFieldErrors(body: unknown): FieldError[] {
+  if (typeof body !== 'object' || body === null) {
     return []
   }
-  const raw = (value as Record<string, unknown>).fieldErrors
+  const data = (body as Record<string, unknown>).data
+  if (typeof data !== 'object' || data === null) {
+    return []
+  }
+  const raw = (data as Record<string, unknown>).fieldErrors
   if (!Array.isArray(raw)) {
     return []
   }

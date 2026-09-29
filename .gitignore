@@ -35,6 +35,14 @@ coverage/
 test-results/
 playwright-report/
 
+# 接口类型生成的中间产物：由 pnpm run generate:api-types 重新生成，只保留生成结果
+frontend/packages/api-client/src/generated/*.openapi.json
+
+# 受限执行环境的本地构建缓存：本地 Maven 仓库镜像、包装器目录与临时设置，不进入版本管理
+.m2repo/
+.maven-wrapper/
+.mvn-local-settings.xml
+
 # IDE 与操作系统
 .idea/
 .vscode/
