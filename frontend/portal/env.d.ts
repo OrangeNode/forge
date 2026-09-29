@@ -10,6 +10,10 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
   /** 当前环境标识，用于展示与排查 */
   readonly VITE_APP_ENV: string
+  /** 开发服务器端口、代理前缀与目标，由配置文件通过 loadEnv 读取 */
+  readonly VITE_DEV_PORT: string
+  readonly VITE_API_PROXY_PREFIX: string
+  readonly VITE_API_PROXY_TARGET: string
 }
 
 interface ImportMeta {

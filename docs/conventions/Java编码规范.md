@@ -75,6 +75,8 @@ ControllerAdvice、Security 的认证失败与拒绝访问处理器、框架默�
 
 Java 四空格缩进，UTF-8 无 BOM，LF 换行，禁止通配符 import，移除未使用 import。
 
-M1 接入 Checkstyle 并用临时反例验证：private 方法、接口方法、实现方法、构造器及测试方法遗漏注释都能被检测；检测不应把 Lambda 当成手写方法。若标准规则不能完整覆盖，增加窄范围补充检查，不降低要求。
+M1 已接入 Checkstyle：`backend/checkstyle.xml` 在 Maven validate 阶段检查全部模块的生产与测试源码，包含 private、接口、重写、构造器、紧凑构造器和访问器，不豁免短方法或 `@Override`。
+
+`DocumentationRulesTest` 在 test 阶段加载同一份配置，按 Java 语法节点补充中文职责正文与方法多行 Javadoc 检查。检查范围由父 POM 的模块清单确定，不扫描 target 生成代码；Lambda 不作为方法声明检查。16 个用例覆盖真实源码、临时反例及正常对照，临时 Java 文件由 JUnit 自动清理。完整执行使用 `mvnw.cmd -B verify`，不能用跳过测试的构建声称中文多行规则已经通过。
 
 使用 ArchUnit 校验模块无循环、Controller 不访问 Mapper、基础模块不依赖业务模块。后端测试围绕业务结果和关键失败路径，不为简单访问器写镜像测试。
