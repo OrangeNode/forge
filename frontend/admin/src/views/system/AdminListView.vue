@@ -36,6 +36,8 @@ import {
   type AdminDetail,
   type RoleOption,
 } from '@/api/system'
+import AppIcon from '@/components/AppIcon.vue'
+import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
 import { isBusinessCode, readFieldErrors, resolveErrorMessage } from '@/utils/error-message'
@@ -144,7 +146,7 @@ const filters = reactive<{ username: string | null; status: string | null }>({
 const canView = computed(() => session.hasPermission('system:admin:view'))
 
 /**
- * 是否允许新增管理员。
+ * 是否允许新建后台用户。
  */
 const canCreate = computed(() => session.hasPermission('system:admin:create'))
 
@@ -275,7 +277,7 @@ const selectedRoleIds = ref<Array<string | number>>([])
 /**
  * 弹窗标题，按新增或编辑切换。
  */
-const formTitle = computed(() => (editingId.value === null ? '新增管理员' : '编辑管理员'))
+const formTitle = computed(() => (editingId.value === null ? '新建用户' : '编辑用户'))
 
 /**
  * 是否处于新增状态，用于控制用户名与密码字段的显示。
@@ -482,11 +484,11 @@ async function handleSubmit(): Promise<void> {
         displayName: form.displayName.trim(),
         password: form.password,
       })
-      message.success('管理员已创建')
+      message.success('用户已创建')
       pageNum.value = 1
     } else {
       await updateAdmin(editingId.value, { displayName: form.displayName.trim() })
-      message.success('管理员已更新')
+      message.success('用户已更新')
     }
     formVisible.value = false
     await loadAdmins()
@@ -781,31 +783,48 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="admin-list">
-    <PageHeader
-      title="管理员账号"
-      description="账号的查询、新增、启停、密码重置与角色分配"
-    >
-      <template #actions>
-        <NButton
-          secondary
-          :disabled="!canView"
-          :loading="loading"
-          @click="handleRefresh"
-        >
-          刷新
-        </NButton>
-        <NButton
-          v-if="canCreate"
-          type="primary"
-          @click="openCreate"
-        >
-          新增管理员
-        </NButton>
-      </template>
-    </PageHeader>
-
+  <PageBody>
     <NCard>
+      <PageHeader
+        title="用户列表"
+        description="管理后台账号、启停状态与角色分配"
+        icon="users"
+      >
+        <template #actions>
+          <NButton
+            class="action-button action-button--refresh"
+            secondary
+            type="primary"
+            size="medium"
+            :disabled="!canView"
+            :loading="loading"
+            @click="handleRefresh"
+          >
+            <template #icon>
+              <AppIcon
+                name="refresh"
+                :size="16"
+              />
+            </template>
+            刷新列表
+          </NButton>
+          <NButton
+            v-if="canCreate"
+            class="action-button action-button--create"
+            type="primary"
+            size="medium"
+            @click="openCreate"
+          >
+            <template #icon>
+              <AppIcon
+                name="plus"
+                :size="16"
+              />
+            </template>
+            新建用户
+          </NButton>
+        </template>
+      </PageHeader>
       <div class="filter-bar">
         <NInput
           v-model:value="filters.username"
@@ -852,7 +871,7 @@ onMounted(() => {
         v-if="!canView"
         class="form-hint"
       >
-        当前账号没有管理员查看权限，请联系管理员授权后再试；按钮显示不替代后端授权。
+        当前账号没有用户查看权限，请联系超级管理员授权后再试；按钮显示不替代后端授权。
       </p>
     </NCard>
 
@@ -1028,7 +1047,7 @@ onMounted(() => {
         </div>
       </template>
     </NModal>
-  </div>
+  </PageBody>
 </template>
 
 <style scoped>

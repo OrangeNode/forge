@@ -3,8 +3,6 @@ import type { PageQuery } from '@orange-forge/api-client'
 import {
   NButton,
   NCard,
-  NCheckbox,
-  NCheckboxGroup,
   NDataTable,
   NForm,
   NFormItem,
@@ -30,15 +28,15 @@ import {
   createRole,
   deleteRole,
   fetchMenuTree,
-  fetchPermissions,
   fetchRoleDetail,
   fetchRoles,
   grantRole,
   updateRole,
   type MenuNode,
-  type PermissionItem,
   type RoleDetail,
 } from '@/api/system'
+import AppIcon from '@/components/AppIcon.vue'
+import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
 import { isBusinessCode, readFieldErrors, resolveErrorMessage } from '@/utils/error-message'
@@ -52,16 +50,6 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50]
  * 列表默认每页条数。
  */
 const DEFAULT_PAGE_SIZE = 10
-
-/**
- * 批量读取权限的每页条数，取后端允许的上限以减少请求次数。
- */
-const PERMISSION_PAGE_SIZE = 100
-
-/**
- * 批量读取权限的最大页数，异常数据不会造成无限翻页。
- */
-const PERMISSION_MAX_PAGES = 10
 
 /**
  * 新增与编辑表单校验规则，字段名与后端请求字段保持一致。
@@ -80,17 +68,17 @@ const FORM_RULES: FormRules = {
 }
 
 /**
- * 权限分组：按权限代码的模块前缀归类，便于在大列表中定位。
+ * 角色授权树上的权限摘要：该节点会授予哪些接口权限。
  */
-interface PermissionGroup {
+interface MenuPermissionSummary {
   /**
-   * 模块前缀，即权限代码的第一段。
+   * 菜单节点 ID。
    */
-  module: string
+  menuId: string
   /**
-   * 该模块下的权限项。
+   * 节点声明的权限标识。
    */
-  items: PermissionItem[]
+  codes: string[]
 }
 
 const session = useSessionStore()
@@ -188,11 +176,13 @@ const grantTargetId = ref<string | null>(null)
 const grantTargetName = ref('')
 
 /**
- * 授权弹窗数据：按模块分组的权限、菜单树、当前勾选结果。
+ * 授权弹窗数据：菜单树、节点权限摘要与当前勾选结果。
+ *
+ * 权限不再单独勾选：角色获得的接口权限由勾选的菜单节点声明推导，
+ * 因此这里只维护菜单勾选状态，另外保存一份“节点到权限标识”的索引用于界面提示。
  */
-const permissionGroups = ref<PermissionGroup[]>([])
 const menuTreeOptions = ref<TreeOption[]>([])
-const selectedPermissionIds = ref<Array<string | number>>([])
+const menuPermissions = ref<MenuPermissionSummary[]>([])
 const selectedMenuIds = ref<Array<string | number>>([])
 
 /**
@@ -438,53 +428,26 @@ async function handleDelete(row: RoleDetail): Promise<void> {
 }
 
 /**
- * 读取全部权限，按页累加直到取满总数。
+ * 当前勾选菜单会授予的接口权限标识，去重后按代码排序。
  *
- * 授权弹窗需要按模块完整展示可授予权限，因此按上限分页拉取；达到最大页数时以已取到的数据为准。
- *
- * @returns 权限列表
+ * 用于在授权弹窗里实时展示“保存后这个角色能调用哪些接口”，
+ * 实际权限仍由后端按同一份菜单配置解析。
  */
-async function loadAllPermissions(): Promise<PermissionItem[]> {
-  const collected: PermissionItem[] = []
-  for (let page = 1; page <= PERMISSION_MAX_PAGES; page += 1) {
-    const result = await fetchPermissions({ pageNum: page, pageSize: PERMISSION_PAGE_SIZE })
-    const records = result.records ?? []
-    collected.push(...records)
-    if (records.length === 0 || collected.length >= (result.total ?? 0)) {
-      break
-    }
-  }
-  return collected
-}
-
-/**
- * 按模块前缀对权限分组，保持后端返回顺序。
- *
- * @param items 权限列表
- * @returns 分组结果，模块按首次出现顺序排列
- */
-function groupPermissions(items: PermissionItem[]): PermissionGroup[] {
-  const groups: PermissionGroup[] = []
-  const index = new Map<string, PermissionGroup>()
-  for (const item of items) {
-    if (!item.id) {
+const grantedPermissionCodes = computed(() => {
+  const codes = new Set<string>()
+  for (const summary of menuPermissions.value) {
+    if (!selectedMenuIds.value.includes(summary.menuId)) {
       continue
     }
-    const code = item.code ?? ''
-    const module = code.split(':')[0] || '未分类'
-    let group = index.get(module)
-    if (!group) {
-      group = { module, items: [] }
-      index.set(module, group)
-      groups.push(group)
+    for (const code of summary.codes) {
+      codes.add(code)
     }
-    group.items.push(item)
   }
-  return groups
-}
+  return [...codes].sort()
+})
 
 /**
- * 把菜单树转换为树组件数据。
+ * 把菜单树转换为树组件数据，并在节点标签上标注该节点会授予的权限数量。
  *
  * @param nodes 菜单树
  * @returns 树组件选项，缺少标识的节点被忽略
@@ -496,9 +459,11 @@ function toMenuTreeOptions(nodes: MenuNode[]): TreeOption[] {
       continue
     }
     const children = toMenuTreeOptions(node.children ?? [])
+    const permissionCount = (node.permissions ?? []).length
+    const permissionText = permissionCount > 0 ? `（授予 ${permissionCount} 个权限）` : ''
     options.push({
       key: node.id,
-      label: node.name ?? '未命名菜单',
+      label: `${node.name ?? '未命名菜单'}${permissionText}`,
       children: children.length > 0 ? children : undefined,
     })
   }
@@ -506,9 +471,31 @@ function toMenuTreeOptions(nodes: MenuNode[]): TreeOption[] {
 }
 
 /**
+ * 收集菜单树中每个节点声明的权限标识。
+ *
+ * @param nodes 菜单树
+ * @returns 节点权限摘要，缺少标识的节点被忽略
+ */
+function collectMenuPermissions(nodes: MenuNode[]): MenuPermissionSummary[] {
+  const summaries: MenuPermissionSummary[] = []
+  for (const node of nodes) {
+    if (node.id) {
+      const codes = (node.permissions ?? [])
+        .map((permission) => permission.code ?? '')
+        .filter((code) => code !== '')
+      if (codes.length > 0) {
+        summaries.push({ menuId: node.id, codes })
+      }
+    }
+    summaries.push(...collectMenuPermissions(node.children ?? []))
+  }
+  return summaries
+}
+
+/**
  * 把选中值收窄为字符串 ID 列表。
  *
- * @param values 复选框组或树的选中值
+ * @param values 树或复选框组的选中值
  * @returns 字符串 ID 列表
  */
 function toIdList(values: Array<string | number>): string[] {
@@ -516,7 +503,9 @@ function toIdList(values: Array<string | number>): string[] {
 }
 
 /**
- * 打开授权弹窗，读取角色当前的授权以及全部可授权的权限与菜单。
+ * 打开授权弹窗，读取角色已授予的菜单与全部可授权菜单。
+ *
+ * 权限标识不单独读取：它内嵌在菜单树节点上，勾选菜单即决定权限。
  *
  * @param row 表格行数据
  */
@@ -527,22 +516,16 @@ async function openGrant(row: RoleDetail): Promise<void> {
   }
   grantTargetId.value = id
   grantTargetName.value = row.name ?? row.code ?? ''
-  permissionGroups.value = []
   menuTreeOptions.value = []
-  selectedPermissionIds.value = []
+  menuPermissions.value = []
   selectedMenuIds.value = []
   grantVisible.value = true
   grantLoading.value = true
   try {
-    const [detail, permissions, menus] = await Promise.all([
-      fetchRoleDetail(id),
-      loadAllPermissions(),
-      fetchMenuTree(),
-    ])
-    selectedPermissionIds.value = toIdList(detail.permissionIds ?? [])
+    const [detail, menus] = await Promise.all([fetchRoleDetail(id), fetchMenuTree()])
     selectedMenuIds.value = toIdList(detail.menuIds ?? [])
-    permissionGroups.value = groupPermissions(permissions)
     menuTreeOptions.value = toMenuTreeOptions(menus)
+    menuPermissions.value = collectMenuPermissions(menus)
   } catch (error) {
     grantVisible.value = false
     message.error(resolveErrorMessage(error))
@@ -561,7 +544,7 @@ function handleMenuCheckedKeys(keys: Array<string | number>): void {
 }
 
 /**
- * 保存角色的权限与菜单授权；全量替换语义，未勾选的授权会被解除。
+ * 保存角色的菜单授权；全量替换语义，未勾选的菜单与随之而来的权限会被解除。
  */
 async function handleGrantSubmit(): Promise<void> {
   const id = grantTargetId.value
@@ -571,7 +554,6 @@ async function handleGrantSubmit(): Promise<void> {
   grantSubmitting.value = true
   try {
     await grantRole(id, {
-      permissionIds: toIdList(selectedPermissionIds.value),
       menuIds: toIdList(selectedMenuIds.value),
     })
     message.success('授权已保存')
@@ -678,31 +660,45 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="role-list">
-    <PageHeader
-      title="角色管理"
-      description="角色的维护，以及菜单可见性与接口权限的授权"
-    >
-      <template #actions>
-        <NButton
-          secondary
-          :disabled="!canView"
-          :loading="loading"
-          @click="handleRefresh"
-        >
-          刷新
-        </NButton>
-        <NButton
-          v-if="canCreate"
-          type="primary"
-          @click="openCreate"
-        >
-          新增角色
-        </NButton>
-      </template>
-    </PageHeader>
-
+  <PageBody>
     <NCard>
+      <PageHeader
+        title="角色列表"
+        description="维护角色信息与菜单授权"
+        icon="shield"
+      >
+        <template #actions>
+          <NButton
+            class="action-button"
+            type="primary"
+            secondary
+            :disabled="!canView"
+            :loading="loading"
+            @click="handleRefresh"
+          >
+            <template #icon>
+              <AppIcon
+                name="refresh"
+                :size="16"
+              />
+            </template>
+            刷新列表
+          </NButton>
+          <NButton
+            v-if="canCreate"
+            class="action-button"
+            type="primary"
+            @click="openCreate"
+          >
+            <template #icon>
+              <AppIcon
+                name="plus"
+                :size="16"
+              />
+            </template>新增角色
+          </NButton>
+        </template>
+      </PageHeader>
       <div class="filter-bar">
         <NInput
           v-model:value="filters.name"
@@ -841,42 +837,14 @@ onMounted(() => {
     >
       <NSpin :show="grantLoading">
         <p class="form-hint">
-          授权为全量替换：保存后该角色只保留本次勾选的权限与菜单，未勾选的会被解除。菜单只控制侧边栏可见性，不隐含接口权限。
+          授权为全量替换：保存后该角色只保留本次勾选的菜单节点，未勾选的会被解除。
+          接口权限由勾选菜单节点上声明的权限标识推导，不需要也不能单独勾选。
         </p>
         <div class="grant">
           <section class="grant__panel">
-            <h4>接口权限</h4>
+            <h4>可见菜单与权限</h4>
             <p class="grant__hint">
-              按权限代码的模块前缀分组，勾选后该角色可以调用对应接口。
-            </p>
-            <NCheckboxGroup v-model:value="selectedPermissionIds">
-              <div
-                v-for="group in permissionGroups"
-                :key="group.module"
-                class="grant__group"
-              >
-                <b>{{ group.module }}</b>
-                <div class="grant__items">
-                  <NCheckbox
-                    v-for="item in group.items"
-                    :key="item.id ?? item.code"
-                    :value="item.id ?? ''"
-                    :label="item.name ?? item.code ?? ''"
-                  />
-                </div>
-              </div>
-            </NCheckboxGroup>
-            <NText
-              v-if="permissionGroups.length === 0 && !grantLoading"
-              depth="3"
-            >
-              暂无可授予的权限
-            </NText>
-          </section>
-          <section class="grant__panel">
-            <h4>可见菜单</h4>
-            <p class="grant__hint">
-              勾选父节点会一并勾选子节点；目录节点只影响分组展示。
+              勾选父节点会一并勾选子节点；标签中的“授予 N 个权限”即该节点带来的接口权限。
             </p>
             <NTree
               block-line
@@ -892,6 +860,32 @@ onMounted(() => {
               depth="3"
             >
               暂无可授予的菜单
+            </NText>
+          </section>
+          <section class="grant__panel">
+            <h4>保存后生效的权限</h4>
+            <p class="grant__hint">
+              由当前勾选推导，保存后立即对该角色生效；此处只读，如需调整请改菜单节点上的权限标识。
+            </p>
+            <div
+              v-if="grantedPermissionCodes.length > 0"
+              class="grant__codes"
+            >
+              <NTag
+                v-for="code in grantedPermissionCodes"
+                :key="code"
+                size="small"
+                :bordered="false"
+                type="info"
+              >
+                {{ code }}
+              </NTag>
+            </div>
+            <NText
+              v-else
+              depth="3"
+            >
+              当前勾选不包含任何接口权限
             </NText>
           </section>
         </div>
@@ -914,7 +908,7 @@ onMounted(() => {
         </div>
       </template>
     </NModal>
-  </div>
+  </PageBody>
 </template>
 
 <style scoped>
@@ -965,21 +959,10 @@ onMounted(() => {
   line-height: 1.7;
 }
 
-.grant__group {
-  margin-bottom: 12px;
-}
-
-.grant__group b {
-  display: block;
-  margin-bottom: 6px;
-  color: #536fe8;
-  font-size: 12px;
-}
-
-.grant__items {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 4px 10px;
+.grant__codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .modal-actions {

@@ -1,6 +1,7 @@
 package cn.orangenode.forge.system.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -20,11 +21,9 @@ import cn.orangenode.forge.framework.page.PageRequest;
 import cn.orangenode.forge.framework.page.PageResponses;
 import cn.orangenode.forge.system.converter.SystemConverter;
 import cn.orangenode.forge.system.entity.SysMenuEntity;
-import cn.orangenode.forge.system.entity.SysPermissionEntity;
 import cn.orangenode.forge.system.entity.SysRoleEntity;
 import cn.orangenode.forge.system.mapper.SysAdminRoleMapper;
 import cn.orangenode.forge.system.mapper.SysMenuMapper;
-import cn.orangenode.forge.system.mapper.SysPermissionMapper;
 import cn.orangenode.forge.system.mapper.SysRoleMapper;
 import cn.orangenode.forge.system.request.RoleCreateRequest;
 import cn.orangenode.forge.system.request.RoleGrantRequest;
@@ -33,6 +32,7 @@ import cn.orangenode.forge.system.request.RoleUpdateRequest;
 import cn.orangenode.forge.system.response.RoleDetailResponse;
 import cn.orangenode.forge.system.response.RoleOptionResponse;
 import cn.orangenode.forge.system.service.RoleManagementService;
+import cn.orangenode.forge.system.support.MenuPermissionCodes;
 import cn.orangenode.forge.system.support.PermissionCacheEvictor;
 import cn.orangenode.forge.system.support.SystemCurrentAdmin;
 import cn.orangenode.forge.system.support.SystemIds;
@@ -47,8 +47,9 @@ import lombok.extern.slf4j.Slf4j;
  * <p>角色代码保存前统一去空格并转为小写，与数据库不区分大小写的唯一键保持一致；
  * 唯一性由数据库约束兜底，冲突由统一错误出口映射为 409，不回显索引名。</p>
  *
- * <p>授权为全量替换语义：关系表先按角色物理删除再重建，重复提交不会造成主键冲突；
- * 删除角色时先检查管理员引用并清理自身授权关系，不做静默级联。
+ * <p>授权以菜单为单位：提交的菜单集合即角色最终可见的节点，接口权限由这些节点上声明的
+ * {@code sys_menu.perm_codes} 推导，因此只有一张关系表需要全量替换，重复提交不会造成主键冲突。
+ * 删除角色时先检查管理员引用并清理自身授权关系，不做静默级联；
  * 内置超级管理员角色按配置识别，不允许删除或修改代码。</p>
  */
 @Slf4j
@@ -61,14 +62,9 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     private final SysRoleMapper roleMapper;
 
     /**
-     * 菜单数据访问，用于校验菜单授权是否存在。
+     * 菜单数据访问，用于校验菜单授权是否存在及推导权限标识。
      */
     private final SysMenuMapper menuMapper;
-
-    /**
-     * 权限数据访问，用于校验权限授权是否存在。
-     */
-    private final SysPermissionMapper permissionMapper;
 
     /**
      * 管理员与角色关系数据访问，用于删除前的引用检查。
@@ -100,7 +96,6 @@ public class RoleManagementServiceImpl implements RoleManagementService {
      *
      * @param roleMapper             角色数据访问
      * @param menuMapper             菜单数据访问
-     * @param permissionMapper       权限数据访问
      * @param adminRoleMapper        管理员与角色关系数据访问
      * @param securityProperties     认证与权限配置
      * @param permissionCacheEvictor 权限缓存失效入口
@@ -108,12 +103,11 @@ public class RoleManagementServiceImpl implements RoleManagementService {
      * @param converter              响应转换器
      */
     public RoleManagementServiceImpl(SysRoleMapper roleMapper, SysMenuMapper menuMapper,
-            SysPermissionMapper permissionMapper, SysAdminRoleMapper adminRoleMapper,
-            ForgeSecurityProperties securityProperties, PermissionCacheEvictor permissionCacheEvictor,
-            SystemCurrentAdmin currentAdmin, SystemConverter converter) {
+            SysAdminRoleMapper adminRoleMapper, ForgeSecurityProperties securityProperties,
+            PermissionCacheEvictor permissionCacheEvictor, SystemCurrentAdmin currentAdmin,
+            SystemConverter converter) {
         this.roleMapper = roleMapper;
         this.menuMapper = menuMapper;
-        this.permissionMapper = permissionMapper;
         this.adminRoleMapper = adminRoleMapper;
         this.securityProperties = securityProperties;
         this.permissionCacheEvictor = permissionCacheEvictor;
@@ -149,7 +143,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     }
 
     /**
-     * 查询角色详情，含已授予的权限与菜单 ID。
+     * 查询角色详情，含已授予的菜单 ID 与由菜单推导出的权限标识。
      *
      * @param roleId 角色 ID
      * @return 角色详情
@@ -161,7 +155,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     }
 
     /**
-     * 创建角色，并按需写入初始授权关系。
+     * 创建角色，并按需写入初始菜单授权。
      *
      * @param request 创建入参
      * @return 创建后的角色详情
@@ -170,9 +164,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Transactional
     public RoleDetailResponse create(RoleCreateRequest request) {
         String code = normalizeCode(request.code());
-        List<Long> permissionIds = SystemIds.toLongList(request.permissionIds(), "权限 ID");
         List<Long> menuIds = SystemIds.toLongList(request.menuIds(), "菜单 ID");
-        requirePermissions(permissionIds);
         requireMenus(menuIds);
 
         LocalDateTime now = SystemTimes.nowUtc();
@@ -189,9 +181,9 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         role.setUpdatedBy(operator);
         roleMapper.insert(role);
 
-        replaceRelations(role.getId(), permissionIds, menuIds, now, operator);
+        replaceMenus(role.getId(), menuIds, now, operator);
         permissionCacheEvictor.evictAfterCommit();
-        log.info("已创建角色 [{}]，权限 {} 个，菜单 {} 个", code, permissionIds.size(), menuIds.size());
+        log.info("已创建角色 [{}]，菜单 {} 个", code, menuIds.size());
         return toDetail(role);
     }
 
@@ -234,7 +226,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     }
 
     /**
-     * 逻辑删除角色并清理其授权关系。
+     * 逻辑删除角色并清理其菜单授权关系。
      *
      * <p>被管理员引用时返回冲突；删除后角色代码仍占用唯一键，不会因为重复创建同一代码而复活历史数据。</p>
      *
@@ -251,14 +243,13 @@ public class RoleManagementServiceImpl implements RoleManagementService {
             throw new BusinessException(ErrorCode.CONFLICT, "该角色已分配给管理员，请先解除分配再删除");
         }
         roleMapper.deleteRoleMenus(roleId);
-        roleMapper.deleteRolePermissions(roleId);
         roleMapper.deleteById(roleId);
         permissionCacheEvictor.evictAfterCommit();
         log.info("已删除角色 [{}]", role.getCode());
     }
 
     /**
-     * 全量替换角色的权限与菜单授权。
+     * 全量替换角色的菜单授权，接口权限随之变化。
      *
      * @param roleId  角色 ID
      * @param request 授权入参
@@ -267,14 +258,13 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Transactional
     public void replaceGrants(Long roleId, RoleGrantRequest request) {
         requireRole(roleId);
-        List<Long> permissionIds = SystemIds.toLongList(request.permissionIds(), "权限 ID");
         List<Long> menuIds = SystemIds.toLongList(request.menuIds(), "菜单 ID");
-        requirePermissions(permissionIds);
         requireMenus(menuIds);
 
-        replaceRelations(roleId, permissionIds, menuIds, SystemTimes.nowUtc(), currentAdmin.adminId());
+        replaceMenus(roleId, menuIds, SystemTimes.nowUtc(), currentAdmin.adminId());
         permissionCacheEvictor.evictAfterCommit();
-        log.info("角色 [{}] 的授权已全量替换，权限 {} 个，菜单 {} 个", roleId, permissionIds.size(), menuIds.size());
+        log.info("角色 [{}] 的授权已全量替换，菜单 {} 个，随之生效的权限标识 {} 个", roleId, menuIds.size(),
+                collectPermissionCodes(menuIds).size());
     }
 
     /**
@@ -330,22 +320,6 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     }
 
     /**
-     * 校验权限 ID 全部存在。
-     *
-     * @param permissionIds 权限 ID 列表，允许为空
-     * @throws BusinessException 任一权限不存在时抛出 400
-     */
-    private void requirePermissions(List<Long> permissionIds) {
-        if (permissionIds.isEmpty()) {
-            return;
-        }
-        List<SysPermissionEntity> permissions = permissionMapper.selectByIds(permissionIds);
-        if (permissions.size() != permissionIds.size()) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "提交的权限中包含不存在或已删除的权限");
-        }
-    }
-
-    /**
      * 校验菜单 ID 全部存在。
      *
      * @param menuIds 菜单 ID 列表，允许为空
@@ -362,30 +336,45 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     }
 
     /**
-     * 重建角色的权限与菜单关系。
+     * 重建角色的菜单关系。
      *
-     * @param roleId        角色 ID
-     * @param permissionIds 权限 ID 列表，已去重
-     * @param menuIds       菜单 ID 列表，已去重
-     * @param now           关联创建时间（UTC）
-     * @param operator      操作者管理员 ID
+     * @param roleId    角色 ID
+     * @param menuIds   菜单 ID 列表，已去重
+     * @param now       关联创建时间（UTC）
+     * @param operator  操作者管理员 ID
      */
-    private void replaceRelations(Long roleId, List<Long> permissionIds, List<Long> menuIds, LocalDateTime now,
-            Long operator) {
-        roleMapper.deleteRolePermissions(roleId);
+    private void replaceMenus(Long roleId, List<Long> menuIds, LocalDateTime now, Long operator) {
         roleMapper.deleteRoleMenus(roleId);
-        for (Long permissionId : permissionIds) {
-            roleMapper.insertRolePermission(roleId, permissionId, now, operator);
-        }
         for (Long menuId : menuIds) {
             roleMapper.insertRoleMenu(roleId, menuId, now, operator);
         }
     }
 
     /**
+     * 推导一批菜单节点声明的权限标识。
+     *
+     * @param menuIds 菜单 ID 列表，允许为空
+     * @return 去重后的权限标识列表，入参为空时返回空列表
+     */
+    private List<String> collectPermissionCodes(List<Long> menuIds) {
+        List<String> codes = new ArrayList<>();
+        if (menuIds.isEmpty()) {
+            return codes;
+        }
+        for (SysMenuEntity menu : menuMapper.selectByIds(menuIds)) {
+            for (String code : MenuPermissionCodes.parse(menu.getPermCodes())) {
+                if (!codes.contains(code)) {
+                    codes.add(code);
+                }
+            }
+        }
+        return codes;
+    }
+
+    /**
      * 组装列表用的角色详情，不查询授权明细。
      *
-     * <p>列表只展示角色基础信息：逐行查询权限与菜单关系会造成 N+1，
+     * <p>列表只展示角色基础信息：逐行查询菜单关系与权限标识会造成 N+1，
      * 授权明细由详情接口按角色单独返回。</p>
      *
      * @param role 角色实体
@@ -398,13 +387,25 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     /**
      * 组装带授权明细的角色详情。
      *
+     * <p>权限标识由已授予菜单节点上的声明合并去重得到，不单独存储，
+     * 因此角色详情展示的权限始终与菜单授权一致。</p>
+     *
      * @param role 角色实体
      * @return 角色详情
      */
     private RoleDetailResponse toDetail(SysRoleEntity role) {
-        List<Long> permissionIds = role.getId() == null ? List.of()
-                : roleMapper.selectPermissionIdsByRoleId(role.getId());
-        List<Long> menuIds = role.getId() == null ? List.of() : roleMapper.selectMenuIdsByRoleId(role.getId());
-        return converter.toRoleDetail(role, permissionIds, menuIds, isSuperRole(role));
+        if (role.getId() == null) {
+            return converter.toRoleDetail(role, List.of(), List.of(), isSuperRole(role));
+        }
+        List<Long> menuIds = roleMapper.selectMenuIdsByRoleId(role.getId());
+        List<String> permissionCodes = new ArrayList<>();
+        for (String text : roleMapper.selectPermissionCodeTextsByRoleId(role.getId())) {
+            for (String code : MenuPermissionCodes.parse(text)) {
+                if (!permissionCodes.contains(code)) {
+                    permissionCodes.add(code);
+                }
+            }
+        }
+        return converter.toRoleDetail(role, permissionCodes, menuIds, isSuperRole(role));
     }
 }

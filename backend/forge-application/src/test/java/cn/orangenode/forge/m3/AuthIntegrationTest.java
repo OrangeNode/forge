@@ -165,12 +165,10 @@ class AuthIntegrationTest {
     private Long roleId;
 
     /**
-     * 探针权限 ID。
-     */
-    private Long probePermissionId;
-
-    /**
      * 每个用例前重建表结构、重置 Redis 替身并写入基础数据。
+     *
+     * <p>接口权限由菜单节点声明：这里先建一个声明探针权限的页面节点并授予测试角色，
+     * 角色因此同时获得菜单可见性与探针权限。</p>
      */
     @BeforeEach
     void prepareData() {
@@ -179,8 +177,9 @@ class AuthIntegrationTest {
         redisDouble = new RedisTestDouble(stringRedisTemplate);
         redisDouble.clear();
         roleId = fixture.createRole(M3TestSupport.ROLE_CODE, "运维角色");
-        probePermissionId = fixture.createPermission(M3TestSupport.PROBE_PERMISSION, "探针查看");
-        fixture.linkRolePermission(roleId, probePermissionId);
+        Long probeMenuId = fixture.createMenuWithPermissions(0L, "探针页面", "probe-page",
+                M3TestSupport.PROBE_PERMISSION, 0);
+        fixture.linkRoleMenu(roleId, probeMenuId);
         adminId = fixture.createAdmin(M3TestSupport.ADMIN_USERNAME, M3TestSupport.ADMIN_PASSWORD, "enabled");
         fixture.grantRole(adminId, roleId);
     }
@@ -313,8 +312,9 @@ class AuthIntegrationTest {
 
         // 直接改库不会经过服务层的缓存失效，因此这里显式递增权限版本；
         // 走管理接口修改授权的自动失效由 M5 的系统管理用例验证。
-        Long newPermissionId = fixture.createPermission(M3TestSupport.OTHER_PERMISSION, "探针修改");
-        fixture.linkRolePermission(roleId, newPermissionId);
+        Long otherMenuId = fixture.createMenuWithPermissions(0L, "探针修改页面", "probe-other-page",
+                M3TestSupport.OTHER_PERMISSION, 1);
+        fixture.linkRoleMenu(roleId, otherMenuId);
         authorityService.evictAllPermissions();
         ResponseSnapshot afterChange = exchange(HttpMethod.GET, "/api/admin/v1/auth/me", null, token);
         assertThat(afterChange.body()).contains(M3TestSupport.OTHER_PERMISSION);

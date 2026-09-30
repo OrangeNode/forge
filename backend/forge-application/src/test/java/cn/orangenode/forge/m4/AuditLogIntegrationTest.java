@@ -32,8 +32,8 @@ import cn.orangenode.forge.support.RuntimeSchema;
  * 登录日志与操作日志的端到端验证。
  *
  * <p>登录日志覆盖成功、凭据错误、账号停用与触发限流四条路径，并断言按用户名与结果筛选的条数；
- * 操作日志覆盖成功写与失败写：失败既包含业务冲突（存储方案被文件引用时删除返回 409），
- * 也包含唯一约束冲突，并验证失败不会被记为成功。</p>
+ * 操作日志覆盖成功写与失败写：失败包含新增菜单时路由标识重复返回 409，也包含存储方案被文件引用时
+ * 删除返回 409，并验证失败不会被记为成功。</p>
  *
  * <p>另外验证时间范围筛选只接受带时区的 ISO 8601，以及缺少 {@code audit:login:view} 权限时的拒绝。</p>
  */
@@ -169,6 +169,9 @@ class AuditLogIntegrationTest {
 
     /**
      * 验证成功写与失败写都会产生操作日志，身份、动作、对象、结果码与追踪编号齐全。
+     *
+     * <p>写操作使用菜单新增：权限标识由菜单节点声明，已经没有独立的权限维护接口，
+     * 因此菜单新增是本模块中最贴近“维护权限”的写接口，同时它自身也带有审计动作。</p>
      */
     @Test
     @DisplayName("写接口成功与失败都写入操作日志")
@@ -176,30 +179,30 @@ class AuditLogIntegrationTest {
         String token = loginToken();
 
         M4TestSupport.ResponseSnapshot created = M4TestSupport.exchange(client, HttpMethod.POST,
-                M4TestSupport.PERMISSIONS_PATH,
-                M4TestSupport.permissionBody("m4:probe:create", "M4 探针权限"), token);
+                M4TestSupport.MENU_PATH,
+                M4TestSupport.menuBody("M4 探针菜单", "m4-probe-menu", "audit:probe:create"), token);
         assertThat(created.status()).isEqualTo(HttpStatus.OK);
         assertThat(M4TestSupport.codeOf(created.body())).isZero();
 
         M4TestSupport.ResponseSnapshot duplicate = M4TestSupport.exchange(client, HttpMethod.POST,
-                M4TestSupport.PERMISSIONS_PATH,
-                M4TestSupport.permissionBody("m4:probe:create", "M4 探针权限"), token);
+                M4TestSupport.MENU_PATH,
+                M4TestSupport.menuBody("M4 探针菜单", "m4-probe-menu", "audit:probe:create"), token);
         assertThat(duplicate.status()).isEqualTo(HttpStatus.OK);
         assertThat(M4TestSupport.codeOf(duplicate.body())).isEqualTo(409);
 
-        M4TestSupport.ResponseSnapshot permissionLogs = M4TestSupport.get(client,
-                M4TestSupport.OPERATION_LOGS_PATH + "?action=system:permission:create", token);
-        assertThat(M4TestSupport.codeOf(permissionLogs.body())).isZero();
-        assertThat(M4TestSupport.totalOf(permissionLogs.body())).isEqualTo(2L);
-        assertThat(permissionLogs.body()).contains("\"operatorType\":\"ADMIN\"");
-        assertThat(permissionLogs.body()).contains("\"operatorName\":\"" + M3TestSupport.ADMIN_DISPLAY_NAME + "\"");
-        assertThat(permissionLogs.body()).contains("\"action\":\"system:permission:create\"");
-        assertThat(permissionLogs.body()).contains("\"resourceType\":\"permission\"");
-        assertThat(permissionLogs.body()).contains("\"resultCode\":0");
-        assertThat(permissionLogs.body()).containsPattern("\"traceId\":\"[0-9a-f]{32}\"");
+        M4TestSupport.ResponseSnapshot menuLogs = M4TestSupport.get(client,
+                M4TestSupport.OPERATION_LOGS_PATH + "?action=system:menu:create", token);
+        assertThat(M4TestSupport.codeOf(menuLogs.body())).isZero();
+        assertThat(M4TestSupport.totalOf(menuLogs.body())).isEqualTo(2L);
+        assertThat(menuLogs.body()).contains("\"operatorType\":\"ADMIN\"");
+        assertThat(menuLogs.body()).contains("\"operatorName\":\"" + M3TestSupport.ADMIN_DISPLAY_NAME + "\"");
+        assertThat(menuLogs.body()).contains("\"action\":\"system:menu:create\"");
+        assertThat(menuLogs.body()).contains("\"resourceType\":\"menu\"");
+        assertThat(menuLogs.body()).contains("\"resultCode\":0");
+        assertThat(menuLogs.body()).containsPattern("\"traceId\":\"[0-9a-f]{32}\"");
 
         assertThat(M4TestSupport.totalOf(M4TestSupport.get(client, M4TestSupport.OPERATION_LOGS_PATH
-                + "?action=system:permission:create&resultCode=0", token).body()))
+                + "?action=system:menu:create&resultCode=0", token).body()))
                         .as("失败的操作不得记为成功").isEqualTo(1L);
 
         String configId = createLocalConfigWithUpload(token);
@@ -223,8 +226,8 @@ class AuditLogIntegrationTest {
     @DisplayName("操作日志按带时区的时间范围筛选且拒绝无时区时间")
     void shouldFilterOperationLogsByIsoTimeRange() {
         String token = loginToken();
-        assertThat(M4TestSupport.codeOf(M4TestSupport.exchange(client, HttpMethod.POST, M4TestSupport.PERMISSIONS_PATH,
-                M4TestSupport.permissionBody("m4:range:create", "M4 范围权限"), token).body())).isZero();
+        assertThat(M4TestSupport.codeOf(M4TestSupport.exchange(client, HttpMethod.POST, M4TestSupport.MENU_PATH,
+                M4TestSupport.menuBody("M4 范围菜单", "m4-range-menu", "audit:probe:range"), token).body())).isZero();
 
         String start = Instant.now().minusSeconds(3600).toString();
         String end = Instant.now().plusSeconds(3600).toString();
@@ -251,7 +254,7 @@ class AuditLogIntegrationTest {
     @Test
     @DisplayName("缺少审计查询权限返回 403")
     void shouldRejectAuditQueryWithoutAuditPermission() {
-        M4TestSupport.createLimitedAdmin(fixture, jdbcTemplate, M4TestSupport.LIMITED_ROLE_CODE,
+        M4TestSupport.createLimitedAdmin(fixture, M4TestSupport.LIMITED_ROLE_CODE,
                 M4TestSupport.LIMITED_USERNAME, M4TestSupport.PERM_RECORD_VIEW);
         String limitedToken = M4TestSupport.requireAccessToken(M4TestSupport.login(client,
                 M4TestSupport.LIMITED_USERNAME, M4TestSupport.LIMITED_PASSWORD));

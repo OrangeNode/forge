@@ -129,7 +129,7 @@ class AdminManagementIntegrationTest extends M5ManagementTestSupport {
         Long adminId = fixture().createAdmin("m5-disable-admin", PASSWORD, "enabled");
         Long roleId = fixture().createRole("m5_disable_role", "停用角色");
         fixture().grantRole(adminId, roleId);
-        fixture().linkRolePermission(roleId, probePermissionId());
+        fixture().linkRoleMenu(roleId, probeMenuId());
         String token = login("m5-disable-admin", PASSWORD);
         assertOk(exchange(HttpMethod.GET, "/api/admin/v1/m3/probe/permission", null, token));
 

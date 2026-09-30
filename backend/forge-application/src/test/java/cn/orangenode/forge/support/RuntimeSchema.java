@@ -1,6 +1,8 @@
 package cn.orangenode.forge.support;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -22,36 +24,121 @@ public final class RuntimeSchema {
     }
 
     /**
-     * 种入当前全部接口使用的权限代码。
+     * 种入当前全部接口使用的权限标识。
      *
-     * <p>与迁移脚本中的权限种子保持一致：超级管理员按“全部有效权限”解析，
-     * 因此内存库如果不种入这些权限行，超级管理员也会因为数据库里没有对应权限而被拒绝。</p>
+     * <p>权限标识挂在菜单节点上（{@code sys_menu.perm_codes}），角色授予菜单节点即获得该节点声明的权限。
+     * 内存库如果不把全部接口的权限标识挂到菜单上，超级管理员也会因为数据库里没有对应权限而被拒绝，
+     * 因此这里为全部标识建出若干菜单节点。</p>
+     *
+     * <p>标识按 {@code sys_menu.perm_codes} 的列宽分成多组：全部代码拼成一行会超过 512 个字符，
+     * 真实环境的做法也是每个页面节点只声明该页面的若干权限。第一组固定包含探针权限，
+     * 其路由标识为 {@link #PERMISSION_MENU_ROUTE_KEY}，供 M5 用例按标识定位。</p>
      *
      * @param jdbcTemplate 路由数据源上的 JDBC 模板
      */
     public static void seedPermissions(JdbcTemplate jdbcTemplate) {
-        for (String code : PERMISSION_CODES) {
-            jdbcTemplate.update("insert into sys_permission (code, name, deleted, created_at, updated_at) "
-                    + "values (?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", code, code);
+        List<List<String>> groups = permissionCodeGroups();
+        for (int index = 0; index < groups.size(); index++) {
+            jdbcTemplate.update("insert into sys_menu (parent_id, name, route_key, perm_codes, sort_no, deleted, "
+                    + "created_at, updated_at) values (0, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                    index == 0 ? "集成测试权限节点" : "集成测试权限节点 " + (index + 1),
+                    index == 0 ? PERMISSION_MENU_ROUTE_KEY : null, String.join(",", groups.get(index)), index);
         }
     }
 
     /**
+     * 按列宽把全部权限标识分成若干组。
+     *
+     * <p>按顺序累加长度，超过列宽就另起一组；单组内容保证不超过 {@code sys_menu.perm_codes} 的列宽。</p>
+     *
+     * @return 权限标识分组，每组可直接写入一个菜单节点
+     */
+    private static List<List<String>> permissionCodeGroups() {
+        List<List<String>> groups = new ArrayList<>();
+        List<String> current = new ArrayList<>();
+        int length = 0;
+        for (String code : permissionCodeOrder()) {
+            int added = current.isEmpty() ? code.length() : code.length() + 1;
+            if (length + added > PERMISSION_CODES_MAX_LENGTH) {
+                groups.add(List.copyOf(current));
+                current.clear();
+                length = 0;
+                added = code.length();
+            }
+            current.add(code);
+            length += added;
+        }
+        if (!current.isEmpty()) {
+            groups.add(List.copyOf(current));
+        }
+        return groups;
+    }
+
+    /**
+     * 权限标识的种子顺序：探针权限固定在首位，其余按字典序排列，保证每次运行的分组结果一致。
+     *
+     * @return 用于分组的权限标识顺序
+     */
+    private static List<String> permissionCodeOrder() {
+        List<String> ordered = new ArrayList<>();
+        ordered.add(PROBE_PERMISSION_CODE);
+        PERMISSION_CODES.stream().filter(code -> !PROBE_PERMISSION_CODE.equals(code)).sorted().forEach(ordered::add);
+        return ordered;
+    }
+
+    /**
+     * 集成测试权限节点的路由标识，便于用例按标识定位声明探针权限的节点。
+     */
+    public static final String PERMISSION_MENU_ROUTE_KEY = "test-permissions";
+
+    /**
+     * 探针权限代码，必须落在 {@link #PERMISSION_MENU_ROUTE_KEY} 指向的节点上：
+     * M5 的权限缓存用例通过授予该节点让普通管理员获得探针权限。
+     */
+    private static final String PROBE_PERMISSION_CODE = "system:probe:view";
+
+    /**
+     * 权限标识列的长度上限，与 {@code sys_menu.perm_codes} 的列宽一致。
+     */
+    private static final int PERMISSION_CODES_MAX_LENGTH = 512;
+
+    /**
+     * 权限代码到中文展示名称的映射，键集合即全部接口使用的权限标识。
+     */
+    private static final Map<String, String> PERMISSION_NAMES = Map.ofEntries(
+            Map.entry("system:admin:view", "查询管理员"),
+            Map.entry("system:admin:create", "新增管理员"),
+            Map.entry("system:admin:update", "修改管理员"),
+            Map.entry("system:admin:status", "启停管理员"),
+            Map.entry("system:admin:password", "重置管理员密码"),
+            Map.entry("system:admin:role", "分配管理员角色"),
+            Map.entry("system:role:view", "查询角色"),
+            Map.entry("system:role:create", "新增角色"),
+            Map.entry("system:role:update", "修改角色"),
+            Map.entry("system:role:delete", "删除角色"),
+            Map.entry("system:role:grant", "角色授权"),
+            Map.entry("system:menu:view", "查询菜单"),
+            Map.entry("system:menu:create", "新增菜单"),
+            Map.entry("system:menu:update", "修改菜单"),
+            Map.entry("system:menu:delete", "删除菜单"),
+            Map.entry("file:record:view", "查询文件"),
+            Map.entry("file:record:upload", "上传文件"),
+            Map.entry("file:record:download", "下载文件"),
+            Map.entry("file:record:delete", "删除文件"),
+            Map.entry("file:storage:view", "查询存储配置"),
+            Map.entry("file:storage:create", "新增存储配置"),
+            Map.entry("file:storage:update", "修改存储配置"),
+            Map.entry("file:storage:delete", "删除存储配置"),
+            Map.entry("file:storage:test", "检测存储连接"),
+            Map.entry("file:storage:default", "切换默认存储"),
+            Map.entry("audit:login:view", "查询登录日志"),
+            Map.entry("audit:operation:view", "查询操作日志"),
+            Map.entry("system:probe:view", "集成测试探针权限"));
+
+    /**
      * 当前全部接口使用的权限代码，与迁移脚本的种子一致，另含认证探针使用的测试权限。
      */
-    private static final List<String> PERMISSION_CODES = List.of(
-            "system:admin:view", "system:admin:create", "system:admin:update", "system:admin:status",
-            "system:admin:password", "system:admin:role",
-            "system:role:view", "system:role:create", "system:role:update", "system:role:delete",
-            "system:role:grant",
-            "system:menu:view", "system:menu:create", "system:menu:update", "system:menu:delete",
-            "system:permission:view", "system:permission:create", "system:permission:update",
-            "system:permission:delete",
-            "file:record:view", "file:record:upload", "file:record:download", "file:record:delete",
-            "file:storage:view", "file:storage:create", "file:storage:update", "file:storage:delete",
-            "file:storage:test", "file:storage:default",
-            "audit:login:view", "audit:operation:view",
-            "system:probe:view");
+    private static final List<String> PERMISSION_CODES = List.copyOf(PERMISSION_NAMES.keySet());
 
     /**
      * 重建系统管理与审计日志表。
@@ -64,12 +151,15 @@ public final class RuntimeSchema {
     }
 
     /**
-     * 重建管理员、角色、菜单、权限及关系表。
+     * 重建管理员、角色、菜单及关系表。
+     *
+     * <p>与 M5 改造后的结构一致：角色授权只有 {@code sys_role_menu} 一张关系表，
+     * 权限代码与中文资料均保存在 {@code sys_menu} 上，不存在独立权限表。</p>
      *
      * @param jdbcTemplate 路由数据源上的 JDBC 模板
      */
     public static void recreateSystemTables(JdbcTemplate jdbcTemplate) {
-        for (String table : List.of("sys_role_permission", "sys_role_menu", "sys_admin_role", "sys_permission",
+        for (String table : List.of("sys_role_menu", "sys_admin_role",
                 "sys_menu", "sys_role", "sys_admin")) {
             jdbcTemplate.execute("drop table if exists " + table);
         }
@@ -110,7 +200,11 @@ public final class RuntimeSchema {
                   id bigint not null auto_increment,
                   parent_id bigint not null default 0,
                   name varchar(64) not null,
+                  menu_type varchar(16) not null default 'page',
+                  icon varchar(32) null,
                   route_key varchar(64) null,
+                  perm_codes varchar(512) null,
+                  permissions_json varchar(8000) null,
                   sort_no int not null default 0,
                   deleted tinyint not null default 0,
                   created_at datetime(3) not null,
@@ -119,21 +213,6 @@ public final class RuntimeSchema {
                   updated_by bigint null,
                   primary key (id),
                   constraint uk_sys_menu_route_key unique (route_key)
-                )
-                """);
-        jdbcTemplate.execute("""
-                create table sys_permission (
-                  id bigint not null auto_increment,
-                  code varchar(128) not null,
-                  name varchar(64) not null,
-                  description varchar(255) null,
-                  deleted tinyint not null default 0,
-                  created_at datetime(3) not null,
-                  updated_at datetime(3) not null,
-                  created_by bigint null,
-                  updated_by bigint null,
-                  primary key (id),
-                  constraint uk_sys_permission_code unique (code)
                 )
                 """);
         jdbcTemplate.execute("""
@@ -154,20 +233,9 @@ public final class RuntimeSchema {
                   created_at datetime(3) not null,
                   created_by bigint null,
                   primary key (role_id, menu_id),
+                  constraint uk_sys_role_menu_menu_role unique (menu_id, role_id),
                   constraint fk_sys_role_menu_role foreign key (role_id) references sys_role (id),
                   constraint fk_sys_role_menu_menu foreign key (menu_id) references sys_menu (id)
-                )
-                """);
-        jdbcTemplate.execute("""
-                create table sys_role_permission (
-                  role_id bigint not null,
-                  permission_id bigint not null,
-                  created_at datetime(3) not null,
-                  created_by bigint null,
-                  primary key (role_id, permission_id),
-                  constraint fk_sys_role_permission_role foreign key (role_id) references sys_role (id),
-                  constraint fk_sys_role_permission_permission foreign key (permission_id)
-                    references sys_permission (id)
                 )
                 """);
     }

@@ -1,15 +1,17 @@
 package cn.orangenode.forge.system.service.impl;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import cn.orangenode.forge.framework.config.ForgeSecurityProperties;
 import cn.orangenode.forge.framework.redis.ForgeRedisTemplate;
-import cn.orangenode.forge.system.mapper.SysPermissionMapper;
+import cn.orangenode.forge.system.mapper.SysMenuMapper;
 import cn.orangenode.forge.system.mapper.SysRoleMapper;
 import cn.orangenode.forge.system.service.AdminAuthorityService;
+import cn.orangenode.forge.system.support.MenuPermissionCodes;
 
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.core.JacksonException;
@@ -19,9 +21,12 @@ import tools.jackson.databind.json.JsonMapper;
  * 管理员权限与角色解析实现。
  *
  * <p>权限解析结果按管理员缓存：缓存键由全局权限版本与管理员 ID 组成，值是该管理员的权限代码列表，
- * 存活时间来自 {@code forge.security.permission-cache-ttl-seconds}。任何角色、权限、菜单可见性
+ * 存活时间来自 {@code forge.security.permission-cache-ttl-seconds}。任何角色、菜单权限标识
  * 或管理员角色关系变更后，写入方递增全局权限版本，使全部既有缓存立即失效，
  * 不需要通配扫描删除，也不会出现“改了权限还要等缓存过期”。</p>
+ *
+ * <p>权限来源是菜单节点：角色授予的每个菜单节点在 {@code sys_menu.perm_codes} 上声明自己的接口权限，
+ * 解析即“并集去重”，因此不再需要角色与权限的关系表。超级管理员角色按配置识别，拥有全部有效权限。</p>
  *
  * <p>缓存读写失败的处理分两类：Redis 不可用（连接失败）异常向上抛出，由统一错误出口返回
  * HTTP 200 + body.code=503，认证与授权不降级放行；缓存内容损坏只按未命中重新解析数据库，
@@ -50,9 +55,9 @@ public class AdminAuthorityServiceImpl implements AdminAuthorityService {
     private final SysRoleMapper roleMapper;
 
     /**
-     * 权限数据访问。
+     * 菜单数据访问：权限标识从菜单节点声明解析。
      */
-    private final SysPermissionMapper permissionMapper;
+    private final SysMenuMapper menuMapper;
 
     /**
      * 认证与权限配置，提供超级管理员角色代码与权限缓存存活时间。
@@ -73,15 +78,15 @@ public class AdminAuthorityServiceImpl implements AdminAuthorityService {
      * 构造权限解析实现。
      *
      * @param roleMapper         角色数据访问
-     * @param permissionMapper   权限数据访问
+     * @param menuMapper         菜单数据访问
      * @param securityProperties 认证与权限配置
      * @param redis              Redis 操作入口
      * @param jsonMapper         JSON 映射器
      */
-    public AdminAuthorityServiceImpl(SysRoleMapper roleMapper, SysPermissionMapper permissionMapper,
+    public AdminAuthorityServiceImpl(SysRoleMapper roleMapper, SysMenuMapper menuMapper,
             ForgeSecurityProperties securityProperties, ForgeRedisTemplate redis, JsonMapper jsonMapper) {
         this.roleMapper = roleMapper;
-        this.permissionMapper = permissionMapper;
+        this.menuMapper = menuMapper;
         this.securityProperties = securityProperties;
         this.redis = redis;
         this.jsonMapper = jsonMapper;
@@ -109,11 +114,33 @@ public class AdminAuthorityServiceImpl implements AdminAuthorityService {
             }
         }
         List<String> codes = isSuperAdmin(adminId)
-                ? permissionMapper.selectAllPermissionCodes()
-                : permissionMapper.selectPermissionCodesByAdminId(adminId);
+                ? collectPermissionCodes(menuMapper.selectAllPermissionCodeTexts())
+                : collectPermissionCodes(menuMapper.selectPermissionCodeTextsByAdminId(adminId));
         List<String> result = List.copyOf(codes);
         writeCachedCodes(cacheKey, result);
         return result;
+    }
+
+    /**
+     * 合并菜单节点声明的权限标识列内容为去重后的权限代码列表。
+     *
+     * <p>一个节点可以声明多个权限，多个节点之间可能有重叠，因此先逐段解析再整体去重；
+     * 排序固定按代码字典序，便于比较缓存内容与接口响应。</p>
+     *
+     * @param codeTexts 权限标识列内容列表
+     * @return 去重并按代码排序的权限代码列表
+     */
+    private List<String> collectPermissionCodes(List<String> codeTexts) {
+        List<String> codes = new ArrayList<>();
+        for (String text : codeTexts) {
+            for (String code : MenuPermissionCodes.parse(text)) {
+                if (!codes.contains(code)) {
+                    codes.add(code);
+                }
+            }
+        }
+        codes.sort(String::compareTo);
+        return codes;
     }
 
     /**

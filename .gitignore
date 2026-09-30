@@ -33,6 +33,8 @@ dist/
 coverage/
 test-results/
 playwright-report/
+# 用户提供的风格提案，只作设计基准，不进入版本管理
+frontend/admin/design-showcase*.html
 
 # 接口类型生成的中间产物：由 pnpm run generate:api-types 重新生成，只保留生成结果
 frontend/packages/api-client/src/generated/*.openapi.json

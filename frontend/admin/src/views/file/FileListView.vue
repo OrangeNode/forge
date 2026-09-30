@@ -24,6 +24,8 @@ import {
   type FileRecord,
   type StorageConfig,
 } from '@/api/files'
+import AppIcon from '@/components/AppIcon.vue'
+import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
 import { downloadFile } from '@/utils/download'
@@ -515,33 +517,55 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="file-view">
-    <PageHeader
-      title="文件列表"
-      description="上传、下载与删除文件记录；上传前按默认存储方案校验扩展名与大小"
-    >
-      <template #actions>
-        <NUpload
-          v-if="canUpload"
-          :accept="acceptAttribute || undefined"
-          :custom-request="handleUpload"
-          :disabled="uploading"
-          :show-file-list="false"
-        >
+  <PageBody>
+    <NCard :bordered="false">
+      <PageHeader
+        title="文件资源"
+        description="上传、查询与管理存储文件"
+        icon="file"
+      >
+        <template #actions>
           <NButton
+            class="action-button"
+            secondary
             type="primary"
-            :loading="uploading"
-            :disabled="uploading"
+            :loading="loading"
+            @click="loadRecords"
           >
-            {{ uploading ? '上传中…' : '上传文件' }}
+            <template #icon>
+              <AppIcon
+                name="refresh"
+                :size="16"
+              />
+            </template>刷新列表
           </NButton>
-        </NUpload>
-      </template>
-    </PageHeader>
-
-    <NCard :bordered="true">
+          <NUpload
+            v-if="canUpload"
+            :accept="acceptAttribute || undefined"
+            :custom-request="handleUpload"
+            :disabled="uploading"
+            :show-file-list="false"
+          >
+            <NButton
+              class="action-button"
+              type="primary"
+              :loading="uploading"
+              :disabled="uploading"
+            >
+              <template #icon>
+                <AppIcon
+                  name="plus"
+                  :size="16"
+                />
+              </template>{{ uploading ? '上传中…' : '上传文件' }}
+            </NButton>
+          </NUpload>
+        </template>
+      </PageHeader>
       <NForm
         inline
+        label-placement="left"
+        label-align="left"
         :show-feedback="false"
         class="filters"
         @submit.prevent
@@ -606,11 +630,11 @@ onMounted(() => {
         </NDataTable>
       </div>
     </NCard>
-  </div>
+  </PageBody>
 </template>
 
 <style scoped>
-.file-view {
+.page-body {
   --of-text: #17212b;
   --of-muted: #8290a2;
   --of-line: #eef1f6;

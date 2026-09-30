@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,10 +33,11 @@ import cn.orangenode.forge.support.RuntimeSchema;
 /**
  * M5 系统管理接口端到端验证的公共装配。
  *
- * <p>管理员、角色、菜单与权限的管理接口都要求认证并逐项校验权限代码，因此每个用例都先重建
- * 表结构、清空 Redis 替身，再准备一个拥有全部有效权限的超级管理员：它按
- * {@code forge.security.super-role-code} 识别，不需要逐条授予权限，用它取得的令牌调用管理接口。
- * 表结构与关系写入复用 M3 已交付的 {@link M3FixtureService}，不在 M5 重写一套夹具。</p>
+ * <p>管理员、角色与菜单的管理接口都要求认证并逐项校验权限代码；权限标识由菜单节点声明，
+ * 没有独立的权限管理接口。因此每个用例都先重建表结构、清空 Redis 替身，再准备一个拥有全部有效权限的
+ * 超级管理员：它按 {@code forge.security.super-role-code} 识别，不需要逐条授予权限，
+ * 用它取得的令牌调用管理接口。表结构与关系写入复用 M3 已交付的 {@link M3FixtureService}，
+ * 不在 M5 重写一套夹具。</p>
  *
  * <p>本类不声明用例，只提供装配与 HTTP 断言辅助；子用例类继承同一套装配，
  * 每个用例执行前重建表结构，因此多个用例类可以共享一个内存库与上下文。</p>
@@ -65,11 +67,6 @@ abstract class M5ManagementTestSupport {
      * 菜单管理接口根路径。
      */
     protected static final String MENU_PATH = "/api/admin/v1/system/menus";
-
-    /**
-     * 权限管理接口根路径。
-     */
-    protected static final String PERMISSION_PATH = "/api/admin/v1/system/permissions";
 
     /**
      * 管理员列表所需的查看权限，用于验证“已认证但缺权限”。
@@ -130,7 +127,7 @@ abstract class M5ManagementTestSupport {
     private JdbcTemplate jdbcTemplate;
 
     /**
-     * M3 已交付的数据夹具，M5 直接复用它的角色、权限、菜单与关系写入。
+     * M3 已交付的数据夹具，M5 直接复用它的管理员、角色、菜单与关系写入。
      */
     @Autowired
     private M3FixtureService fixture;
@@ -157,9 +154,12 @@ abstract class M5ManagementTestSupport {
     private Long superAdminId;
 
     /**
-     * 探针权限 ID，供权限缓存用例复现“先 403 再 200”。
+     * 承载探针权限的菜单节点 ID，供权限缓存用例复现“先 403 再 200”。
+     *
+     * <p>权限标识由菜单节点声明，因此授予探针权限就是授予 {@link RuntimeSchema#seedPermissions} 建立的
+     * 集成测试权限节点。</p>
      */
-    private Long probePermissionId;
+    private Long probeMenuId;
 
     /**
      * 每个用例前重建表结构、清空 Redis 替身并准备超级管理员。
@@ -175,7 +175,8 @@ abstract class M5ManagementTestSupport {
         redisDouble.clear();
 
         RuntimeSchema.seedPermissions(jdbcTemplate);
-        probePermissionId = queryLong("select id from sys_permission where code = ?", M3TestSupport.PROBE_PERMISSION);
+        probeMenuId = queryLong("select id from sys_menu where route_key = ?",
+                RuntimeSchema.PERMISSION_MENU_ROUTE_KEY);
         Long superRoleId = fixture.createRole(securityProperties.getSuperRoleCode(), "超级管理员");
         superAdminId = fixture.createAdmin(SUPER_ADMIN_USERNAME, PASSWORD, "enabled");
         fixture.grantRole(superAdminId, superRoleId);
@@ -222,12 +223,47 @@ abstract class M5ManagementTestSupport {
     }
 
     /**
-     * 取得探针权限 ID。
+     * 取得承载探针权限的菜单节点 ID。
      *
-     * @return 探针权限 ID
+     * @return 集成测试权限节点 ID
      */
-    protected Long probePermissionId() {
-        return probePermissionId;
+    protected Long probeMenuId() {
+        return probeMenuId;
+    }
+
+    /**
+     * 读取菜单节点当前声明的权限标识列内容。
+     *
+     * <p>用例需要在该节点原有声明的基础上增删某个代码时，先从数据库读出原文，
+     * 避免在测试里再抄一份权限清单。</p>
+     *
+     * @param menuId 菜单 ID
+     * @return 逗号分隔的权限标识列内容，节点未声明权限时返回 {@code null}
+     */
+    protected String menuPermissionCodeText(Long menuId) {
+        List<String> values = jdbcTemplate.queryForList("select perm_codes from sys_menu where id = ?",
+                String.class, menuId);
+        return values.isEmpty() ? null : values.get(0);
+    }
+
+    /**
+     * 按菜单行的现有名称、父菜单、路由标识与顺序构造修改请求体，只替换声明的权限标识。
+     *
+     * <p>修改接口要求提交完整字段，用例只关心权限标识的变化，因此其余字段从库里读回，
+     * 不在用例中硬编码夹具节点的名称与路由标识。</p>
+     *
+     * @param menuId    菜单 ID
+     * @param permCodes 该节点最终声明的权限标识，允许为空表示不再声明权限
+     * @return JSON 请求体
+     */
+    protected String menuUpdateBody(Long menuId, List<String> permCodes) {
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+                "select parent_id, name, route_key, sort_no from sys_menu where id = ?", menuId);
+        Object routeKey = row.get("route_key");
+        String codes = String.join(",", permCodes.stream().map(code -> "\"" + code + "\"").toList());
+        return "{\"parentId\":\"" + row.get("parent_id") + "\",\"name\":\"" + row.get("name")
+                + "\",\"routeKey\":" + (routeKey == null ? "null" : "\"" + routeKey + "\"")
+                + ",\"permCodes\":[" + codes + "],\"sortNo\":" + row.get("sort_no") + "}";
     }
 
     /**
@@ -249,13 +285,15 @@ abstract class M5ManagementTestSupport {
     }
 
     /**
-     * 记录一条角色与权限关系，直接改库用于构造初始授权组合。
+     * 记录一条角色与菜单关系，直接改库用于构造初始授权组合。
      *
-     * @param roleId       角色 ID
-     * @param permissionId 权限 ID
+     * <p>角色授予菜单节点即同时获得该节点声明的权限标识，因此不再有独立的权限关系。</p>
+     *
+     * @param roleId 角色 ID
+     * @param menuId 菜单 ID
      */
-    protected void linkRolePermission(Long roleId, Long permissionId) {
-        fixture.linkRolePermission(roleId, permissionId);
+    protected void linkRoleMenu(Long roleId, Long menuId) {
+        fixture.linkRoleMenu(roleId, menuId);
     }
 
     /**

@@ -22,7 +22,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
@@ -31,9 +30,9 @@ import cn.orangenode.forge.m3.M3FixtureService;
 /**
  * M4 文件与审计端到端验证共用的测试约定与请求封装。
  *
- * <p>账号口令、权限码、接口路径与 JSON 拼装集中在此处：权限种子由生产夹具写入账号相关表，
- * 再通过超级管理员角色让测试管理员获得全部有效权限，因此用例走的是真实认证与授权路径，
- * 不是绕过安全层的直连调用。</p>
+ * <p>账号口令、权限码、接口路径与 JSON 拼装集中在此处：权限标识由菜单节点声明，用例先用生产夹具
+ * 建出承载这些标识的节点（超级管理员因此获得全部有效权限），越权用例再单独授予只含指定标识的节点，
+ * 因此用例走的是真实认证与授权路径，不是绕过安全层的直连调用。</p>
  *
  * <p>普通 JSON 请求使用 {@link RestTestClient}；multipart 上传由 JDK 的 {@link HttpClient}
  * 手工拼装请求体，因为测试客户端不提供 multipart 支持。响应统一按 UTF-8 解码，
@@ -97,9 +96,9 @@ public final class M4TestSupport {
     public static final String OPERATION_LOGS_PATH = "/api/admin/v1/audit/operation-logs";
 
     /**
-     * 权限管理接口路径。
+     * 菜单管理接口路径，权限标识在这里配置，也是审计用例产生写操作日志的入口。
      */
-    public static final String PERMISSIONS_PATH = "/api/admin/v1/system/permissions";
+    public static final String MENU_PATH = "/api/admin/v1/system/menus";
 
     /**
      * 查询存储配置权限码。
@@ -152,9 +151,11 @@ public final class M4TestSupport {
     public static final String PERM_RECORD_DELETE = "file:record:delete";
 
     /**
-     * 新增权限的权限码，用于验证写接口的操作审计。
+     * 新增菜单的权限码，用于验证写接口的操作审计。
+     *
+     * <p>权限标识由菜单节点声明，因此审计用例的写操作是“新增菜单”而不是已经没有入口的“新增权限”。</p>
      */
-    public static final String PERM_PERMISSION_CREATE = "system:permission:create";
+    public static final String PERM_MENU_CREATE = "system:menu:create";
 
     /**
      * 查询登录日志权限码。
@@ -206,25 +207,28 @@ public final class M4TestSupport {
     /**
      * 返回审计用例额外需要的权限码。
      *
-     * @return 审计查询与权限新增权限码列表
+     * @return 审计查询与新增菜单权限码列表
      */
     public static List<String> auditPermissionCodes() {
-        return List.of(PERM_AUDIT_LOGIN_VIEW, PERM_AUDIT_OPERATION_VIEW, PERM_PERMISSION_CREATE);
+        return List.of(PERM_AUDIT_LOGIN_VIEW, PERM_AUDIT_OPERATION_VIEW, PERM_MENU_CREATE);
     }
 
     /**
      * 写入权限种子数据。
      *
-     * <p>超级管理员的权限集合由全部有效权限行推导，因此用例必须先写入权限行，
-     * 否则即使是超级管理员也没有任何 {@code @PreAuthorize} 可用的权限码。</p>
+     * <p>权限标识由菜单节点声明（{@code sys_menu.perm_codes}），超级管理员的权限集合由全部有效菜单
+     * 声明的标识推导，因此用例必须先建出承载这些标识的菜单节点，否则即使是超级管理员也没有任何
+     * {@code @PreAuthorize} 可用的权限码。</p>
+     *
+     * <p>这里只建节点、不授予任何角色：超级管理员按配置识别，不需要逐条建立角色与菜单关系。
+     * 节点是目录（{@code route_key} 为 {@code null}），不占用路由标识的唯一键，也不会出现在页面路由里；
+     * 名称保持固定短文本，权限代码不写进名称，避免超过菜单名称的列宽。</p>
      *
      * @param fixture 数据夹具
-     * @param codes   需要写入的权限代码
+     * @param codes   需要写入的权限代码，全部挂到同一个节点上
      */
     public static void seedPermissions(M3FixtureService fixture, List<String> codes) {
-        for (String code : codes) {
-            fixture.createPermission(code, "M4 用例权限 " + code);
-        }
+        fixture.createMenuWithPermissions(0L, "M4 用例权限节点", null, String.join(",", codes), 0);
     }
 
     /**
@@ -244,22 +248,22 @@ public final class M4TestSupport {
     /**
      * 创建只拥有指定权限的管理员，用于验证越权边界。
      *
+     * <p>要授予的权限码必须由被授予的菜单节点声明，因此这里为每次调用单独建一个节点，
+     * 节点恰好声明调用方要求的权限码，并只把该节点授予新角色：一个节点可以声明多个权限码，
+     * 直接授予种子节点会让该管理员拿到超出预期的权限。</p>
+     *
      * @param fixture         数据夹具
-     * @param jdbcTemplate    用于按权限码反查权限 ID
      * @param roleCode        角色代码
      * @param username        用户名
-     * @param permissionCodes 需要授予的权限代码，必须已经作为权限行存在
+     * @param permissionCodes 需要授予的权限代码
      * @return 管理员 ID
      */
-    public static Long createLimitedAdmin(M3FixtureService fixture, JdbcTemplate jdbcTemplate, String roleCode,
-            String username, String... permissionCodes) {
+    public static Long createLimitedAdmin(M3FixtureService fixture, String roleCode, String username,
+            String... permissionCodes) {
         Long roleId = fixture.createRole(roleCode, "部分权限角色");
-        for (String code : permissionCodes) {
-            Long permissionId = jdbcTemplate.queryForObject("select id from sys_permission where code = ?",
-                    Long.class, code);
-            assertThat(permissionId).as("权限 %s 必须已写入种子数据", code).isNotNull();
-            fixture.linkRolePermission(roleId, permissionId);
-        }
+        Long menuId = fixture.createMenuWithPermissions(0L, "M4 部分权限节点", null,
+                String.join(",", permissionCodes), 0);
+        fixture.linkRoleMenu(roleId, menuId);
         Long adminId = fixture.createAdmin(username, LIMITED_PASSWORD, "enabled");
         fixture.grantRole(adminId, roleId);
         return adminId;
@@ -432,14 +436,20 @@ public final class M4TestSupport {
     }
 
     /**
-     * 构造权限新增请求体。
+     * 构造菜单新增请求体，权限标识直接写在菜单节点上。
      *
-     * @param code 权限代码
-     * @param name 权限名称
+     * @param name      菜单名称
+     * @param routeKey  前端本地路由标识，允许为 {@code null} 表示目录节点
+     * @param permCodes 该节点声明的权限代码，可以为空
      * @return JSON 请求体
      */
-    public static String permissionBody(String code, String name) {
-        return "{\"code\":" + jsonText(code) + ",\"name\":" + jsonText(name) + ",\"description\":null}";
+    public static String menuBody(String name, String routeKey, String... permCodes) {
+        StringBuilder codes = new StringBuilder("[");
+        for (int index = 0; index < permCodes.length; index++) {
+            codes.append(index == 0 ? "" : ",").append(jsonText(permCodes[index]));
+        }
+        return "{\"parentId\":\"0\",\"name\":" + jsonText(name) + ",\"routeKey\":" + nullableText(routeKey)
+                + ",\"permCodes\":" + codes.append("]") + ",\"sortNo\":1}";
     }
 
     /**

@@ -5,6 +5,7 @@ import { onMounted, ref } from 'vue'
 import { fetchLoginLogs, fetchOperationLogs, type LoginLog, type OperationLog } from '@/api/audit'
 import { fetchFiles, fetchStorageConfigs } from '@/api/files'
 import { fetchAdmins } from '@/api/system'
+import PageBody from '@/components/PageBody.vue'
 import { useSessionStore } from '@/stores/session'
 
 /**
@@ -90,7 +91,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="dashboard">
+  <PageBody>
     <section class="dashboard__hero">
       <div>
         <p class="dashboard__eyebrow">
@@ -114,15 +115,15 @@ onMounted(() => {
       <section class="dashboard__stats">
         <NCard
           class="stat"
-          :bordered="true"
+          :bordered="false"
         >
-          <small>管理员账号</small>
+          <small>后台用户</small>
           <strong>{{ adminTotal ?? '—' }}</strong>
           <em>可管理账号总数</em>
         </NCard>
         <NCard
           class="stat"
-          :bordered="true"
+          :bordered="false"
         >
           <small>文件记录</small>
           <strong>{{ fileTotal ?? '—' }}</strong>
@@ -130,7 +131,7 @@ onMounted(() => {
         </NCard>
         <NCard
           class="stat"
-          :bordered="true"
+          :bordered="false"
         >
           <small>存储方案</small>
           <strong>{{ storageTotal ?? '—' }}</strong>
@@ -138,7 +139,7 @@ onMounted(() => {
         </NCard>
         <NCard
           class="stat"
-          :bordered="true"
+          :bordered="false"
         >
           <small>登录失败</small>
           <strong>{{ loginFailureTotal ?? '—' }}</strong>
@@ -208,7 +209,7 @@ onMounted(() => {
         </NCard>
       </section>
     </NSpin>
-  </div>
+  </PageBody>
 </template>
 
 <style scoped>
@@ -222,7 +223,7 @@ onMounted(() => {
 
 .dashboard__eyebrow {
   margin: 0 0 6px;
-  color: #f26722;
+  color: #2563eb;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -323,7 +324,7 @@ onMounted(() => {
   font-size: 11px;
 }
 
-.feed__empty {
+.feed li.feed__empty {
   display: block;
   padding: 14px 0;
   color: #9aa5b1;

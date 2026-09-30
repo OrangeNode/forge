@@ -12,7 +12,6 @@ import LoginLogView from '@/views/audit/LoginLogView.vue'
 import OperationLogView from '@/views/audit/OperationLogView.vue'
 import AdminListView from '@/views/system/AdminListView.vue'
 import MenuListView from '@/views/system/MenuListView.vue'
-import PermissionListView from '@/views/system/PermissionListView.vue'
 import RoleListView from '@/views/system/RoleListView.vue'
 
 /**
@@ -65,7 +64,7 @@ const routes: RouteRecordRaw[] = [
         path: 'system/admins',
         name: 'system-admin',
         component: AdminListView,
-        meta: { title: '管理员账号', description: '账号的查询、新增、启停与角色分配' },
+        meta: { title: '用户管理', description: '后台用户的查询、新建、启停与角色分配' },
       },
       {
         path: 'system/roles',
@@ -77,13 +76,7 @@ const routes: RouteRecordRaw[] = [
         path: 'system/menus',
         name: 'system-menu',
         component: MenuListView,
-        meta: { title: '菜单管理', description: '菜单树与前端路由白名单标识' },
-      },
-      {
-        path: 'system/permissions',
-        name: 'system-permission',
-        component: PermissionListView,
-        meta: { title: '权限管理', description: '接口权限代码的维护' },
+        meta: { title: '菜单与权限', description: '菜单树与本节点声明的接口权限标识' },
       },
       {
         path: 'files',

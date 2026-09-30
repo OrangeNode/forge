@@ -19,11 +19,9 @@ export type RoleCreatePayload = adminComponents['schemas']['RoleCreateRequest']
 export type RoleUpdatePayload = adminComponents['schemas']['RoleUpdateRequest']
 export type RoleGrantPayload = adminComponents['schemas']['RoleGrantRequest']
 export type MenuNode = adminComponents['schemas']['MenuNodeResponse']
+export type MenuPermission = adminComponents['schemas']['MenuPermissionResponse']
 export type MenuCreatePayload = adminComponents['schemas']['MenuCreateRequest']
 export type MenuUpdatePayload = adminComponents['schemas']['MenuUpdateRequest']
-export type PermissionItem = adminComponents['schemas']['PermissionResponse']
-export type PermissionCreatePayload = adminComponents['schemas']['PermissionCreateRequest']
-export type PermissionUpdatePayload = adminComponents['schemas']['PermissionUpdateRequest']
 
 /**
  * 系统管理接口路径前缀。
@@ -126,7 +124,7 @@ export async function fetchRoleOptions(): Promise<RoleOption[]> {
 }
 
 /**
- * 查询角色详情，含已授予的权限与菜单。
+ * 查询角色详情，含已授予的菜单与由此推导出的权限标识。
  *
  * @param id 角色 ID
  * @returns 角色详情
@@ -166,7 +164,9 @@ export async function deleteRole(id: string): Promise<void> {
 }
 
 /**
- * 全量替换角色的权限与菜单授权。
+ * 全量替换角色的授权。
+ *
+ * 授权以菜单为单位：接口权限由被授予菜单节点上声明的权限标识推导，因此这里只提交菜单 ID。
  *
  * @param id 角色 ID
  * @param payload 授权入参
@@ -176,7 +176,7 @@ export async function grantRole(id: string, payload: RoleGrantPayload): Promise<
 }
 
 /**
- * 查询菜单树。
+ * 查询菜单树，节点含该节点声明的接口权限。
  *
  * @returns 菜单树
  */
@@ -186,7 +186,7 @@ export async function fetchMenuTree(): Promise<MenuNode[]> {
 }
 
 /**
- * 创建菜单。
+ * 创建菜单，同时声明该节点对应的接口权限标识。
  *
  * @param payload 创建入参
  * @returns 创建后的菜单节点
@@ -196,7 +196,7 @@ export async function createMenu(payload: MenuCreatePayload): Promise<MenuNode> 
 }
 
 /**
- * 修改菜单。
+ * 修改菜单，提交的权限标识即该节点最终声明。
  *
  * @param id 菜单 ID
  * @param payload 修改入参
@@ -213,46 +213,4 @@ export async function updateMenu(id: string, payload: MenuUpdatePayload): Promis
  */
 export async function deleteMenu(id: string): Promise<void> {
   await request.delete<null>(`${SYSTEM_PATH}/menus/${id}`)
-}
-
-/**
- * 分页查询权限。
- *
- * @param query 页码、条数与筛选条件
- * @returns 权限分页结果
- */
-export async function fetchPermissions(query: PageQuery & { code?: string; name?: string }): Promise<
-  PageResponse<PermissionItem>
-> {
-  return request.get<PageResponse<PermissionItem>>(`${SYSTEM_PATH}/permissions`, { query })
-}
-
-/**
- * 创建权限。
- *
- * @param payload 创建入参
- * @returns 创建后的权限
- */
-export async function createPermission(payload: PermissionCreatePayload): Promise<PermissionItem> {
-  return request.post<PermissionItem>(`${SYSTEM_PATH}/permissions`, { body: payload })
-}
-
-/**
- * 修改权限说明。
- *
- * @param id 权限 ID
- * @param payload 修改入参
- * @returns 修改后的权限
- */
-export async function updatePermission(id: string, payload: PermissionUpdatePayload): Promise<PermissionItem> {
-  return request.put<PermissionItem>(`${SYSTEM_PATH}/permissions/${id}`, { body: payload })
-}
-
-/**
- * 删除权限。
- *
- * @param id 权限 ID
- */
-export async function deletePermission(id: string): Promise<void> {
-  await request.delete<null>(`${SYSTEM_PATH}/permissions/${id}`)
 }

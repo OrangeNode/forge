@@ -100,17 +100,20 @@ class RbacIntegrationTest {
     private Long roleId;
 
     /**
-     * 探针权限 ID。
+     * 声明探针权限的菜单节点 ID。
      */
-    private Long probePermissionId;
+    private Long probeMenuId;
 
     /**
-     * 另一个权限 ID，用于验证权限按代码匹配。
+     * 声明另一个权限的菜单节点 ID，用于验证权限按代码匹配。
      */
-    private Long otherPermissionId;
+    private Long otherMenuId;
 
     /**
-     * 每个用例前重建表结构并写入基础数据，默认不授予探针权限。
+     * 每个用例前重建表结构并写入基础数据，默认不授予任何菜单节点。
+     *
+     * <p>权限标识由菜单节点声明，因此这里准备两个节点：一个声明探针权限、一个声明其他权限，
+     * 是否授予角色由各用例自己决定。</p>
      */
     @BeforeEach
     void prepareData() {
@@ -119,8 +122,10 @@ class RbacIntegrationTest {
         redisDouble = new RedisTestDouble(stringRedisTemplate);
         redisDouble.clear();
         roleId = fixture.createRole(M3TestSupport.ROLE_CODE, "运维角色");
-        probePermissionId = fixture.createPermission(M3TestSupport.PROBE_PERMISSION, "探针查看");
-        otherPermissionId = fixture.createPermission(M3TestSupport.OTHER_PERMISSION, "探针修改");
+        probeMenuId = fixture.createMenuWithPermissions(0L, "探针页面", "probe-page",
+                M3TestSupport.PROBE_PERMISSION, 0);
+        otherMenuId = fixture.createMenuWithPermissions(0L, "探针修改页面", "probe-other-page",
+                M3TestSupport.OTHER_PERMISSION, 1);
         adminId = fixture.createAdmin(M3TestSupport.ADMIN_USERNAME, M3TestSupport.ADMIN_PASSWORD, "enabled");
         fixture.grantRole(adminId, roleId);
     }
@@ -159,7 +164,7 @@ class RbacIntegrationTest {
     @Test
     @DisplayName("拥有权限代码时放行")
     void shouldAllowRequestWithPermission() {
-        fixture.linkRolePermission(roleId, probePermissionId);
+        fixture.linkRoleMenu(roleId, probeMenuId);
         String token = requireAccessToken();
 
         ResponseSnapshot snapshot = exchange(HttpMethod.GET, M3TestSupport.PERMISSION_PROBE, null, token);
@@ -174,7 +179,7 @@ class RbacIntegrationTest {
     @Test
     @DisplayName("其他权限不能替代所需权限")
     void shouldNotTreatOtherPermissionAsAccess() {
-        fixture.linkRolePermission(roleId, otherPermissionId);
+        fixture.linkRoleMenu(roleId, otherMenuId);
         String token = requireAccessToken();
 
         ResponseSnapshot snapshot = exchange(HttpMethod.GET, M3TestSupport.PERMISSION_PROBE, null, token);
@@ -195,12 +200,12 @@ class RbacIntegrationTest {
         assertThat(exchange(HttpMethod.GET, M3TestSupport.PERMISSION_PROBE, null, token).body())
                 .contains("\"code\":403");
 
-        fixture.linkRolePermission(roleId, probePermissionId);
+        fixture.linkRoleMenu(roleId, probeMenuId);
         authorityService.evictAllPermissions();
         assertThat(exchange(HttpMethod.GET, M3TestSupport.PERMISSION_PROBE, null, token).body())
                 .contains("\"code\":0");
 
-        fixture.unlinkRolePermission(roleId, probePermissionId);
+        fixture.unlinkRoleMenu(roleId, probeMenuId);
         authorityService.evictAllPermissions();
         assertThat(exchange(HttpMethod.GET, M3TestSupport.PERMISSION_PROBE, null, token).body())
                 .contains("\"code\":403");
@@ -228,7 +233,7 @@ class RbacIntegrationTest {
     @Test
     @DisplayName("账号停用后无法访问受保护接口")
     void shouldRejectProbeAfterAccountDisabled() {
-        fixture.linkRolePermission(roleId, probePermissionId);
+        fixture.linkRoleMenu(roleId, probeMenuId);
         String token = requireAccessToken();
 
         fixture.disableAdmin(adminId);

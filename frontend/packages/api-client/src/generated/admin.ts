@@ -52,30 +52,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/v1/system/permissions/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * 修改权限
-         * @description 只允许修改名称与说明，权限代码不可修改；权限不存在返回 body.code=404
-         */
-        put: operations["update_1"];
-        post?: never;
-        /**
-         * 删除权限
-         * @description 已被角色授予的权限返回 body.code=409；删除为逻辑删除，权限代码仍占用唯一键
-         */
-        delete: operations["delete_1"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/v1/system/menus/{id}": {
         parameters: {
             query?: never;
@@ -86,15 +62,15 @@ export interface paths {
         get?: never;
         /**
          * 修改菜单
-         * @description 父菜单不能是菜单自身或其子菜单，否则返回 body.code=400；路由标识唯一冲突返回 body.code=409
+         * @description 父菜单不能是菜单自身或其子菜单，否则返回 body.code=400；路由标识与权限标识唯一冲突返回 body.code=409；提交的权限标识即该节点最终声明，提交空集合表示不再声明权限
          */
-        put: operations["update_2"];
+        put: operations["update_1"];
         post?: never;
         /**
          * 删除菜单
-         * @description 存在子菜单或已被角色授予可见性时返回 body.code=409；删除为逻辑删除，路由标识仍占用唯一键
+         * @description 存在子菜单或已被角色授予时返回 body.code=409；删除为逻辑删除，路由标识与权限标识仍占用唯一键；该节点声明的权限随之失效
          */
-        delete: operations["delete_2"];
+        delete: operations["delete_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -116,7 +92,7 @@ export interface paths {
          * 修改管理员
          * @description 只允许修改显示名称；账号不存在返回 body.code=404
          */
-        put: operations["update_3"];
+        put: operations["update_2"];
         post?: never;
         delete?: never;
         options?: never;
@@ -156,13 +132,13 @@ export interface paths {
          * 修改存储配置
          * @description 只允许修改尚未被文件引用的版本；已被引用返回 body.code=409 并提示创建新版本；凭据留空表示保持原凭据
          */
-        put: operations["update_4"];
+        put: operations["update_3"];
         post?: never;
         /**
          * 删除存储配置版本
          * @description 逻辑删除；已被文件引用或仍是默认方案时返回 body.code=409，需先切换默认方案
          */
-        delete: operations["delete_3"];
+        delete: operations["delete_2"];
         options?: never;
         head?: never;
         patch?: never;
@@ -212,30 +188,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/v1/system/permissions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 分页查询权限
-         * @description 按权限代码与名称关键字筛选，结果按权限代码排序
-         */
-        get: operations["page_1"];
-        put?: never;
-        /**
-         * 新增权限
-         * @description 权限代码必须符合 模块:资源:动作 格式且只允许小写字母、数字、下划线与连字符，格式不合法返回 body.code=400，代码重复返回 body.code=409
-         */
-        post: operations["create_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/v1/system/menus": {
         parameters: {
             query?: never;
@@ -245,15 +197,15 @@ export interface paths {
         };
         /**
          * 查询菜单树
-         * @description 返回全部有效菜单并按父子关系组装为树，节点含 ID、父 ID、名称、路由标识与排序号
+         * @description 返回全部有效菜单并按父子关系组装为树，节点含 ID、父 ID、名称、路由标识、声明的接口权限与排序号
          */
         get: operations["tree"];
         put?: never;
         /**
          * 新增菜单
-         * @description 父菜单为空或 0 表示顶级；路由标识唯一冲突返回 body.code=409；菜单可见性变更提交后权限缓存立即失效
+         * @description 父菜单为空或 0 表示顶级；路由标识与权限标识唯一冲突返回 body.code=409，权限标识格式非法返回 body.code=400 并在 data.fieldErrors 指出字段；权限标识变更提交后权限缓存立即失效
          */
-        post: operations["create_2"];
+        post: operations["create_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -271,13 +223,13 @@ export interface paths {
          * 分页查询管理员
          * @description 按用户名关键字与账号状态筛选；分页默认值与每页上限来自 forge.page 配置，越界的分页参数返回 body.code=400
          */
-        get: operations["page_2"];
+        get: operations["page_1"];
         put?: never;
         /**
          * 新增管理员
          * @description 用户名按规范化规则处理并校验长度，密码按创建规则校验后只保存编码结果；用户名重复由数据库唯一约束兜底并返回 body.code=409
          */
-        post: operations["create_3"];
+        post: operations["create_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -301,7 +253,7 @@ export interface paths {
          * 新增存储配置版本
          * @description 同代码下版本号自动递增；local 必填相对目录，s3 必填访问地址、桶名称与凭据；单文件大小上限不得高于应用硬上限，否则返回 body.code=400
          */
-        post: operations["create_4"];
+        post: operations["create_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -339,7 +291,7 @@ export interface paths {
          * 分页查询文件
          * @description 按文件名包含匹配与存储配置精确匹配筛选，按创建时间倒序；每页条数上限来自 forge.page.max-size
          */
-        get: operations["page_3"];
+        get: operations["page_2"];
         put?: never;
         /**
          * 上传文件
@@ -634,7 +586,7 @@ export interface paths {
          * 删除文件
          * @description 先清理存储对象再逻辑删除文件记录；对象清理失败返回 body.code=503 且记录保持不变，可重试
          */
-        delete: operations["delete_4"];
+        delete: operations["delete_3"];
         options?: never;
         head?: never;
         patch?: never;
@@ -666,7 +618,7 @@ export interface components {
             /** Format: int32 */
             sortNo?: number;
             superRole?: boolean;
-            permissionIds?: string[];
+            permissionCodes?: string[];
             menuIds?: string[];
             /** Format: date-time */
             createdAt?: string;
@@ -674,7 +626,6 @@ export interface components {
             updatedAt?: string;
         };
         RoleGrantRequest: {
-            permissionIds?: string[];
             menuIds?: string[];
         };
         ApiResponseVoid: {
@@ -684,31 +635,19 @@ export interface components {
             data?: unknown;
             traceId?: string;
         };
-        PermissionUpdateRequest: {
+        MenuPermissionRequest: {
+            code: string;
             name: string;
             description?: string;
-        };
-        ApiResponsePermissionResponse: {
-            /** Format: int32 */
-            code?: number;
-            message?: string;
-            data?: components["schemas"]["PermissionResponse"];
-            traceId?: string;
-        };
-        PermissionResponse: {
-            id?: string;
-            code?: string;
-            name?: string;
-            description?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
         };
         MenuUpdateRequest: {
             parentId?: string;
             name: string;
+            menuType?: string;
+            icon?: string;
             routeKey?: string;
+            permCodes?: string[];
+            permissions?: components["schemas"]["MenuPermissionRequest"][];
             /** Format: int32 */
             sortNo: number;
         };
@@ -723,10 +662,22 @@ export interface components {
             id?: string;
             parentId?: string;
             name?: string;
+            menuType?: string;
+            icon?: string;
             routeKey?: string;
+            permissions?: components["schemas"]["MenuPermissionResponse"][];
             /** Format: int32 */
             sortNo?: number;
             children?: components["schemas"]["MenuNodeResponse"][];
+        };
+        MenuPermissionResponse: {
+            code?: string;
+            name?: string;
+            description?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
         AdminUpdateRequest: {
             displayName: string;
@@ -808,18 +759,16 @@ export interface components {
             description?: string;
             /** Format: int32 */
             sortNo?: number;
-            permissionIds?: string[];
             menuIds?: string[];
-        };
-        PermissionCreateRequest: {
-            code: string;
-            name: string;
-            description?: string;
         };
         MenuCreateRequest: {
             parentId?: string;
             name: string;
+            menuType?: string;
+            icon?: string;
             routeKey?: string;
+            permCodes?: string[];
+            permissions?: components["schemas"]["MenuPermissionRequest"][];
             /** Format: int32 */
             sortNo: number;
         };
@@ -953,22 +902,6 @@ export interface components {
             data?: components["schemas"]["RoleOptionResponse"][];
             traceId?: string;
         };
-        ApiResponsePageResponsePermissionResponse: {
-            /** Format: int32 */
-            code?: number;
-            message?: string;
-            data?: components["schemas"]["PageResponsePermissionResponse"];
-            traceId?: string;
-        };
-        PageResponsePermissionResponse: {
-            records?: components["schemas"]["PermissionResponse"][];
-            /** Format: int64 */
-            total?: number;
-            /** Format: int32 */
-            pageNum?: number;
-            /** Format: int32 */
-            pageSize?: number;
-        };
         ApiResponseListMenuNodeResponse: {
             /** Format: int32 */
             code?: number;
@@ -1058,6 +991,7 @@ export interface components {
         AdminMenuResponse: {
             id?: string;
             name?: string;
+            icon?: string;
             routeKey?: string;
             children?: components["schemas"]["AdminMenuResponse"][];
         };
@@ -1290,54 +1224,6 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PermissionUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponsePermissionResponse"];
-                };
-            };
-        };
-    };
-    delete_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
-    update_2: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
                 "application/json": components["schemas"]["MenuUpdateRequest"];
             };
         };
@@ -1353,7 +1239,7 @@ export interface operations {
             };
         };
     };
-    delete_2: {
+    delete_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1397,7 +1283,7 @@ export interface operations {
             };
         };
     };
-    update_3: {
+    update_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -1449,7 +1335,7 @@ export interface operations {
             };
         };
     };
-    update_4: {
+    update_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -1475,7 +1361,7 @@ export interface operations {
             };
         };
     };
-    delete_3: {
+    delete_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -1567,55 +1453,6 @@ export interface operations {
             };
         };
     };
-    page_1: {
-        parameters: {
-            query?: {
-                pageNum?: number;
-                pageSize?: number;
-                code?: string;
-                name?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponsePageResponsePermissionResponse"];
-                };
-            };
-        };
-    };
-    create_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PermissionCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponsePermissionResponse"];
-                };
-            };
-        };
-    };
     tree: {
         parameters: {
             query?: never;
@@ -1636,7 +1473,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    create_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1660,7 +1497,7 @@ export interface operations {
             };
         };
     };
-    page_2: {
+    page_1: {
         parameters: {
             query?: {
                 pageNum?: number;
@@ -1685,7 +1522,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -1729,7 +1566,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -1775,7 +1612,7 @@ export interface operations {
             };
         };
     };
-    page_3: {
+    page_2: {
         parameters: {
             query: {
                 request: components["schemas"]["FileRecordPageRequest"];
@@ -2135,7 +1972,7 @@ export interface operations {
             };
         };
     };
-    delete_4: {
+    delete_3: {
         parameters: {
             query?: never;
             header?: never;

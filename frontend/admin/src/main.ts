@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import { router } from './router'
+import './styles/base.css'
 
 /**
  * 创建并挂载后台管理应用。

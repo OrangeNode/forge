@@ -13,9 +13,13 @@ import lombok.Setter;
 /**
  * 菜单实体。
  *
- * <p>对应表 {@code sys_menu}。菜单只描述可见性：{@code routeKey} 是前端本地路由白名单中的标识，
- * 后端不保存组件路径，也不向下发组件代码；菜单可见性与接口权限分别管理，
- * 赋予菜单不会隐式赋予接口权限。</p>
+ * <p>对应表 {@code sys_menu}。菜单是 RBAC 的唯一载体：{@code routeKey} 是前端本地路由白名单中的标识，
+ * 后端不保存组件路径，也不向下发组件代码；{@code permCodes} 是鉴权使用的代码索引，
+ * {@code permissionsJson} 同时保存代码、中文名称与说明。角色授予该菜单节点即同时获得这些接口权限，
+ * 因此不需要独立的权限主表与角色权限关系表。</p>
+ *
+ * <p>落库内容与 Java 列表的互转统一走 {@code MenuPermissionCodes}，
+ * 实体本身只保存列内容，不在这里做解析。</p>
  */
 @Getter
 @Setter
@@ -39,9 +43,29 @@ public class SysMenuEntity {
     private String name;
 
     /**
+     * 菜单类型：directory 目录、page 页面。
+     */
+    private String menuType;
+
+    /**
+     * 图标标识，由前端内置图标白名单解析。
+     */
+    private String icon;
+
+    /**
      * 前端本地路由标识，目录为 {@code null}。
      */
     private String routeKey;
+
+    /**
+     * 该节点声明的接口权限标识，多个用英文逗号分隔；没有权限时为 {@code null}。
+     */
+    private String permCodes;
+
+    /**
+     * 权限代码、中文名称与说明组成的 JSON 数组。
+     */
+    private String permissionsJson;
 
     /**
      * 同级展示顺序，数值小的在前。

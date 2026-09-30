@@ -10,8 +10,10 @@ import java.util.List;
  *
  * @param id       菜单 ID，对外为字符串
  * @param name     菜单名称
+ * @param icon     图标标识，由前端内置图标白名单解析
  * @param routeKey 前端本地路由标识，目录为 {@code null}
  * @param children 子菜单，没有子菜单时为空列表
  */
-public record AdminMenuResponse(String id, String name, String routeKey, List<AdminMenuResponse> children) {
+public record AdminMenuResponse(String id, String name, String icon, String routeKey,
+        List<AdminMenuResponse> children) {
 }

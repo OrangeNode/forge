@@ -32,19 +32,22 @@ describe('菜单白名单映射', () => {
     expect(resolveMenuRoute(undefined)).toBeUndefined()
   })
 
-  it('顶级页面渲染为可点击项，目录渲染为分组', () => {
+  it('顶级页面渲染为可点击项，目录渲染为可折叠子菜单', () => {
     const options = toMenuOptions([
       menu('1', '工作台', 'home'),
-      menu('2', '系统管理', undefined, [menu('3', '管理员账号', 'system-admin')]),
+      menu('2', '系统管理', undefined, [menu('3', '用户管理', 'system-admin')]),
     ])
 
     expect(options).toEqual([
-      { key: 'home', label: '工作台' },
+      { key: 'home', label: '工作台', icon: expect.any(Function) },
       {
-        type: 'group',
+        type: 'submenu',
         key: 'group-2',
         label: '系统管理',
-        children: [{ key: 'system-admin', label: '管理员账号' }],
+        icon: expect.any(Function),
+        children: [
+          { key: 'system-admin', label: '用户管理', icon: expect.any(Function) },
+        ],
       },
     ])
   })
@@ -55,7 +58,7 @@ describe('菜单白名单映射', () => {
       menu('2', '工作台', 'home'),
     ])
 
-    expect(options).toEqual([{ key: 'home', label: '工作台' }])
+    expect(options).toEqual([{ key: 'home', label: '工作台', icon: expect.any(Function) }])
   })
 
   it('子项全部未登记时目录分组不渲染', () => {

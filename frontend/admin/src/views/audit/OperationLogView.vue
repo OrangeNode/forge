@@ -18,7 +18,9 @@ import {
 import { h, onMounted, reactive, ref, type CSSProperties, type VNodeChild } from 'vue'
 
 import { fetchOperationLogs, type OperationLog } from '@/api/audit'
+import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import { isBusinessCode, resolveErrorMessage } from '@/utils/error-message'
 
 /**
@@ -359,15 +361,37 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="log-view">
-    <PageHeader
-      title="操作日志"
-      description="管理操作的身份、对象与业务结果；成功与非零结果分别用绿、红标签区分"
-    />
-
-    <NCard :bordered="true">
+  <PageBody>
+    <NCard
+      class="log-card"
+      :bordered="false"
+    >
+      <PageHeader
+        title="操作日志"
+        description="查看后台操作记录、执行结果与追踪信息"
+        icon="clipboard"
+      >
+        <template #actions>
+          <NButton
+            class="action-button"
+            secondary
+            type="primary"
+            :loading="loading"
+            @click="loadRecords"
+          >
+            <template #icon>
+              <AppIcon
+                name="refresh"
+                :size="16"
+              />
+            </template>刷新列表
+          </NButton>
+        </template>
+      </PageHeader>
       <NForm
         inline
+        label-placement="left"
+        label-align="left"
         :show-feedback="false"
         class="filters"
         @submit.prevent
@@ -439,6 +463,8 @@ onMounted(() => {
           :pagination="pagination"
           :row-key="rowKey"
           :scroll-x="1200"
+          flex-height
+          class="log-table"
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         >
@@ -448,15 +474,29 @@ onMounted(() => {
         </NDataTable>
       </div>
     </NCard>
-  </div>
+  </PageBody>
 </template>
 
 <style scoped>
-.log-view {
+.page-body {
   --of-line: #eef1f6;
+  overflow: hidden;
+}
+
+.log-card {
+  height: 100%;
+  min-height: 0;
+}
+
+.log-card :deep(.n-card-content) {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .filters {
+  flex: none;
   margin-bottom: 4px;
 }
 
@@ -469,12 +509,52 @@ onMounted(() => {
 }
 
 .table-wrap {
-  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-top: 1px solid var(--of-line);
   padding-top: 12px;
 }
 
+.log-table {
+  flex: 1;
+  min-height: 0;
+}
+
 @media (max-width: 640px) {
+  .filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .filters :deep(.n-form-item) {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 68px minmax(0, 1fr);
+    margin: 0;
+  }
+
+  .filters :deep(.n-form-item-label) {
+    grid-column: 1;
+    padding: 0 8px 0 0;
+  }
+
+  .filters :deep(.n-form-item-blank) {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .filters :deep(.n-form-item:last-child .n-form-item-blank) {
+    grid-column: 2;
+  }
+
+  .filters :deep(.n-date-picker) {
+    width: 100%;
+  }
+
   .filters__input,
   .filters__select {
     width: 100%;

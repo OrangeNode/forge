@@ -92,8 +92,8 @@ public class AdminAuthConverter {
             return List.of();
         }
         return siblings.stream()
-                .map(menu -> new AdminMenuResponse(String.valueOf(menu.getId()), menu.getName(), menu.getRouteKey(),
-                        toMenuNodes(childrenByParent, menu.getId())))
+                .map(menu -> new AdminMenuResponse(String.valueOf(menu.getId()), menu.getName(), menu.getIcon(),
+                        menu.getRouteKey(), toMenuNodes(childrenByParent, menu.getId())))
                 .toList();
     }
 }

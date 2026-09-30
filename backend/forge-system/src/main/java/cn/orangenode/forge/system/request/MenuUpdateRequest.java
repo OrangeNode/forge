@@ -1,19 +1,29 @@
 package cn.orangenode.forge.system.request;
 
+import java.util.List;
+
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+
+import cn.orangenode.forge.system.validation.PermissionCodeElements;
 
 /**
  * 菜单修改入参。
  *
  * <p>字段与创建一致，允许整体调整层级：服务端会校验父菜单存在、不能指向自身或自己的后代，
- * 避免形成环导致菜单树无法完整下发。</p>
+ * 避免形成环导致菜单树无法完整下发。权限标识为全量替换：提交的集合即该节点最终声明的权限。</p>
  *
- * @param parentId 父菜单 ID 字符串，{@code 0} 或空表示顶级菜单
- * @param name     菜单名称，不超过 64 个字符
- * @param routeKey 前端本地路由标识，允许为空表示目录节点
- * @param sortNo   同级展示顺序
+ * @param parentId  父菜单 ID 字符串，{@code 0} 或空表示顶级菜单
+ * @param name      菜单名称，不超过 64 个字符
+ * @param menuType   菜单类型：directory 目录、page 页面
+ * @param icon       图标标识，由前端内置图标白名单解析
+ * @param routeKey   前端本地路由标识，允许为空表示目录节点
+ * @param permCodes  兼容旧客户端的权限代码列表，新客户端使用 permissions
+ * @param permissions 权限代码、中文名称与说明
+ * @param sortNo    同级展示顺序
  */
 public record MenuUpdateRequest(
         String parentId,
@@ -22,8 +32,23 @@ public record MenuUpdateRequest(
         @Size(max = 64, message = "菜单名称不能超过 64 个字符")
         String name,
 
+        @Pattern(regexp = "^(directory|page)$", message = "菜单类型只能是 directory 或 page")
+        String menuType,
+
+        @Size(max = 32, message = "图标标识不能超过 32 个字符")
+        @Pattern(regexp = "^[a-z][a-z0-9-]*$", message = "图标标识格式不正确")
+        String icon,
+
         @Size(max = 64, message = "路由标识不能超过 64 个字符")
         String routeKey,
+
+        @Size(max = 50, message = "单个菜单最多声明 50 个权限标识")
+        @PermissionCodeElements
+        List<String> permCodes,
+
+        @Valid
+        @Size(max = 50, message = "单个菜单最多声明 50 个权限")
+        List<MenuPermissionRequest> permissions,
 
         @NotNull(message = "请输入展示顺序")
         Integer sortNo) {

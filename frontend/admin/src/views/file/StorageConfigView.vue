@@ -32,6 +32,8 @@ import {
   type StorageConfigCreatePayload,
   type StorageConfigUpdatePayload,
 } from '@/api/files'
+import AppIcon from '@/components/AppIcon.vue'
+import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
 import { isBusinessCode, readFieldErrors, resolveErrorMessage } from '@/utils/error-message'
@@ -902,25 +904,47 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="storage-view">
-    <PageHeader
-      title="存储配置"
-      description="存储方案按版本管理：修改目标生成新版本，切换默认只影响新上传，被引用的方案不可删除"
-    >
-      <template #actions>
-        <NButton
-          v-if="session.hasPermission('file:storage:create')"
-          type="primary"
-          @click="openCreateModal"
-        >
-          新建方案
-        </NButton>
-      </template>
-    </PageHeader>
-
-    <NCard :bordered="true">
+  <PageBody>
+    <NCard :bordered="false">
+      <PageHeader
+        title="存储方案"
+        description="管理存储连接与默认上传方案"
+        icon="database"
+      >
+        <template #actions>
+          <NButton
+            class="action-button"
+            secondary
+            type="primary"
+            :loading="loading"
+            @click="loadConfigs"
+          >
+            <template #icon>
+              <AppIcon
+                name="refresh"
+                :size="16"
+              />
+            </template>刷新列表
+          </NButton>
+          <NButton
+            v-if="session.hasPermission('file:storage:create')"
+            class="action-button"
+            type="primary"
+            @click="openCreateModal"
+          >
+            <template #icon>
+              <AppIcon
+                name="plus"
+                :size="16"
+              />
+            </template>新建方案
+          </NButton>
+        </template>
+      </PageHeader>
       <NForm
         inline
+        label-placement="left"
+        label-align="left"
         :show-feedback="false"
         class="filters"
         @submit.prevent
@@ -1171,11 +1195,11 @@ onMounted(() => {
         </NButton>
       </div>
     </NModal>
-  </div>
+  </PageBody>
 </template>
 
 <style scoped>
-.storage-view {
+.page-body {
   --of-muted: #8290a2;
   --of-line: #eef1f6;
   --of-surface: #f7f9fc;

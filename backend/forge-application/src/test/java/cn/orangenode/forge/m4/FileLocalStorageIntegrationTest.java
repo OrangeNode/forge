@@ -303,7 +303,7 @@ class FileLocalStorageIntegrationTest {
         createLocalConfig("shared-plan", "shared", 1048576L, "txt");
         String fileId = uploadTextFile("共享文件.txt", "共享内容");
 
-        M4TestSupport.createLimitedAdmin(fixture, jdbcTemplate, M4TestSupport.LIMITED_ROLE_CODE,
+        M4TestSupport.createLimitedAdmin(fixture, M4TestSupport.LIMITED_ROLE_CODE,
                 M4TestSupport.LIMITED_USERNAME, M4TestSupport.PERM_RECORD_VIEW);
         String limitedToken = M4TestSupport.requireAccessToken(M4TestSupport.login(client,
                 M4TestSupport.LIMITED_USERNAME, M4TestSupport.LIMITED_PASSWORD));

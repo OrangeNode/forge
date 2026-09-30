@@ -15,8 +15,7 @@ import jakarta.validation.constraints.Size;
  * @param name        角色名称，不超过 64 个字符
  * @param description 角色说明，允许为空
  * @param sortNo      展示顺序，允许为空表示使用 0
- * @param permissionIds 初始权限 ID 集合，允许为空
- * @param menuIds       初始菜单 ID 集合，允许为空
+ * @param menuIds     初始菜单 ID 集合，允许为空；接口权限由这些菜单节点声明，不单独提交
  */
 public record RoleCreateRequest(
         @NotBlank(message = "请输入角色代码")
@@ -31,9 +30,6 @@ public record RoleCreateRequest(
         String description,
 
         Integer sortNo,
-
-        @Size(max = 500, message = "一次最多授予 500 个权限")
-        List<String> permissionIds,
 
         @Size(max = 500, message = "一次最多授予 500 个菜单")
         List<String> menuIds) {

@@ -45,6 +45,9 @@ class PermissionCacheIntegrationTest extends M5ManagementTestSupport {
 
     /**
      * 验证角色授权变更提交后权限缓存立即失效。
+     *
+     * <p>授权以菜单为单位：授予承载探针权限的菜单节点后角色立即获得该权限，
+     * 提交空菜单集合则立即收回。</p>
      */
     @Test
     @DisplayName("角色授权变更后权限立即生效")
@@ -58,13 +61,13 @@ class PermissionCacheIntegrationTest extends M5ManagementTestSupport {
                 + ":auth:perm:v0:"));
 
         String granted = assertOk(exchange(HttpMethod.PUT, ROLE_PATH + "/" + scope.roleId() + "/grants",
-                "{\"permissionIds\":[\"" + probePermissionId() + "\"],\"menuIds\":[]}", superToken()));
+                "{\"menuIds\":[\"" + probeMenuId() + "\"]}", superToken()));
 
         assertThat(granted).contains("\"data\":null");
         assertOk(probe(token));
 
         assertOk(exchange(HttpMethod.PUT, ROLE_PATH + "/" + scope.roleId() + "/grants",
-                "{\"permissionIds\":[],\"menuIds\":[]}", superToken()));
+                "{\"menuIds\":[]}", superToken()));
         assertCode(probe(token), 403);
     }
 
@@ -79,7 +82,7 @@ class PermissionCacheIntegrationTest extends M5ManagementTestSupport {
         assertCode(probe(token), 403);
 
         Long grantedRoleId = fixture().createRole("m5_granted_role", "探针授权角色");
-        linkRolePermission(grantedRoleId, probePermissionId());
+        linkRoleMenu(grantedRoleId, probeMenuId());
         assertOk(exchange(HttpMethod.PUT, ADMIN_PATH + "/" + scope.adminId() + "/roles",
                 "{\"roleIds\":[\"" + grantedRoleId + "\"]}", superToken()));
 
@@ -91,11 +94,11 @@ class PermissionCacheIntegrationTest extends M5ManagementTestSupport {
     }
 
     /**
-     * 验证新增权限同样会改变超级管理员的权限集合，证明缓存失效不只挂在授权关系上。
+     * 验证新增菜单节点声明的权限同样会改变超级管理员的权限集合，证明缓存失效不只挂在授权关系上。
      */
     @Test
-    @DisplayName("超级管理员权限集合随权限新增立即变化")
-    void shouldRefreshSuperAdminPermissionsAfterPermissionCreated() {
+    @DisplayName("超级管理员权限集合随菜单声明权限立即变化")
+    void shouldRefreshSuperAdminPermissionsAfterMenuPermissionCreated() {
         String token = superToken();
 
         List<String> before = arrayOf(assertOk(exchange(HttpMethod.GET, "/api/admin/v1/auth/me", null, token)),
@@ -103,8 +106,9 @@ class PermissionCacheIntegrationTest extends M5ManagementTestSupport {
         assertThat(before).contains(M3TestSupport.PROBE_PERMISSION);
         assertThat(before).doesNotContain("system:probe:grant");
 
-        assertOk(exchange(HttpMethod.POST, PERMISSION_PATH,
-                "{\"code\":\"system:probe:grant\",\"name\":\"探针授权\",\"description\":\"授权探针\"}", superToken()));
+        assertOk(exchange(HttpMethod.POST, MENU_PATH,
+                "{\"parentId\":\"0\",\"name\":\"探针授权页面\",\"routeKey\":\"m5-probe-grant-page\","
+                        + "\"permCodes\":[\"system:probe:grant\"],\"sortNo\":9}", superToken()));
 
         List<String> after = arrayOf(assertOk(exchange(HttpMethod.GET, "/api/admin/v1/auth/me", null, token)),
                 "permissionCodes");
@@ -123,7 +127,7 @@ class PermissionCacheIntegrationTest extends M5ManagementTestSupport {
         assertThat(redisDouble().value(versionKey)).isNull();
 
         assertOk(exchange(HttpMethod.PUT, ROLE_PATH + "/" + scope.roleId() + "/grants",
-                "{\"permissionIds\":[\"" + probePermissionId() + "\"],\"menuIds\":[]}", superToken()));
+                "{\"menuIds\":[\"" + probeMenuId() + "\"]}", superToken()));
 
         assertThat(redisDouble().value(versionKey)).isEqualTo("1");
         assertThat(redisDouble().ttl(versionKey))

@@ -11,13 +11,14 @@ import org.springframework.stereotype.Component;
 
 import cn.orangenode.forge.system.entity.SysAdminEntity;
 import cn.orangenode.forge.system.entity.SysMenuEntity;
-import cn.orangenode.forge.system.entity.SysPermissionEntity;
 import cn.orangenode.forge.system.entity.SysRoleEntity;
 import cn.orangenode.forge.system.response.AdminDetailResponse;
 import cn.orangenode.forge.system.response.MenuNodeResponse;
-import cn.orangenode.forge.system.response.PermissionResponse;
+import cn.orangenode.forge.system.response.MenuPermissionResponse;
 import cn.orangenode.forge.system.response.RoleDetailResponse;
 import cn.orangenode.forge.system.response.RoleOptionResponse;
+import cn.orangenode.forge.system.support.MenuPermissionCodes;
+import cn.orangenode.forge.system.support.MenuPermissionValues;
 import cn.orangenode.forge.system.support.SystemIds;
 import cn.orangenode.forge.system.support.SystemTimes;
 
@@ -35,6 +36,20 @@ public class SystemConverter {
      * 顶级菜单的父菜单 ID 约定值。
      */
     private static final Long ROOT_PARENT_ID = 0L;
+
+    /**
+     * 菜单权限 JSON 列转换器。
+     */
+    private final MenuPermissionValues permissionValues;
+
+    /**
+     * 构造系统管理响应转换器。
+     *
+     * @param permissionValues 菜单权限 JSON 列转换器
+     */
+    public SystemConverter(MenuPermissionValues permissionValues) {
+        this.permissionValues = permissionValues;
+    }
 
     /**
      * 把管理员实体转换为详情响应。
@@ -75,28 +90,17 @@ public class SystemConverter {
     /**
      * 把角色实体转换为详情响应。
      *
-     * @param entity        角色实体
-     * @param permissionIds 已授予的权限 ID
-     * @param menuIds       已授予的菜单 ID
-     * @param superRole     是否为内置超级管理员角色
+     * @param entity          角色实体
+     * @param permissionCodes 已授予菜单声明的权限标识
+     * @param menuIds         已授予的菜单 ID
+     * @param superRole       是否为内置超级管理员角色
      * @return 角色详情响应
      */
-    public RoleDetailResponse toRoleDetail(SysRoleEntity entity, List<Long> permissionIds, List<Long> menuIds,
+    public RoleDetailResponse toRoleDetail(SysRoleEntity entity, List<String> permissionCodes, List<Long> menuIds,
             boolean superRole) {
         return new RoleDetailResponse(SystemIds.toText(entity.getId()), entity.getCode(), entity.getName(),
-                entity.getDescription(), entity.getSortNo(), superRole, toIdTexts(permissionIds), toIdTexts(menuIds),
-                SystemTimes.toInstant(entity.getCreatedAt()), SystemTimes.toInstant(entity.getUpdatedAt()));
-    }
-
-    /**
-     * 把权限实体转换为权限信息。
-     *
-     * @param entity 权限实体
-     * @return 权限信息
-     */
-    public PermissionResponse toPermission(SysPermissionEntity entity) {
-        return new PermissionResponse(SystemIds.toText(entity.getId()), entity.getCode(), entity.getName(),
-                entity.getDescription(), SystemTimes.toInstant(entity.getCreatedAt()),
+                entity.getDescription(), entity.getSortNo(), superRole, List.copyOf(permissionCodes),
+                toIdTexts(menuIds), SystemTimes.toInstant(entity.getCreatedAt()),
                 SystemTimes.toInstant(entity.getUpdatedAt()));
     }
 
@@ -104,15 +108,17 @@ public class SystemConverter {
      * 把单个菜单实体转换为菜单节点。
      *
      * <p>用于新增与修改的响应：只回传该节点本身，子节点由菜单树接口按完整层级返回。
-     * 父菜单 ID 为空时按顶级菜单约定输出 {@code 0}。</p>
+     * 父菜单 ID 为空时按顶级菜单约定输出 {@code 0}；权限项按节点声明的标识顺序输出，
+     * 展示资料缺失时名称回退为权限代码本身，避免界面出现空名称。</p>
      *
-     * @param entity 菜单实体
+     * @param entity      菜单实体
      * @return 菜单节点，不含子菜单
      */
     public MenuNodeResponse toMenuNode(SysMenuEntity entity) {
         return new MenuNodeResponse(SystemIds.toText(entity.getId()),
                 SystemIds.toText(entity.getParentId() == null ? ROOT_PARENT_ID : entity.getParentId()),
-                entity.getName(), entity.getRouteKey(), entity.getSortNo(), List.of());
+                entity.getName(), entity.getMenuType(), entity.getIcon(), entity.getRouteKey(),
+                toMenuPermissions(entity), entity.getSortNo(), List.of());
     }
 
     /**
@@ -121,7 +127,7 @@ public class SystemConverter {
      * <p>只从顶级菜单向下遍历：父菜单不可见时其子菜单也不会出现，避免下发无法到达的孤立节点；
      * 同时用已访问集合阻断环，即使历史数据存在环也不会无限递归。</p>
      *
-     * @param menus 菜单列表，允许为空
+     * @param menus       菜单列表，允许为空
      * @return 菜单树，没有菜单时返回空列表
      */
     public List<MenuNodeResponse> toMenuTree(List<SysMenuEntity> menus) {
@@ -153,10 +159,27 @@ public class SystemConverter {
                 continue;
             }
             nodes.add(new MenuNodeResponse(SystemIds.toText(menu.getId()), SystemIds.toText(menu.getParentId()),
-                    menu.getName(), menu.getRouteKey(), menu.getSortNo(),
+                    menu.getName(), menu.getMenuType(), menu.getIcon(), menu.getRouteKey(),
+                    toMenuPermissions(menu), menu.getSortNo(),
                     toMenuNodes(childrenByParent, menu.getId(), visited)));
         }
         return List.copyOf(nodes);
+    }
+
+    /**
+     * 读取菜单权限展示资料；历史测试数据没有 JSON 时按权限代码回退。
+     *
+     * @param menu 菜单实体
+     * @return 权限展示项
+     */
+    private List<MenuPermissionResponse> toMenuPermissions(SysMenuEntity menu) {
+        List<MenuPermissionResponse> configured = permissionValues.parse(menu.getPermissionsJson());
+        if (!configured.isEmpty()) {
+            return configured;
+        }
+        return MenuPermissionCodes.parse(menu.getPermCodes()).stream()
+                .map(code -> new MenuPermissionResponse(code, code, null, null, null))
+                .toList();
     }
 
     /**
