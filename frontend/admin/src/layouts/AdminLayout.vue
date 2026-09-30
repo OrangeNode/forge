@@ -14,11 +14,19 @@ import { useTabsStore } from '@/stores/tabs'
  *
  * 整体固定为一屏高度：侧边栏与顶栏不跟随页面滚动，只有菜单区与内容区各自内部滚动，
  * 因此任何页面都不会把浏览器窗口顶出滚动条。
- * 左侧侧边栏承载按目录分组的后端菜单：目录是可折叠的子菜单，默认全部展开；
+ * 左侧侧边栏承载按目录分组的后端菜单：目录是可折叠的子菜单，默认全部折叠，由用户点击目录标题展开；
  * 顶栏左侧的按钮可把整条侧边栏折叠为图标轨道，窄屏（≤768px）下侧边栏以浮层方式覆盖内容区，
  * 选中菜单后自动收起。
  */
 const collapsed = ref(false)
+
+/**
+ * 已展开的目录键，初始为空数组，保证登录后所有目录都是折叠状态。
+ *
+ * 展开键由 NMenu 双向绑定维护：既不使用 default-expand-all，也不跟随当前路由自动展开父目录，
+ * 避免初始渲染时目录被展开。
+ */
+const expandedKeys = ref<Array<string | number>>([])
 const isNarrow = ref(false)
 const session = useSessionStore()
 const tabsStore = useTabsStore()
@@ -193,13 +201,13 @@ onBeforeUnmount(() => {
         >ORANGE FORGE</span>
       </div>
       <NMenu
+        v-model:expanded-keys="expandedKeys"
         class="shell__menu"
         :options="menuOptions"
         :value="activeMenuKey"
         :collapsed="collapsed"
         :collapsed-width="collapsedWidth"
         :collapsed-icon-size="18"
-        default-expand-all
         @update:value="handleMenuSelect"
       />
     </NLayoutSider>
