@@ -68,9 +68,12 @@ public class ForgeSecurityProperties {
     private long permissionCacheTtlSeconds = 300;
 
     /**
-     * 匿名放行的路径模式，支持 Spring 的路径匹配写法。
-     *
-     * <p>至少保留登录接口；CORS 预检请求由过滤链单独放行，不需要写在这里。</p>
+     * 只允许匿名 GET 的明确路径，写请求仍需要管理员认证。
+     */
+    private List<String> publicGetPaths = new ArrayList<>();
+
+    /**
+     * 匿名放行的路径模式，至少保留登录；预检请求由过滤链处理。
      */
     @NotEmpty(message = "匿名放行路径不能为空，至少保留登录接口")
     private List<String> permitAllPaths = new ArrayList<>(List.of(

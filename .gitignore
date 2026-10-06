@@ -17,6 +17,9 @@
 target/
 *.class
 
+# 应用运行时数据（本地存储的上传文件与临时目录）
+backend/data/
+
 # 应用运行日志与诊断文件
 logs/
 *.log

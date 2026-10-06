@@ -1,3 +1,9 @@
+import SourceListView from '@/views/video/SourceListView.vue'
+import CategoryListView from '@/views/video/CategoryListView.vue'
+import VideoListView from '@/views/video/VideoListView.vue'
+import CollectionSettingsView from '@/views/video/CollectionSettingsView.vue'
+import CollectionTaskView from '@/views/video/CollectionTaskView.vue'
+import CollectionRunView from '@/views/video/CollectionRunView.vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 import AdminLayout from '@/layouts/AdminLayout.vue'
@@ -54,6 +60,12 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: AdminLayout,
     children: [
+      { path: 'video/sources', name: 'video-source', component: SourceListView, meta: { title: '资源站管理' } },
+      { path: 'video/categories', name: 'video-category', component: CategoryListView, meta: { title: '视频分类' } },
+      { path: 'video/videos', name: 'video-videos', component: VideoListView, meta: { title: '视频管理' } },
+      { path: 'video/settings', name: 'video-settings', component: CollectionSettingsView, meta: { title: '视频采集设置' } },
+      { path: 'video/tasks', name: 'video-task', component: CollectionTaskView, meta: { title: '采集任务' } },
+      { path: 'video/runs', name: 'video-run', component: CollectionRunView, meta: { title: '采集记录' } },
       {
         path: '',
         name: 'home',

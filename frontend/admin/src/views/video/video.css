@@ -1,0 +1,10 @@
+.video-panel { border: 0; }
+.video-panel > .n-card__content { padding: 0; }
+.video-content { padding: 22px; }
+.video-filters { margin-bottom: 20px; }
+.video-modal { width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; }
+.video-modal .n-form-item-label { font-weight: 500; }
+.video-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 22px; }
+.video-address { font-family: monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
+.video-muted { color: #8090a4; font-size: 13px; }
+@media(max-width:768px) { .video-form-grid { grid-template-columns: 1fr; } .video-content { padding: 14px; } }

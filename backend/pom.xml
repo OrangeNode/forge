@@ -29,6 +29,7 @@
         <module>forge-file</module>
         <module>forge-audit</module>
         <module>forge-example</module>
+        <module>forge-video</module>
         <module>forge-application</module>
     </modules>
 
@@ -48,6 +49,7 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency><groupId>cn.orangenode</groupId><artifactId>forge-video</artifactId><version>${project.version}</version></dependency>
             <!-- 本项目模块：统一由父工程管理版本 -->
             <dependency>
                 <groupId>cn.orangenode</groupId>

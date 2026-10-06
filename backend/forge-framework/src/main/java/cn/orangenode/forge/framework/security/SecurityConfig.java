@@ -66,6 +66,9 @@ public class SecurityConfig {
                     for (String path : properties.getPermitAllPaths()) {
                         requests.requestMatchers(path).permitAll();
                     }
+                    for (String path : properties.getPublicGetPaths()) {
+                        requests.requestMatchers(HttpMethod.GET, path).permitAll();
+                    }
                     requests.anyRequest().authenticated();
                 })
                 .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);

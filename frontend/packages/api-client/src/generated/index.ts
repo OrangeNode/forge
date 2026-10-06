@@ -7,3 +7,5 @@
  * 重新生成步骤见 `docs/本地开发指南.md` 的接口类型生成一节。
  */
 export type { components as adminComponents, operations as adminOperations, paths as adminPaths } from './admin'
+
+export type { components as appComponents, operations as appOperations, paths as appPaths } from './app'

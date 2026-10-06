@@ -12,6 +12,12 @@ import AppIcon from '@/components/AppIcon.vue'
  * 新增页面时在这里登记，未登记的菜单标识会被忽略。
  */
 const MENU_ROUTE_WHITELIST: Record<string, string> = {
+  'video-source': 'video-source',
+  'video-category': 'video-category',
+  'video-videos': 'video-videos',
+  'video-settings': 'video-settings',
+  'video-task': 'video-task',
+  'video-run': 'video-run',
   home: 'home',
   'system-admin': 'system-admin',
   'system-role': 'system-role',
