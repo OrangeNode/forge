@@ -1,11 +1,15 @@
 package cn.orangenode.forge.video.service.impl;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -25,6 +29,7 @@ import cn.orangenode.forge.video.request.CategoryRequest;
 import cn.orangenode.forge.video.request.VideoEditRequest;
 import cn.orangenode.forge.video.request.LineEditRequest;
 import cn.orangenode.forge.video.response.CategoryResponse;
+import cn.orangenode.forge.video.response.CollectionBatchResponse;
 import cn.orangenode.forge.video.response.VideoResponse;
 import cn.orangenode.forge.video.response.VideoDetailResponse;
 import cn.orangenode.forge.video.response.AppVideoResponse;
@@ -46,6 +51,7 @@ public class CatalogServiceImpl implements CatalogService {
     private final VideoConverter converter;
     private final VideoPaging paging;
     private final MacCmsParser parser;
+    private final TransactionTemplate transactions;
 
     /**
      * 按层级构造分类树，公开树过滤停用祖先的后代。
@@ -109,6 +115,51 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     @Transactional
     public void deleteCategory(Long id) {
+        removeCategory(id);
+    }
+
+    /**
+     * 先固定目标并按层级从深到浅排序，使同时勾选的父子分类可以一次删除；
+     * 每条分类使用独立事务，业务冲突逐条返回，不承诺整批原子性。
+     */
+    @Override
+    public CollectionBatchResponse deleteCategories(List<Long> ids) {
+        Map<Long, Long> parents = store.categories.selectList(Wrappers.<CategoryEntity>lambdaQuery()).stream()
+                .collect(Collectors.toMap(CategoryEntity::getId, CategoryEntity::getParentId));
+        List<Long> ordered = ids.stream().distinct()
+                .sorted(Comparator.comparingInt((Long id) -> depth(id, parents)).reversed())
+                .toList();
+        List<CollectionBatchResponse.Failure> failures = new ArrayList<>();
+        int succeeded = 0;
+        for (Long id : ordered) {
+            try {
+                transactions.executeWithoutResult(status -> removeCategory(id));
+                succeeded++;
+            } catch (BusinessException failure) {
+                failures.add(new CollectionBatchResponse.Failure(id.toString(), failure.getMessage()));
+            }
+        }
+        return new CollectionBatchResponse(ordered.size(), succeeded, failures);
+    }
+
+    /**
+     * 计算分类所在层级，不存在的编号按顶级处理并在删除时返回原因；遇到异常循环立即停止。
+     */
+    private int depth(Long id, Map<Long, Long> parents) {
+        int depth = 0;
+        Set<Long> visited = new HashSet<>();
+        Long cursor = parents.get(id);
+        while (cursor != null && cursor != 0L && visited.add(cursor)) {
+            depth++;
+            cursor = parents.get(cursor);
+        }
+        return depth;
+    }
+
+    /**
+     * 执行单个分类删除校验与解绑，由调用方提供事务。
+     */
+    private void removeCategory(Long id) {
         store.requireCategory(id);
         if (store.categories.selectCount(Wrappers.<CategoryEntity>lambdaQuery().eq(CategoryEntity::getParentId, id)) > 0) {
             throw new BusinessException(ErrorCode.CONFLICT, "分类下还有子分类，请先删除或移动子分类");

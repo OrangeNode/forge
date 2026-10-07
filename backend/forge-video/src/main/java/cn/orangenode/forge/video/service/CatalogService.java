@@ -16,6 +16,7 @@ import cn.orangenode.forge.video.response.VideoDetailResponse;
 import cn.orangenode.forge.video.response.AppVideoResponse;
 import cn.orangenode.forge.video.response.PlayLineResponse;
 import cn.orangenode.forge.video.response.SettingsResponse;
+import cn.orangenode.forge.video.response.CollectionBatchResponse;
 
 /**
  * CatalogService业务用例契约。
@@ -35,6 +36,11 @@ public interface CatalogService {
      * 拒绝删除被引用分类。
      */
     void deleteCategory(Long id);
+
+    /**
+     * 批量删除分类，子分类先于父分类处理，逐条返回未删除原因。
+     */
+    CollectionBatchResponse deleteCategories(List<Long> ids);
 
     /**
      * 查询管理端影片分页。

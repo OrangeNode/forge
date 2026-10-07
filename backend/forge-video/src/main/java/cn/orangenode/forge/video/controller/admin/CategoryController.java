@@ -24,6 +24,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import cn.orangenode.forge.video.service.CatalogService;
 import cn.orangenode.forge.video.request.CategoryRequest;
+import cn.orangenode.forge.video.request.CategoryBatchDeleteRequest;
+import cn.orangenode.forge.video.response.CollectionBatchResponse;
 import cn.orangenode.forge.video.response.CategoryResponse;
 
 /**
@@ -78,5 +80,18 @@ public class CategoryController {
     public ApiResponse<Void> delete(@PathVariable String id, HttpServletRequest http) {
         service.deleteCategory(VideoValues.id(id));
         return ApiResponse.successWithTrace(null, TraceIdFilter.currentTraceId(http));
+    }
+
+    /**
+     * 批量删除勾选分类，子分类先删；被影片或子分类引用的条目逐条返回原因。
+     */
+    @Operation(summary = "视频分类：批量删除")
+    @PreAuthorize("hasAuthority('video:category:delete')")
+    @AuditOperation(action = "video:category:delete", resourceType = "video_category")
+    @PostMapping("/batch-delete")
+    public ApiResponse<CollectionBatchResponse> batchDelete(@Valid @RequestBody CategoryBatchDeleteRequest request,
+            HttpServletRequest http) {
+        List<Long> ids = request.ids().stream().map(VideoValues::id).toList();
+        return ApiResponse.successWithTrace(service.deleteCategories(ids), TraceIdFilter.currentTraceId(http));
     }
 }

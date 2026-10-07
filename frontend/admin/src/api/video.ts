@@ -46,6 +46,7 @@ export const videoApi = {
     ? request.put<Category>(`${base}/categories/${id}`, { body })
     : request.post<Category>(`${base}/categories`, { body }),
   deleteCategory: (id: string) => request.delete<void>(`${base}/categories/${id}`),
+  batchDeleteCategories: (ids: string[]) => request.post<BatchResult>(`${base}/categories/batch-delete`, { body: { ids } }),
   videos: (query: Query) => request.get<PageResponse<Video>>(`${base}/videos`, { query }),
   detail: (id: string) => request.get<VideoDetail>(`${base}/videos/${id}`),
   editVideo: (id: string, body: VideoInput) => request.put<Video>(`${base}/videos/${id}`, { body }),

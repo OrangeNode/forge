@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue'
-import { NButton, NCard, NDataTable, NForm, NFormItem, NInput, NInputNumber, NModal, NPopconfirm, NSelect, NSpace, NSwitch, type DataTableColumns, type FormInst } from 'naive-ui'
-import { videoApi, type Category, type CategoryInput } from '@/api/video'
+import { NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NInputNumber, NModal, NPopconfirm, NSelect, NSpace, NSwitch, type DataTableColumns, type FormInst } from 'naive-ui'
+import { videoApi, type BatchResult, type Category, type CategoryInput } from '@/api/video'
 import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
@@ -17,11 +17,28 @@ const show = ref(false)
 const editing = ref<string>()
 const formRef = ref<FormInst>()
 const form = reactive<CategoryInput>({ parentId: '0', name: '', sortNo: 0, enabled: true })
+const selection = ref<string[]>([])
+const batchResult = ref<BatchResult>()
+const batchResultShow = ref(false)
+const canDelete = computed(() => session.hasPermission('video:category:delete'))
+const names = computed(() => {
+  const map = new Map<string, string>()
+  const walk = (items: Category[]) => items.forEach(item => { map.set(item.id, item.name); walk(item.children) })
+  walk(rows.value)
+  return map
+})
+const failureRows = computed(() => (batchResult.value?.failures ?? [])
+  .map(item => ({ ...item, name: names.value.get(item.id) ?? item.id })))
 
 /**
  * 读取本地分类树。
  */
-async function load() { await act(async () => { rows.value = await videoApi.categories() }) }
+async function load() {
+  await act(async () => {
+    rows.value = await videoApi.categories()
+    selection.value = selection.value.filter(id => names.value.has(id))
+  })
+}
 
 /**
  * 编辑当前分类，或为指定父分类新增节点。
@@ -48,7 +65,22 @@ async function save() {
  */
 async function remove(id: string) { if (await act(() => videoApi.deleteCategory(id), '分类已删除')) await load() }
 
+/**
+ * 批量删除勾选分类；后端先删子分类，逐条返回被影片或子分类引用的未删除原因。
+ */
+async function removeSelected() {
+  if (busy.value || !selection.value.length) return
+  if (await act(async () => {
+    batchResult.value = await videoApi.batchDeleteCategories(selection.value)
+    batchResultShow.value = true
+  })) {
+    selection.value = []
+    await load()
+  }
+}
+
 const columns: DataTableColumns<Category> = [
+  { type: 'selection', disabled: () => !canDelete.value },
   { title: '分类名称', key: 'name', minWidth: 200 },
   { title: '排序', key: 'sortNo', width: 100 },
   { title: '状态', key: 'enabled', width: 100, render: row => row.enabled ? '启用' : '停用' },
@@ -85,7 +117,23 @@ onMounted(load)
             @click="edit()"
           >
             新增分类
-          </NButton>
+          </NButton><NPopconfirm
+            v-if="canDelete"
+            :disabled="busy || !selection.length"
+            @positive-click="removeSelected"
+          >
+            <template #trigger>
+              <NButton
+                type="error"
+                secondary
+                :disabled="!selection.length"
+                :loading="busy"
+              >
+                批量删除（{{ selection.length }}）
+              </NButton>
+            </template>
+            确认删除已勾选的 {{ selection.length }} 个分类？子分类会先删除，有影片或未勾选子分类的分类将保留。
+          </NPopconfirm>
         </template>
       </PageHeader>
       <div class="video-content">
@@ -94,10 +142,33 @@ onMounted(load)
           :columns="columns"
           :loading="busy"
           :row-key="row => row.id"
+          :checked-row-keys="selection"
           :scroll-x="700"
+          @update:checked-row-keys="keys => selection = keys as string[]"
         />
       </div>
     </NCard>
+    <NModal
+      v-model:show="batchResultShow"
+      preset="card"
+      title="批量删除结果"
+      class="video-modal"
+    >
+      <NAlert
+        v-if="batchResult"
+        :type="batchResult.failures.length ? 'warning' : 'success'"
+        :bordered="false"
+        class="video-filters"
+      >
+        共 {{ batchResult.total }} 个，已删除 {{ batchResult.succeeded }} 个，未删除 {{ batchResult.failures.length }} 个。
+      </NAlert>
+      <NDataTable
+        v-if="failureRows.length"
+        :columns="[{ title: '分类', key: 'name', width: 160 }, { title: '未删除原因', key: 'message' }]"
+        :data="failureRows"
+        :max-height="360"
+      />
+    </NModal>
     <NModal
       v-model:show="show"
       preset="card"

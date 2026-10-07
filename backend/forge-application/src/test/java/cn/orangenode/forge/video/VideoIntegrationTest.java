@@ -336,16 +336,57 @@ class VideoIntegrationTest {
     }
 
     /**
-     * 解除映射是实际写操作，被引用分类不能删除，解除后才允许删除。
+     * 解除映射是实际写操作；删除仍被来源映射引用的分类时自动解绑，不留下悬空引用。
      */
     @Test
     void unmapsCategoriesWithoutDanglingReferences() {
-        assertThatThrownBy(() -> catalog.deleteCategory(category)).isInstanceOf(BusinessException.class);
-        sources.map(1L, new cn.orangenode.forge.video.request.MappingRequest("6", null));
         sources.map(2L, new cn.orangenode.forge.video.request.MappingRequest("6", null));
-        assertThat(sources.categories(1L).getFirst().categoryId()).isNull();
+        assertThat(sources.categories(2L).getFirst().categoryId()).isNull();
+        assertThat(sources.categories(1L).getFirst().categoryId()).isEqualTo(category.toString());
         catalog.deleteCategory(category);
+        assertThat(sources.categories(1L).getFirst().categoryId()).isNull();
         assertThat(catalog.categories(false)).isEmpty();
+    }
+
+    /**
+     * 批量删除先删子分类再删父分类，被子分类阻止或不存在的条目逐条返回原因，映射自动解绑。
+     */
+    @Test
+    void batchDeletesCategoriesChildrenFirst() {
+        Long parent = Long.valueOf(catalog.saveCategory(null, new CategoryRequest(null, "父级", 0, true)).id());
+        Long child = Long.valueOf(catalog.saveCategory(null, new CategoryRequest(parent.toString(), "子级", 0, true)).id());
+        Long grandchild = Long.valueOf(catalog.saveCategory(null,
+                new CategoryRequest(child.toString(), "孙级", 0, true)).id());
+        Long blocked = Long.valueOf(catalog.saveCategory(null, new CategoryRequest(null, "保留", 0, true)).id());
+        catalog.saveCategory(null, new CategoryRequest(blocked.toString(), "保留子级", 0, true));
+        var result = catalog.deleteCategories(List.of(parent, blocked, grandchild, category, child, parent, 999999L));
+        assertThat(result.total()).isEqualTo(6);
+        assertThat(result.succeeded()).isEqualTo(4);
+        assertThat(result.failures()).extracting(f -> f.id())
+                .containsExactlyInAnyOrder(blocked.toString(), "999999");
+        assertThat(result.failures()).filteredOn(f -> f.id().equals(blocked.toString()))
+                .extracting(f -> f.message()).containsExactly("分类下还有子分类，请先删除或移动子分类");
+        assertThat(catalog.categories(false)).extracting(c -> c.name()).containsExactly("保留");
+        assertThat(sources.categories(1L).getFirst().categoryId()).isNull();
+        String body = http.post().uri("/api/admin/v1/video/categories/batch-delete")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body("{\"ids\":[\"" + blocked + "\"]}").exchange().expectStatus().isOk()
+                .expectBody(String.class).returnResult().getResponseBody();
+        assertThat(body).contains("\"code\":401");
+    }
+
+    /**
+     * 批量删除有影片的分类时只跳过该分类，影片与分类均保留。
+     */
+    @Test
+    void batchDeleteKeepsCategoriesWithVideos() {
+        collect(1, movie("1", "占用分类", 2026, "资料"), 1, 1);
+        Long empty = Long.valueOf(catalog.saveCategory(null, new CategoryRequest(null, "空分类", 0, true)).id());
+        var result = catalog.deleteCategories(List.of(category, empty));
+        assertThat(result.succeeded()).isEqualTo(1);
+        assertThat(result.failures()).extracting(f -> f.message()).containsExactly("分类下还有影片，请先移动或删除影片");
+        assertThat(count("video")).isEqualTo(1);
+        assertThat(catalog.categories(false)).extracting(c -> c.id()).containsExactly(category.toString());
     }
 
     /**
