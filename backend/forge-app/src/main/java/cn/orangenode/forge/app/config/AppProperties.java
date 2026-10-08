@@ -23,4 +23,11 @@ public class AppProperties {
     @Min(1)
     @Max(100)
     private int sectionMaxItems = 30;
+
+    /**
+     * 同一普通用户每天最多提交的意见反馈与播放报错条数。
+     */
+    @Min(1)
+    @Max(1000)
+    private int feedbackDailyLimit = 20;
 }

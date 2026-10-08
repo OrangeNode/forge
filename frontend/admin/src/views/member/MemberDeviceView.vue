@@ -12,7 +12,7 @@ import '@/views/video/video.css'
 const session = useSessionStore()
 const { busy, act } = useVideoActions()
 const rows = ref<MemberDevice[]>([])
-const filters = reactive<{ email: string; online: string | null }>({ email: '', online: 'true' })
+const filters = reactive<{ username: string; online: string | null }>({ username: '', online: 'true' })
 const pagination = reactive({ page: 1, pageSize: videoPageSize, itemCount: 0, showSizePicker: true, pageSizes: videoPageSizeOptions })
 const onlineOptions = [{ label: '在线', value: 'true' }, { label: '离线', value: 'false' }]
 
@@ -21,7 +21,7 @@ const onlineOptions = [{ label: '在线', value: 'true' }, { label: '离线', va
  */
 async function load() {
   await act(async () => {
-    const page = await memberApi.devices({ pageNum: pagination.page, pageSize: pagination.pageSize, email: filters.email || undefined, online: filters.online ?? undefined })
+    const page = await memberApi.devices({ pageNum: pagination.page, pageSize: pagination.pageSize, username: filters.username || undefined, online: filters.online ?? undefined })
     rows.value = page.records
     pagination.itemCount = page.total
   })
@@ -43,7 +43,7 @@ async function offline(row: MemberDevice) {
 }
 
 const columns: DataTableColumns<MemberDevice> = [
-  { title: '用户邮箱', key: 'memberEmail', minWidth: 190, ellipsis: { tooltip: true } },
+  { title: '用户名', key: 'memberUsername', minWidth: 160, ellipsis: { tooltip: true } },
   { title: '设备名称', key: 'deviceName', width: 150, ellipsis: { tooltip: true } },
   { title: '设备编号', key: 'deviceCode', width: 180, ellipsis: { tooltip: true } },
   { title: 'IP', key: 'clientIp', width: 130 },
@@ -82,8 +82,8 @@ onMounted(load)
       <div class="video-content">
         <NSpace class="video-filters">
           <NInput
-            v-model:value="filters.email"
-            placeholder="搜索用户邮箱"
+            v-model:value="filters.username"
+            placeholder="搜索用户名"
             clearable
             style="width: 220px"
             @keyup.enter="search"

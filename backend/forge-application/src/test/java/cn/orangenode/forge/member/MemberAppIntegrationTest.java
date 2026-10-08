@@ -1,18 +1,11 @@
 package cn.orangenode.forge.member;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -37,8 +30,6 @@ import cn.orangenode.forge.app.service.AppContentService;
 import cn.orangenode.forge.app.service.AppSettingsService;
 import cn.orangenode.forge.framework.storage.StoredFileContent;
 import cn.orangenode.forge.framework.storage.StoredFileReader;
-import cn.orangenode.forge.member.mail.MemberCodePurpose;
-import cn.orangenode.forge.member.mail.MemberMailSender;
 import cn.orangenode.forge.member.request.MemberVipExtendRequest;
 import cn.orangenode.forge.member.service.MemberManagementService;
 import cn.orangenode.forge.support.RedisTestDouble;
@@ -48,12 +39,12 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 普通用户与 App 管理的端到端验证：邮箱验证码注册（替身发送器）、VIP 观看授权、同时登录台数、令牌隔离与首页配置。
+ * 普通用户与 App 管理的端到端验证：用户名注册、VIP 观看授权、同时登录台数、令牌隔离与首页配置。
  *
- * <p>表结构由真实迁移脚本派生（只移除 MySQL 引擎与函数差异），Redis 使用内存替身，不真实发信。</p>
+ * <p>表结构由真实迁移脚本派生（只移除 MySQL 引擎与函数差异，H2 以 IGNORECASE 模拟 MySQL 不区分大小写的排序规则），Redis 使用内存替身，不真实发信。</p>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-    "spring.datasource.dynamic.datasource.master.url=jdbc:h2:mem:forge_member;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "spring.datasource.dynamic.datasource.master.url=jdbc:h2:mem:forge_member;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR;IGNORECASE=TRUE",
     "spring.datasource.dynamic.datasource.master.username=sa",
     "spring.datasource.dynamic.datasource.master.password=",
     "spring.datasource.dynamic.datasource.master.driverClassName=org.h2.Driver",
@@ -75,13 +66,10 @@ class MemberAppIntegrationTest {
     @MockitoBean
     private StringRedisTemplate redis;
     @MockitoBean
-    private MemberMailSender mail;
-    @MockitoBean
     private StoredFileReader files;
     @LocalServerPort
     private int port;
     private RestTestClient http;
-    private final Map<String, String> sentCodes = new HashMap<>();
     private long videoId;
     private long categoryId;
 
@@ -101,7 +89,9 @@ class MemberAppIntegrationTest {
             jdbc.execute("DROP TABLE IF EXISTS video_" + table);
         }
         migrate("db/migration/video/V20260930200000__video_collection_tables.sql");
+        jdbc.execute("ALTER TABLE video_video ADD COLUMN name_initials VARCHAR(255) NULL");
         migrate("db/migration/member/V20261007120000__member_tables.sql");
+        migrate("db/migration/member/V20261008150000__member_username.sql");
         migrate("db/migration/app/V20261007121000__app_tables.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
                 + " VALUES (1,0,'电影',1,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
@@ -123,12 +113,6 @@ class MemberAppIntegrationTest {
                 + " VALUES (31,'第1集',1,'https://share.example.com/1','OTHER',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         videoId = 10L;
         categoryId = 1L;
-        sentCodes.clear();
-        when(mail.configured()).thenReturn(true);
-        doAnswer(invocation -> {
-            sentCodes.put(invocation.getArgument(0, String.class), invocation.getArgument(2, String.class));
-            return null;
-        }).when(mail).sendCode(anyString(), any(MemberCodePurpose.class), anyString());
         when(files.exists(anyLong())).thenReturn(true);
         when(files.open(anyLong())).thenAnswer(invocation -> new StoredFileContent(
                 new ByteArrayInputStream("png-bytes".getBytes(StandardCharsets.UTF_8)), "image/png", 9));
@@ -136,45 +120,33 @@ class MemberAppIntegrationTest {
     }
 
     /**
-     * 邮箱验证码注册成功并直接登录；错误、复用验证码与频繁发送被拒绝，已注册邮箱 409，关闭注册 403。
+     * 用户名注册成功并直接登录；非法用户名 400，用户名不区分大小写唯一 409，关闭注册 403，同一来源每日注册数受限 429。
      */
     @Test
-    void registersWithEmailCodeOnly() {
-        assertThat(post("/api/app/v1/member/auth/email-code", null, Map.of("email", "User@Example.com",
-                "purpose", "REGISTER")).path("code").asInt()).isZero();
-        String code = sentCodes.get("user@example.com");
-        assertThat(code).hasSize(6).containsOnlyDigits();
-        assertThat(post("/api/app/v1/member/auth/email-code", null, Map.of("email", "user@example.com",
-                "purpose", "REGISTER")).path("code").asInt()).isEqualTo(429);
-        assertThat(register("user@example.com", "000000".equals(code) ? "111111" : "000000", "device-a1")
-                .path("code").asInt()).isEqualTo(400);
-        JsonNode ok = register("user@example.com", code, "device-a1");
+    void registersWithUsernameOnly() {
+        assertThat(register("ab", "device-a0").path("code").asInt()).isEqualTo(400);
+        assertThat(register("bad-name!", "device-a0").path("code").asInt()).isEqualTo(400);
+        assertThat(register("a_very_long_username_21", "device-a0").path("code").asInt()).isEqualTo(400);
+        JsonNode ok = register("User_01", "device-a1");
         assertThat(ok.path("code").asInt()).isZero();
         String token = ok.path("data").path("accessToken").asText();
         assertThat(ok.path("data").path("tokenType").asText()).isEqualTo("Bearer");
         assertThat(ok.path("data").path("expiresIn").asLong()).isEqualTo(2592000L);
         assertThat(ok.path("data").path("profile").path("vipActive").asBoolean()).isFalse();
         JsonNode profile = get("/api/app/v1/member/profile", token);
-        assertThat(profile.path("data").path("email").asText()).isEqualTo("user@example.com");
-        assertThat(register("user@example.com", code, "device-a2").path("code").asInt()).isEqualTo(409);
+        assertThat(profile.path("data").path("username").asText()).isEqualTo("User_01");
+        assertThat(profile.path("data").path("nickname").asText()).isEqualTo("User_01");
+        assertThat(register("user_01", "device-a2").path("code").asInt()).isEqualTo(409);
+        assertThat(loginBody("USER_01", "secret1", "device-a3").path("code").asInt()).isZero();
+        assertThat(loginBody("User_01", "wrong-pass", "device-a3").path("message").asText()).isEqualTo("用户名或密码错误");
+        assertThat(post("/api/app/v1/member/auth/email-code", null, Map.of("email", "x@example.com",
+                "purpose", "REGISTER")).path("code").asInt()).isEqualTo(401);
+        for (int i = 2; i <= 10; i++) {
+            assertThat(register("user_ip_" + i, "device-r" + i).path("code").asInt()).isZero();
+        }
+        assertThat(register("user_ip_11", "device-r11").path("code").asInt()).isEqualTo(429);
         settings.updateFeatures(new AppFeatureRequest(true, false, 2, null, null));
-        assertThat(post("/api/app/v1/member/auth/email-code", null, Map.of("email", "other@example.com",
-                "purpose", "REGISTER")).path("code").asInt()).isEqualTo(403);
-    }
-
-    /**
-     * 未配置发信服务时发送验证码返回 503；找回密码对未注册邮箱静默成功且不发信。
-     */
-    @Test
-    void reportsMissingMailServerAndHidesUnknownEmails() {
-        assertThat(post("/api/app/v1/member/auth/email-code", null, Map.of("email", "nobody@example.com",
-                "purpose", "RESET_PASSWORD")).path("code").asInt()).isZero();
-        verify(mail, never()).sendCode(eq("nobody@example.com"), any(), anyString());
-        when(mail.configured()).thenReturn(false);
-        JsonNode body = post("/api/app/v1/member/auth/email-code", null, Map.of("email", "new@example.com",
-                "purpose", "REGISTER"));
-        assertThat(body.path("code").asInt()).isEqualTo(503);
-        assertThat(body.path("message").asText()).contains("尚未配置");
+        assertThat(register("other_user", "device-a4").path("code").asInt()).isEqualTo(403);
     }
 
     /**
@@ -182,14 +154,14 @@ class MemberAppIntegrationTest {
      */
     @Test
     void requiresVipForPlayLinesAndFiltersUnplayableUrls() {
-        String token = newMember("vip@example.com", "device-v1");
+        String token = newMember("vip_user", "device-v1");
         String lines = "/api/app/v1/video/videos/" + videoId + "/play-lines";
         assertThat(get("/api/app/v1/video/videos", token).path("code").asInt()).isZero();
         assertThat(get(lines, null).path("code").asInt()).isEqualTo(401);
         JsonNode denied = get(lines, token);
         assertThat(denied.path("code").asInt()).isEqualTo(403);
         assertThat(denied.path("data").isNull()).isTrue();
-        Long memberId = memberId("vip@example.com");
+        Long memberId = memberId("vip_user");
         members.extendVip(memberId, new MemberVipExtendRequest(30, "测试开通"));
         JsonNode allowed = get(lines, token);
         assertThat(allowed.path("code").asInt()).isZero();
@@ -198,7 +170,7 @@ class MemberAppIntegrationTest {
         assertThat(episodes).hasSize(1);
         assertThat(episodes.get(0).path("urlType").asText()).isEqualTo("M3U8");
         assertThat(members.vipLogs(memberId)).hasSize(1);
-        String plain = newMember("plain@example.com", "device-p1");
+        String plain = newMember("plain_user", "device-p1");
         assertThat(get(lines, plain).path("code").asInt()).isEqualTo(403);
         settings.updateFeatures(new AppFeatureRequest(false, true, 2, null, null));
         assertThat(get(lines, plain).path("code").asInt()).isZero();
@@ -210,19 +182,19 @@ class MemberAppIntegrationTest {
     @Test
     void kicksOldestDeviceBeyondLimit() {
         settings.updateFeatures(new AppFeatureRequest(true, true, 2, null, null));
-        newMember("multi@example.com", "device-m0");
-        String first = login("multi@example.com", "device-m1");
-        String second = login("multi@example.com", "device-m2");
+        newMember("multi_user", "device-m0");
+        String first = login("multi_user", "device-m1");
+        String second = login("multi_user", "device-m2");
         assertThat(get("/api/app/v1/member/profile", first).path("code").asInt()).isZero();
-        String third = login("multi@example.com", "device-m3");
+        String third = login("multi_user", "device-m3");
         assertThat(get("/api/app/v1/member/profile", first).path("code").asInt()).isEqualTo(401);
         assertThat(get("/api/app/v1/member/profile", second).path("code").asInt()).isZero();
         assertThat(get("/api/app/v1/member/profile", third).path("code").asInt()).isZero();
-        String again = login("multi@example.com", "device-m3");
+        String again = login("multi_user", "device-m3");
         assertThat(get("/api/app/v1/member/profile", third).path("code").asInt()).isEqualTo(401);
         assertThat(get("/api/app/v1/member/profile", again).path("code").asInt()).isZero();
         assertThat(get("/api/app/v1/member/profile", second).path("code").asInt()).isZero();
-        Long memberId = memberId("multi@example.com");
+        Long memberId = memberId("multi_user");
         var devices = members.devices(1, 20, memberId, null, true).records();
         assertThat(devices).extracting(device -> device.deviceCode()).containsExactlyInAnyOrder("device-m2", "device-m3");
         assertThat(jdbc.queryForList("SELECT offline_reason FROM member_device WHERE member_id=? AND online=0",
@@ -234,25 +206,24 @@ class MemberAppIntegrationTest {
     }
 
     /**
-     * 普通用户令牌不能访问管理接口；退出与找回密码后旧令牌失效；停用账号令牌立即失效。
+     * 普通用户令牌不能访问管理接口；退出与后台重置密码后旧令牌失效；停用账号令牌立即失效。
      */
     @Test
     void separatesTokensAndRevokesSessions() {
-        String token = newMember("safe@example.com", "device-s1");
+        String token = newMember("safe_user", "device-s1");
         assertThat(get("/api/admin/v1/auth/me", token).path("code").asInt()).isEqualTo(401);
         assertThat(post("/api/app/v1/member/auth/logout", token, Map.of()).path("code").asInt()).isZero();
         assertThat(get("/api/app/v1/member/profile", token).path("code").asInt()).isEqualTo(401);
-        String second = login("safe@example.com", "device-s2");
-        post("/api/app/v1/member/auth/email-code", null, Map.of("email", "safe@example.com", "purpose", "RESET_PASSWORD"));
-        assertThat(post("/api/app/v1/member/auth/password/reset", null, Map.of("email", "safe@example.com",
-                "code", sentCodes.get("safe@example.com"), "newPassword", "newpass1")).path("code").asInt()).isZero();
+        String second = login("safe_user", "device-s2");
+        members.resetPassword(memberId("safe_user"),
+                new cn.orangenode.forge.member.request.MemberAdminPasswordRequest("newpass1"));
         assertThat(get("/api/app/v1/member/profile", second).path("code").asInt()).isEqualTo(401);
-        assertThat(loginBody("safe@example.com", "secret1", "device-s3").path("code").asInt()).isEqualTo(401);
-        String third = loginBody("safe@example.com", "newpass1", "device-s3").path("data").path("accessToken").asText();
-        members.changeStatus(memberId("safe@example.com"),
+        assertThat(loginBody("safe_user", "secret1", "device-s3").path("code").asInt()).isEqualTo(401);
+        String third = loginBody("safe_user", "newpass1", "device-s3").path("data").path("accessToken").asText();
+        members.changeStatus(memberId("safe_user"),
                 new cn.orangenode.forge.member.request.MemberStatusRequest("DISABLED"));
         assertThat(get("/api/app/v1/member/profile", third).path("code").asInt()).isEqualTo(401);
-        assertThat(loginBody("safe@example.com", "newpass1", "device-s3").path("code").asInt()).isEqualTo(403);
+        assertThat(loginBody("safe_user", "newpass1", "device-s3").path("code").asInt()).isEqualTo(403);
     }
 
     /**
@@ -275,7 +246,7 @@ class MemberAppIntegrationTest {
         assertThat(launch.path("data").path("splash").path("imageUrl").asText()).isEqualTo("/api/app/v1/app/images/501");
         assertThat(launch.path("data").path("splash").path("durationSeconds").asInt()).isEqualTo(5);
         assertThat(get("/api/app/v1/app/home", null).path("code").asInt()).isEqualTo(401);
-        String token = newMember("home@example.com", "device-h1");
+        String token = newMember("home_user", "device-h1");
         JsonNode home = get("/api/app/v1/app/home", token).path("data");
         assertThat(home.path("banners")).hasSize(1);
         assertThat(home.path("banners").get(0).path("targetId").asText()).isEqualTo(String.valueOf(videoId));
@@ -299,7 +270,10 @@ class MemberAppIntegrationTest {
                 .replaceAll("(?m)^--.*$", "")
                 .replaceAll("ENGINE=InnoDB[^;]+", "")
                 .replace("match_name(128)", "match_name")
-                .replace("UTC_TIMESTAMP(3)", "CURRENT_TIMESTAMP");
+                .replace("UTC_TIMESTAMP(3)", "CURRENT_TIMESTAMP")
+                // 数据回填语句只作用于已有数据，空库测试中跳过（H2 不支持 MySQL 多表 UPDATE 与窗口函数写法）。
+                .replaceAll("(?s)UPDATE [^;]*;", "")
+                .replace("DROP INDEX uk_member_user_email", "DROP CONSTRAINT uk_member_user_email");
         for (String command : sql.split(";")) {
             if (!command.isBlank()) {
                 jdbc.execute(command);
@@ -308,11 +282,10 @@ class MemberAppIntegrationTest {
     }
 
     /**
-     * 发送验证码并注册新用户，返回令牌。
+     * 注册新用户并返回令牌。
      */
-    private String newMember(String email, String deviceCode) {
-        post("/api/app/v1/member/auth/email-code", null, Map.of("email", email, "purpose", "REGISTER"));
-        JsonNode body = register(email, sentCodes.get(email), deviceCode);
+    private String newMember(String username, String deviceCode) {
+        JsonNode body = register(username, deviceCode);
         assertThat(body.path("code").asInt()).isZero();
         return body.path("data").path("accessToken").asText();
     }
@@ -320,16 +293,16 @@ class MemberAppIntegrationTest {
     /**
      * 提交注册请求。
      */
-    private JsonNode register(String email, String code, String deviceCode) {
-        return post("/api/app/v1/member/auth/register", null, Map.of("email", email, "code", code,
+    private JsonNode register(String username, String deviceCode) {
+        return post("/api/app/v1/member/auth/register", null, Map.of("username", username,
                 "password", "secret1", "deviceCode", deviceCode, "deviceName", "测试电视"));
     }
 
     /**
      * 使用默认密码登录并返回令牌。
      */
-    private String login(String email, String deviceCode) {
-        JsonNode body = loginBody(email, "secret1", deviceCode);
+    private String login(String username, String deviceCode) {
+        JsonNode body = loginBody(username, "secret1", deviceCode);
         assertThat(body.path("code").asInt()).isZero();
         return body.path("data").path("accessToken").asText();
     }
@@ -337,16 +310,16 @@ class MemberAppIntegrationTest {
     /**
      * 提交登录请求。
      */
-    private JsonNode loginBody(String email, String password, String deviceCode) {
-        return post("/api/app/v1/member/auth/login", null, Map.of("email", email, "password", password,
+    private JsonNode loginBody(String username, String password, String deviceCode) {
+        return post("/api/app/v1/member/auth/login", null, Map.of("username", username, "password", password,
                 "deviceCode", deviceCode, "deviceName", "测试电视"));
     }
 
     /**
-     * 按邮箱查询用户 ID。
+     * 按用户名查询用户 ID。
      */
-    private Long memberId(String email) {
-        return jdbc.queryForObject("SELECT id FROM member_user WHERE email=?", Long.class, email);
+    private Long memberId(String username) {
+        return jdbc.queryForObject("SELECT id FROM member_user WHERE username=?", Long.class, username);
     }
 
     /**

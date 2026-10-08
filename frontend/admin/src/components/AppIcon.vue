@@ -26,6 +26,7 @@ const ICON_PATHS: Record<string, string[]> = {
   file: ['M6 2h8l4 4v16H6V2Z', 'M14 2v6h6'],
   database: ['M4 6c0 2 3.6 4 8 4s8-2 8-4-3.6-4-8-4-8 2-8 4Z', 'M4 6v6c0 2 3.6 4 8 4s8-2 8-4V6', 'M4 12v6c0 2 3.6 4 8 4s8-2 8-4v-6'],
   activity: ['M3 12h4l2-7 4 14 2-7h6'],
+  message: ['M4 4h16v12H8l-4 4V4Z', 'M8 9h8', 'M8 12h5'],
   clipboard: ['M9 5h6', 'M9 3h6v4H9V3Z', 'M6 5H4v17h16V5h-2', 'M8 12h8', 'M8 16h6'],
   login: ['M10 17l5-5-5-5', 'M15 12H3', 'M14 3h7v18h-7'],
   refresh: ['M20 6v5h-5', 'M4 18v-5h5', 'M18.5 9A7 7 0 0 0 6 6.5L4 11', 'M5.5 15A7 7 0 0 0 18 17.5L20 13'],

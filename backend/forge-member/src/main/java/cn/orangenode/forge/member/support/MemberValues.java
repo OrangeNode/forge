@@ -3,7 +3,6 @@ package cn.orangenode.forge.member.support;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Locale;
 
 import cn.orangenode.forge.core.exception.BusinessException;
 import cn.orangenode.forge.core.response.ErrorCode;
@@ -30,15 +29,21 @@ public final class MemberValues {
      */
     public static final int NICKNAME_MAX_LENGTH = 32;
 
-    /**
-     * 邮箱最大长度，与数据库列一致。
-     */
-    public static final int EMAIL_MAX_LENGTH = 128;
 
     /**
      * 设备编号格式：App 首次安装生成的随机编号。
      */
     public static final String DEVICE_CODE_PATTERN = "^[A-Za-z0-9_-]{8,64}$";
+
+    /**
+     * 用户名规则：4—20 位字母、数字或下划线。
+     */
+    public static final String USERNAME_PATTERN = "^[A-Za-z0-9_]{4,20}$";
+
+    /**
+     * 用户名最大长度。
+     */
+    public static final int USERNAME_MAX_LENGTH = 20;
 
     /**
      * 工具类不允许实例化。
@@ -47,30 +52,16 @@ public final class MemberValues {
     }
 
     /**
-     * 规范化邮箱：去首尾空格并转为小写。
+     * 规范化用户名：去首尾空格；唯一性由数据库不区分大小写的排序规则保证，保留用户输入的大小写。
      *
-     * @param email 原始邮箱
-     * @return 规范化邮箱，空值返回 {@code null}
+     * @param username 原始用户名
+     * @return 规范化用户名，空值返回 {@code null}
      */
-    public static String email(String email) {
-        if (email == null || email.isBlank()) {
+    public static String username(String username) {
+        if (username == null || username.isBlank()) {
             return null;
         }
-        return email.strip().toLowerCase(Locale.ROOT);
-    }
-
-    /**
-     * 遮蔽邮箱用于日志，只保留首字符与域名。
-     *
-     * @param email 规范化邮箱
-     * @return 遮蔽后的邮箱
-     */
-    public static String mask(String email) {
-        if (email == null) {
-            return null;
-        }
-        int at = email.indexOf('@');
-        return at <= 0 ? "***" : email.charAt(0) + "***" + email.substring(at);
+        return username.strip();
     }
 
     /**

@@ -46,14 +46,14 @@ public class MemberUserController {
     /**
      * 分页查询普通用户。
      */
-    @Operation(summary = "分页查询普通用户", description = "按邮箱关键字、状态 ENABLED/DISABLED、VIP 状态 ACTIVE/EXPIRED/NONE 筛选")
+    @Operation(summary = "分页查询普通用户", description = "按用户名关键字、状态 ENABLED/DISABLED、VIP 状态 ACTIVE/EXPIRED/NONE 筛选")
     @PreAuthorize("hasAuthority('member:user:view')")
     @GetMapping
     public ApiResponse<PageResponse<MemberUserResponse>> page(@RequestParam(required = false) Integer pageNum,
-            @RequestParam(required = false) Integer pageSize, @RequestParam(required = false) String email,
+            @RequestParam(required = false) Integer pageSize, @RequestParam(required = false) String username,
             @RequestParam(required = false) String status, @RequestParam(required = false) String vip,
             HttpServletRequest http) {
-        return ApiResponse.successWithTrace(service.page(pageNum, pageSize, email, status, vip),
+        return ApiResponse.successWithTrace(service.page(pageNum, pageSize, username, status, vip),
                 TraceIdFilter.currentTraceId(http));
     }
 

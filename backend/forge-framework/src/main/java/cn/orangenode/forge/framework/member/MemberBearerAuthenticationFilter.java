@@ -130,7 +130,7 @@ public class MemberBearerAuthenticationFilter extends OncePerRequestFilter {
             directory.recordActivity(ticket.deviceId(), ClientAddresses.resolve(request));
         }
         MemberAccountView view = account.get();
-        AuthenticatedMember principal = new AuthenticatedMember(view.id(), view.email(), view.nickname(),
+        AuthenticatedMember principal = new AuthenticatedMember(view.id(), view.username(), view.nickname(),
                 view.vipExpireAt(), ticket.deviceId());
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(principal, token, List.of()));

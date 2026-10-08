@@ -983,6 +983,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/app/feedbacks/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 标记已处理
+         * @description 反馈不存在 404；已处理 409
+         */
+        post: operations["resolve_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/app/banners": {
         parameters: {
             query?: never;
@@ -1215,7 +1235,7 @@ export interface paths {
         };
         /**
          * 分页查询普通用户
-         * @description 按邮箱关键字、状态 ENABLED/DISABLED、VIP 状态 ACTIVE/EXPIRED/NONE 筛选
+         * @description 按用户名关键字、状态 ENABLED/DISABLED、VIP 状态 ACTIVE/EXPIRED/NONE 筛选
          */
         get: operations["page_3"];
         put?: never;
@@ -1275,7 +1295,7 @@ export interface paths {
         };
         /**
          * 分页查询登录设备
-         * @description 可按用户 ID、邮箱关键字与在线状态筛选，在线设备在前
+         * @description 可按用户 ID、用户名关键字与在线状态筛选，在线设备在前
          */
         get: operations["devices"];
         put?: never;
@@ -1410,6 +1430,26 @@ export interface paths {
          * @description 按用户名（包含匹配）、结果与带时区的 ISO 8601 时间范围筛选，按创建时间倒序；时间格式非法返回 body.code=400，缺少 audit:login:view 权限返回 body.code=403
          */
         get: operations["pageLoginLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/feedbacks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询反馈
+         * @description 可按状态 PENDING/RESOLVED 与类型 PLAYBACK/GENERAL 筛选，待处理在前
+         */
+        get: operations["page_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1765,7 +1805,7 @@ export interface components {
         };
         MemberUserResponse: {
             id?: string;
-            email?: string;
+            username?: string;
             nickname?: string;
             avatarUrl?: string;
             status?: string;
@@ -2165,6 +2205,9 @@ export interface components {
             data?: components["schemas"]["AdminLoginResponse"];
             traceId?: string;
         };
+        AppFeedbackHandleRequest: {
+            remark?: string;
+        };
         StatusRequest: {
             enabled: boolean;
         };
@@ -2415,7 +2458,7 @@ export interface components {
         MemberDeviceResponse: {
             id?: string;
             memberId?: string;
-            memberEmail?: string;
+            memberUsername?: string;
             deviceCode?: string;
             deviceName?: string;
             clientIp?: string;
@@ -2623,6 +2666,40 @@ export interface components {
             message?: string;
             data?: components["schemas"]["AppSectionResponse"][];
             traceId?: string;
+        };
+        ApiResponsePageResponseAppFeedbackResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseAppFeedbackResponse"];
+            traceId?: string;
+        };
+        AppFeedbackResponse: {
+            id?: string;
+            memberId?: string;
+            memberUsername?: string;
+            type?: string;
+            videoId?: string;
+            videoName?: string;
+            lineId?: string;
+            lineName?: string;
+            episodeName?: string;
+            content?: string;
+            deviceName?: string;
+            appVersion?: string;
+            status?: string;
+            handleRemark?: string;
+            handledAt?: string;
+            createdAt?: string;
+        };
+        PageResponseAppFeedbackResponse: {
+            records?: components["schemas"]["AppFeedbackResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
         };
         ApiResponseListAppBannerResponse: {
             /** Format: int32 */
@@ -4424,6 +4501,32 @@ export interface operations {
             };
         };
     };
+    resolve_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AppFeedbackHandleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     banners: {
         parameters: {
             query?: never;
@@ -4739,7 +4842,7 @@ export interface operations {
             query?: {
                 pageNum?: number;
                 pageSize?: number;
-                email?: string;
+                username?: string;
                 status?: string;
                 vip?: string;
             };
@@ -4810,7 +4913,7 @@ export interface operations {
                 pageNum?: number;
                 pageSize?: number;
                 memberId?: string;
-                email?: string;
+                username?: string;
                 online?: boolean;
             };
             header?: never;
@@ -4975,6 +5078,31 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageResponseLoginLogResponse"];
+                };
+            };
+        };
+    };
+    page_4: {
+        parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+                status?: string;
+                type?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseAppFeedbackResponse"];
                 };
             };
         };

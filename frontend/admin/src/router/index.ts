@@ -11,6 +11,7 @@ import AppBannerView from '@/views/app/AppBannerView.vue'
 import AppSectionView from '@/views/app/AppSectionView.vue'
 import AppHotSearchView from '@/views/app/AppHotSearchView.vue'
 import AppFeatureView from '@/views/app/AppFeatureView.vue'
+import AppFeedbackView from '@/views/app/AppFeedbackView.vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 import AdminLayout from '@/layouts/AdminLayout.vue'
@@ -80,6 +81,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'app/sections', name: 'app-section', component: AppSectionView, meta: { title: '首页推荐位', description: 'App 首页推荐行' } },
       { path: 'app/hot-search', name: 'app-hot-search', component: AppHotSearchView, meta: { title: '热搜设置', description: '热搜词与屏蔽词' } },
       { path: 'app/features', name: 'app-feature', component: AppFeatureView, meta: { title: '功能开关', description: 'VIP、注册、同时登录台数与客服公告' } },
+      { path: 'app/feedbacks', name: 'app-feedback', component: AppFeedbackView, meta: { title: '反馈处理', description: '意见反馈与播放报错' } },
       {
         path: '',
         name: 'home',

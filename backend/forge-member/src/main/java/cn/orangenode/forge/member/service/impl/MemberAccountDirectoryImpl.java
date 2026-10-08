@@ -35,7 +35,7 @@ public class MemberAccountDirectoryImpl implements MemberAccountDirectory {
         if (user == null) {
             return Optional.empty();
         }
-        return Optional.of(new MemberAccountView(user.getId(), user.getEmail(), user.getNickname(),
+        return Optional.of(new MemberAccountView(user.getId(), user.getUsername(), user.getNickname(),
                 MemberStatus.ENABLED.name().equals(user.getStatus()), MemberValues.instant(user.getVipExpireAt()),
                 user.getSessionVersion() == null ? 0L : user.getSessionVersion()));
     }

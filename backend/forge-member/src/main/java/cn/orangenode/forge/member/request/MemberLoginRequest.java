@@ -7,17 +7,17 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * 普通用户邮箱密码登录入参；密码只校验非空与长度上限。
+ * 普通用户用户名密码登录入参；密码只校验非空与长度上限。
  *
- * @param email      登录邮箱
+ * @param username   用户名
  * @param password   登录密码
  * @param deviceCode App 首次安装生成的设备编号
  * @param deviceName 设备名称，仅展示
  */
 public record MemberLoginRequest(
-        @NotBlank(message = "请输入邮箱")
-        @Size(max = MemberValues.EMAIL_MAX_LENGTH, message = "邮箱长度不符合要求")
-        String email,
+        @NotBlank(message = "请输入用户名")
+        @Size(max = MemberValues.USERNAME_MAX_LENGTH, message = "用户名或密码错误")
+        String username,
 
         @NotBlank(message = "请输入密码")
         @Size(max = MemberValues.PASSWORD_MAX_LENGTH, message = "密码长度不符合要求")

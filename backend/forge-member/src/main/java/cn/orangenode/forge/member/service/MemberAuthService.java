@@ -1,35 +1,31 @@
 package cn.orangenode.forge.member.service;
 
-import cn.orangenode.forge.member.request.MemberCodeRequest;
 import cn.orangenode.forge.member.request.MemberLoginRequest;
-import cn.orangenode.forge.member.request.MemberPasswordResetRequest;
 import cn.orangenode.forge.member.request.MemberRegisterRequest;
 import cn.orangenode.forge.member.response.MemberLoginResponse;
 
 /**
- * 普通用户注册、登录、找回密码与退出用例。
+ * 普通用户注册、登录与退出用例；忘记密码由管理员在后台重置。
  */
 public interface MemberAuthService {
 
     /**
-     * 发送邮箱验证码；注册要求开放注册且邮箱未注册，找回密码对未注册邮箱静默不发信。
-     */
-    void sendCode(MemberCodeRequest request, String clientIp);
-
-    /**
-     * 邮箱验证码注册并在当前设备登录。
+     * 用户名注册并在当前设备登录；要求开放注册，同一来源地址每日注册数受限。
+     *
+     * @param request  注册信息
+     * @param clientIp 来源地址
+     * @return 登录结果
      */
     MemberLoginResponse register(MemberRegisterRequest request, String clientIp);
 
     /**
-     * 邮箱密码登录，账号不存在与密码错误使用同一提示，失败次数受限。
+     * 用户名密码登录，账号不存在与密码错误使用同一提示，失败次数受限。
+     *
+     * @param request  登录信息
+     * @param clientIp 来源地址
+     * @return 登录结果
      */
     MemberLoginResponse login(MemberLoginRequest request, String clientIp);
-
-    /**
-     * 邮箱验证码重置密码，成功后全部令牌失效。
-     */
-    void resetPassword(MemberPasswordResetRequest request);
 
     /**
      * 退出当前设备。

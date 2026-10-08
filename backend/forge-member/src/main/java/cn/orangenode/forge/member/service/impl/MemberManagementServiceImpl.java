@@ -64,10 +64,10 @@ public class MemberManagementServiceImpl implements MemberManagementService {
      * 按邮箱关键字、状态与 VIP 状态分页查询，按注册时间倒序。
      */
     @Override
-    public PageResponse<MemberUserResponse> page(Integer pageNum, Integer pageSize, String email, String status,
+    public PageResponse<MemberUserResponse> page(Integer pageNum, Integer pageSize, String username, String status,
             String vip) {
         LocalDateTime now = MemberValues.now();
-        String keyword = MemberValues.clean(email);
+        String keyword = MemberValues.clean(username);
         String state = MemberValues.clean(status);
         String vipState = MemberValues.clean(vip);
         if (state != null && !Set.of(MemberStatus.ENABLED.name(), MemberStatus.DISABLED.name()).contains(state)) {
@@ -77,7 +77,7 @@ public class MemberManagementServiceImpl implements MemberManagementService {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "VIP 状态只能是 ACTIVE、EXPIRED 或 NONE");
         }
         LambdaQueryWrapper<MemberUserEntity> query = Wrappers.<MemberUserEntity>lambdaQuery()
-                .like(keyword != null, MemberUserEntity::getEmail, keyword == null ? null : keyword.toLowerCase())
+                .like(keyword != null, MemberUserEntity::getUsername, keyword)
                 .eq(state != null, MemberUserEntity::getStatus, state)
                 .gt(VIP_ACTIVE.equals(vipState), MemberUserEntity::getVipExpireAt, now)
                 .le(VIP_EXPIRED.equals(vipState), MemberUserEntity::getVipExpireAt, now)
@@ -171,16 +171,16 @@ public class MemberManagementServiceImpl implements MemberManagementService {
      * 分页查询登录设备，在线优先、最近登录在前。
      */
     @Override
-    public PageResponse<MemberDeviceResponse> devices(Integer pageNum, Integer pageSize, Long memberId, String email,
+    public PageResponse<MemberDeviceResponse> devices(Integer pageNum, Integer pageSize, Long memberId, String username,
             Boolean online) {
         Page<MemberDeviceEntity> request = paging.page(pageNum, pageSize);
         LambdaQueryWrapper<MemberDeviceEntity> query = Wrappers.<MemberDeviceEntity>lambdaQuery()
                 .eq(memberId != null, MemberDeviceEntity::getMemberId, memberId)
                 .eq(online != null, MemberDeviceEntity::getOnline, online);
-        String keyword = MemberValues.clean(email);
+        String keyword = MemberValues.clean(username);
         if (keyword != null) {
             List<Long> ids = users.selectList(Wrappers.<MemberUserEntity>lambdaQuery()
-                    .like(MemberUserEntity::getEmail, keyword.toLowerCase())).stream().map(MemberUserEntity::getId).toList();
+                    .like(MemberUserEntity::getUsername, keyword)).stream().map(MemberUserEntity::getId).toList();
             if (ids.isEmpty()) {
                 return new PageResponse<>(List.of(), 0, (int) request.getCurrent(), (int) request.getSize());
             }
@@ -190,10 +190,10 @@ public class MemberManagementServiceImpl implements MemberManagementService {
                 .orderByDesc(MemberDeviceEntity::getId);
         Page<MemberDeviceEntity> page = devices.selectPage(request, query);
         List<Long> memberIds = page.getRecords().stream().map(MemberDeviceEntity::getMemberId).distinct().toList();
-        Map<Long, String> emails = memberIds.isEmpty() ? Map.of() : users.selectByIds(memberIds).stream()
-                .collect(Collectors.toMap(MemberUserEntity::getId, MemberUserEntity::getEmail, (left, right) -> left));
+        Map<Long, String> usernames = memberIds.isEmpty() ? Map.of() : users.selectByIds(memberIds).stream()
+                .collect(Collectors.toMap(MemberUserEntity::getId, MemberUserEntity::getUsername, (left, right) -> left));
         return new PageResponse<>(page.getRecords().stream()
-                .map(device -> converter.device(device, emails.get(device.getMemberId()))).toList(),
+                .map(device -> converter.device(device, usernames.get(device.getMemberId()))).toList(),
                 page.getTotal(), (int) page.getCurrent(), (int) page.getSize());
     }
 

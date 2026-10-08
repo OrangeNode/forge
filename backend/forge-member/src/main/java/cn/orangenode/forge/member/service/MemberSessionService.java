@@ -44,4 +44,12 @@ public interface MemberSessionService {
      * @param deviceId 设备记录 ID
      */
     void forceOffline(Long deviceId);
+
+    /**
+     * 让单个设备下线并记录原因，设备不存在返回 404，已离线返回 409。
+     *
+     * @param deviceId 设备记录 ID
+     * @param reason   离线原因
+     */
+    void offline(Long deviceId, MemberOfflineReason reason);
 }

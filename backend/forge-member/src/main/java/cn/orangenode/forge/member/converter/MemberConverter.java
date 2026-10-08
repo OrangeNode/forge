@@ -4,10 +4,16 @@ import java.time.Instant;
 
 import org.springframework.stereotype.Component;
 
+import cn.orangenode.forge.framework.catalog.VideoCard;
 import cn.orangenode.forge.member.entity.MemberDeviceEntity;
+import cn.orangenode.forge.member.entity.MemberFavoriteEntity;
+import cn.orangenode.forge.member.entity.MemberWatchHistoryEntity;
 import cn.orangenode.forge.member.entity.MemberUserEntity;
 import cn.orangenode.forge.member.entity.MemberVipLogEntity;
 import cn.orangenode.forge.member.response.MemberDeviceResponse;
+import cn.orangenode.forge.member.response.MemberFavoriteResponse;
+import cn.orangenode.forge.member.response.MemberHistoryResponse;
+import cn.orangenode.forge.member.response.MemberOwnDeviceResponse;
 import cn.orangenode.forge.member.response.MemberProfileResponse;
 import cn.orangenode.forge.member.response.MemberUserResponse;
 import cn.orangenode.forge.member.response.MemberVipLogResponse;
@@ -20,10 +26,37 @@ import cn.orangenode.forge.member.support.MemberValues;
 public class MemberConverter {
 
     /**
+     * 转换观看历史，影片展示信息取目录中的最新值。
+     */
+    public MemberHistoryResponse history(MemberWatchHistoryEntity history, VideoCard card) {
+        return new MemberHistoryResponse(MemberValues.textId(history.getVideoId()), card.name(), card.posterUrl(),
+                card.remarks(), MemberValues.textId(history.getLineId()), history.getEpisodeIndex(),
+                history.getEpisodeName(), history.getPositionSeconds(), history.getDurationSeconds(),
+                MemberValues.time(history.getUpdatedAt()));
+    }
+
+    /**
+     * 转换收藏条目。
+     */
+    public MemberFavoriteResponse favorite(MemberFavoriteEntity favorite, VideoCard card) {
+        return new MemberFavoriteResponse(MemberValues.textId(favorite.getVideoId()), card.name(), card.posterUrl(),
+                card.remarks(), card.year(), MemberValues.time(favorite.getCreatedAt()));
+    }
+
+    /**
+     * 转换当前用户自己的设备，不输出设备编号与令牌摘要。
+     */
+    public MemberOwnDeviceResponse ownDevice(MemberDeviceEntity device, Long currentDeviceId) {
+        return new MemberOwnDeviceResponse(MemberValues.textId(device.getId()), device.getDeviceName(),
+                device.getClientIp(), Boolean.TRUE.equals(device.getOnline()), device.getId().equals(currentDeviceId),
+                MemberValues.time(device.getLoginAt()), MemberValues.time(device.getLastActiveAt()));
+    }
+
+    /**
      * 转换为 App 当前用户资料。
      */
     public MemberProfileResponse profile(MemberUserEntity user, boolean vipRequired) {
-        return new MemberProfileResponse(MemberValues.textId(user.getId()), user.getEmail(), user.getNickname(),
+        return new MemberProfileResponse(MemberValues.textId(user.getId()), user.getUsername(), user.getNickname(),
                 user.getAvatarUrl(), vipActive(user), MemberValues.time(user.getVipExpireAt()), vipRequired);
     }
 
@@ -31,7 +64,7 @@ public class MemberConverter {
      * 转换为后台用户项。
      */
     public MemberUserResponse user(MemberUserEntity user, long onlineDevices) {
-        return new MemberUserResponse(MemberValues.textId(user.getId()), user.getEmail(), user.getNickname(),
+        return new MemberUserResponse(MemberValues.textId(user.getId()), user.getUsername(), user.getNickname(),
                 user.getAvatarUrl(), user.getStatus(), vipActive(user), MemberValues.time(user.getVipExpireAt()),
                 onlineDevices, user.getRegisterIp(), MemberValues.time(user.getLastLoginAt()), user.getLastLoginIp(),
                 MemberValues.time(user.getCreatedAt()));
@@ -40,9 +73,9 @@ public class MemberConverter {
     /**
      * 转换为登录设备记录，不输出令牌摘要。
      */
-    public MemberDeviceResponse device(MemberDeviceEntity device, String memberEmail) {
+    public MemberDeviceResponse device(MemberDeviceEntity device, String memberUsername) {
         return new MemberDeviceResponse(MemberValues.textId(device.getId()), MemberValues.textId(device.getMemberId()),
-                memberEmail, device.getDeviceCode(), device.getDeviceName(), device.getClientIp(),
+                memberUsername, device.getDeviceCode(), device.getDeviceName(), device.getClientIp(),
                 Boolean.TRUE.equals(device.getOnline()), device.getOfflineReason(), MemberValues.time(device.getLoginAt()),
                 MemberValues.time(device.getLastActiveAt()), MemberValues.time(device.getOfflineAt()));
     }

@@ -19,7 +19,7 @@ public interface MemberManagementService {
     /**
      * 分页查询普通用户；vip 取值 ACTIVE（有效）、EXPIRED（已过期）、NONE（从未开通）。
      */
-    PageResponse<MemberUserResponse> page(Integer pageNum, Integer pageSize, String email, String status, String vip);
+    PageResponse<MemberUserResponse> page(Integer pageNum, Integer pageSize, String username, String status, String vip);
 
     /**
      * 查询普通用户详情。
@@ -54,7 +54,7 @@ public interface MemberManagementService {
     /**
      * 分页查询登录设备，可按用户、邮箱与在线状态筛选。
      */
-    PageResponse<MemberDeviceResponse> devices(Integer pageNum, Integer pageSize, Long memberId, String email,
+    PageResponse<MemberDeviceResponse> devices(Integer pageNum, Integer pageSize, Long memberId, String username,
             Boolean online);
 
     /**

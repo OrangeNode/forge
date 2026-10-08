@@ -23,9 +23,9 @@ public class MemberUserEntity {
     private Long id;
 
     /**
-     * 登录邮箱，小写规范化。
+     * 用户名，不区分大小写唯一。
      */
-    private String email;
+    private String username;
 
     /**
      * 密码编码结果，不对外返回。

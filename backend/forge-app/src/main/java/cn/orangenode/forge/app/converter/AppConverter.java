@@ -5,9 +5,11 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import cn.orangenode.forge.app.entity.AppBannerEntity;
+import cn.orangenode.forge.app.entity.AppFeedbackEntity;
 import cn.orangenode.forge.app.entity.AppSectionEntity;
 import cn.orangenode.forge.app.entity.AppSplashEntity;
 import cn.orangenode.forge.app.response.AppBannerResponse;
+import cn.orangenode.forge.app.response.AppFeedbackResponse;
 import cn.orangenode.forge.app.response.AppPickedVideoResponse;
 import cn.orangenode.forge.app.response.AppSectionResponse;
 import cn.orangenode.forge.app.response.AppSplashResponse;
@@ -48,6 +50,18 @@ public class AppConverter {
         return new AppSectionResponse(AppValues.textId(e.getId()), e.getTitle(), e.getSourceType(),
                 AppValues.textId(e.getCategoryId()), categoryName, videos, e.getItemLimit(),
                 Boolean.TRUE.equals(e.getEnabled()), e.getSortNo());
+    }
+
+    /**
+     * 转换后台反馈条目。
+     */
+    public AppFeedbackResponse feedback(AppFeedbackEntity feedback) {
+        return new AppFeedbackResponse(AppValues.textId(feedback.getId()), AppValues.textId(feedback.getMemberId()),
+                feedback.getMemberUsername(), feedback.getFeedbackType(), AppValues.textId(feedback.getVideoId()),
+                feedback.getVideoName(), AppValues.textId(feedback.getLineId()), feedback.getLineName(),
+                feedback.getEpisodeName(), feedback.getContent(), feedback.getDeviceName(), feedback.getAppVersion(),
+                feedback.getStatus(), feedback.getHandleRemark(), AppValues.time(feedback.getHandledAt()),
+                AppValues.time(feedback.getCreatedAt()));
     }
 
     /**

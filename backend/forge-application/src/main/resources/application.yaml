@@ -6,6 +6,9 @@
 # 协议不变式（HTTP 200、code/message/data/traceId 四字段、body.code 语义）不在这里配置。
 server:
   port: ${FORGE_SERVER_PORT:8080}
+  # 反向代理头处理：本机直连为 none；部署在 nginx 之后设为 native，由 Tomcat 从内网代理传入的
+  # X-Forwarded-For 还原客户端地址，限流与登录日志按真实来源计算（见 deploy/compose.yaml）。
+  forward-headers-strategy: ${FORGE_FORWARD_HEADERS_STRATEGY:none}
 
 spring:
   application:
@@ -134,11 +137,9 @@ forge:
       - /v3/api-docs/**
       - /swagger-ui/**
       - /swagger-ui.html
-      # App 普通用户注册、登录与找回密码（2026-10-07 恢复普通用户体系）
-      - /api/app/v1/member/auth/email-code
+      # App 普通用户注册与登录（2026-10-07 恢复普通用户体系，2026-10-08 改为用户名登录）
       - /api/app/v1/member/auth/register
       - /api/app/v1/member/auth/login
-      - /api/app/v1/member/auth/password/reset
     # 仅以下 GET 接口匿名可用：App 启动配置与其引用的开屏/轮播图片。
     # 视频分类、列表、详情与播放线路自 2026-10-07 起必须普通用户登录，不再匿名。
     public-get-paths:
@@ -159,30 +160,15 @@ forge:
       default-vip-required: true
       default-registration-open: true
       default-max-devices: 2
-    code:
-      # 验证码位数、有效秒数、同一邮箱同一用途的重发间隔秒数、单个验证码允许的错误次数
-      length: 6
-      ttl-seconds: ${FORGE_MEMBER_CODE_TTL_SECONDS:600}
-      resend-interval-seconds: ${FORGE_MEMBER_CODE_RESEND_SECONDS:60}
-      max-attempts: 5
-      # 同一邮箱、同一来源地址每天最多发送次数
-      email-daily-limit: ${FORGE_MEMBER_CODE_EMAIL_DAILY_LIMIT:10}
-      ip-daily-limit: ${FORGE_MEMBER_CODE_IP_DAILY_LIMIT:50}
-    # 发信服务器（SMTP）：主机为空表示未配置，此时发送验证码返回 body.code=503“邮件发送服务尚未配置”。
-    # 凭据只从环境变量读取；465 端口一般 ssl=true，587 端口一般 ssl=false（使用 STARTTLS）。
-    mail:
-      host: ${FORGE_MAIL_HOST:}
-      port: ${FORGE_MAIL_PORT:465}
-      username: ${FORGE_MAIL_USERNAME:}
-      password: ${FORGE_MAIL_PASSWORD:}
-      from: ${FORGE_MAIL_FROM:}
-      ssl: ${FORGE_MAIL_SSL:true}
-      timeout-millis: ${FORGE_MAIL_TIMEOUT_MILLIS:10000}
-      subject: ${FORGE_MAIL_SUBJECT:验证码}
+    # 注册：用户名注册不经过邮箱验证，同一来源地址每天最多注册的账号数
+    register:
+      ip-daily-limit: ${FORGE_MEMBER_REGISTER_IP_DAILY_LIMIT:10}
 
   # App 管理：首页推荐行单行最多影片数
   app:
     section-max-items: ${FORGE_APP_SECTION_MAX_ITEMS:30}
+    # 同一普通用户每天最多提交的意见反馈与播放报错条数
+    feedback-daily-limit: ${FORGE_APP_FEEDBACK_DAILY_LIMIT:20}
 
   # 视频采集：单实例队列，所有可调参数集中于此。
   video:

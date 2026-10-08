@@ -48,6 +48,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/app/v1/member/history/{videoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 单部影片观看进度
+         * @description 用于断点续播；没有记录时 data 为空
+         */
+        get: operations["progress"];
+        /**
+         * 上报观看进度
+         * @description 播放中定时上报；同一影片只保留最近一次；影片不存在或已下架 404
+         */
+        put: operations["saveProgress"];
+        post?: never;
+        /**
+         * 删除观看历史
+         * @description 不存在时同样返回成功
+         */
+        delete: operations["deleteHistory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/favorites/{videoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 是否已收藏 */
+        get: operations["favorited"];
+        /**
+         * 收藏影片
+         * @description 重复收藏返回成功；影片不存在或已下架 404
+         */
+        put: operations["addFavorite"];
+        post?: never;
+        /**
+         * 取消收藏
+         * @description 未收藏时同样返回成功
+         */
+        delete: operations["removeFavorite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/devices/{id}/offline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 让设备下线
+         * @description 不是自己的设备 404；当前设备 400（请用退出登录）；已离线 409
+         */
+        post: operations["offline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/app/v1/member/auth/register": {
         parameters: {
             query?: never;
@@ -58,30 +131,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 邮箱验证码注册
-         * @description 验证码错误或失效 400；邮箱已注册 409；未开放注册 403；成功后直接返回令牌
+         * 用户名注册
+         * @description 用户名为 4 到 20 位字母、数字或下划线，不区分大小写唯一；已被注册 409；未开放注册 403；同一来源注册过于频繁 429；成功后直接返回令牌
          */
         post: operations["register"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/app/v1/member/auth/password/reset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 邮箱验证码重置密码
-         * @description 验证码错误或失效 400；成功后该账号全部令牌失效
-         */
-        post: operations["resetPassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -118,8 +171,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 邮箱密码登录
-         * @description 邮箱或密码错误 401；账号停用 403；失败过多 429；超过同时登录台数时踢出最早登录的设备
+         * 用户名密码登录
+         * @description 用户名或密码错误 401；账号停用 403；失败过多 429；超过同时登录台数时踢出最早登录的设备
          */
         post: operations["login"];
         delete?: never;
@@ -128,7 +181,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/app/v1/member/auth/email-code": {
+    "/api/app/v1/feedback": {
         parameters: {
             query?: never;
             header?: never;
@@ -138,10 +191,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 发送邮箱验证码
-         * @description 注册要求开放注册且邮箱未注册（已注册 409、未开放 403）；找回密码对未注册邮箱同样返回成功但不发信；发送过于频繁 429；发信服务未配置或发送失败 503
+         * 提交反馈
+         * @description 播放报错缺少影片 400；影片不存在 404；超过每日条数 429
          */
-        post: operations["sendCode"];
+        post: operations["submit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -211,6 +264,67 @@ export interface paths {
         };
         /** 查询可用视频分类 */
         get: operations["categories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 观看历史
+         * @description 按最近观看时间倒序；含最近一集与播放位置，用于首页“继续观看”
+         */
+        get: operations["history"];
+        put?: never;
+        post?: never;
+        /** 清空观看历史 */
+        delete: operations["clearHistory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/favorites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 我的收藏
+         * @description 按收藏时间倒序
+         */
+        get: operations["favorites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 我的设备
+         * @description 在线设备在前；current 标记发起请求的这台设备
+         */
+        get: operations["list_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -316,7 +430,7 @@ export interface components {
         };
         MemberProfileResponse: {
             id?: string;
-            email?: string;
+            username?: string;
             nickname?: string;
             avatarUrl?: string;
             vipActive?: boolean;
@@ -334,10 +448,18 @@ export interface components {
             data?: unknown;
             traceId?: string;
         };
+        MemberHistoryRequest: {
+            lineId?: string;
+            /** Format: int32 */
+            episodeIndex: number;
+            episodeName: string;
+            /** Format: int32 */
+            positionSeconds: number;
+            /** Format: int32 */
+            durationSeconds: number;
+        };
         MemberRegisterRequest: {
-            /** Format: email */
-            email: string;
-            code: string;
+            username: string;
             password: string;
             nickname?: string;
             deviceCode: string;
@@ -357,22 +479,21 @@ export interface components {
             expiresIn?: number;
             profile?: components["schemas"]["MemberProfileResponse"];
         };
-        MemberPasswordResetRequest: {
-            /** Format: email */
-            email: string;
-            code: string;
-            newPassword: string;
-        };
         MemberLoginRequest: {
-            email: string;
+            username: string;
             password: string;
             deviceCode: string;
             deviceName: string;
         };
-        MemberCodeRequest: {
-            /** Format: email */
-            email: string;
-            purpose: string;
+        AppFeedbackSubmitRequest: {
+            type: string;
+            videoId?: string;
+            lineId?: string;
+            lineName?: string;
+            episodeName?: string;
+            content: string;
+            deviceName?: string;
+            appVersion?: string;
         };
         ApiResponsePageResponseAppVideoResponse: {
             /** Format: int32 */
@@ -460,6 +581,95 @@ export interface components {
             /** Format: int64 */
             videoCount?: number;
             children?: components["schemas"]["CategoryResponse"][];
+        };
+        ApiResponsePageResponseMemberHistoryResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseMemberHistoryResponse"];
+            traceId?: string;
+        };
+        MemberHistoryResponse: {
+            videoId?: string;
+            videoName?: string;
+            posterUrl?: string;
+            remarks?: string;
+            lineId?: string;
+            /** Format: int32 */
+            episodeIndex?: number;
+            episodeName?: string;
+            /** Format: int32 */
+            positionSeconds?: number;
+            /** Format: int32 */
+            durationSeconds?: number;
+            updatedAt?: string;
+        };
+        PageResponseMemberHistoryResponse: {
+            records?: components["schemas"]["MemberHistoryResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
+        ApiResponseMemberHistoryResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberHistoryResponse"];
+            traceId?: string;
+        };
+        ApiResponsePageResponseMemberFavoriteResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseMemberFavoriteResponse"];
+            traceId?: string;
+        };
+        MemberFavoriteResponse: {
+            videoId?: string;
+            videoName?: string;
+            posterUrl?: string;
+            remarks?: string;
+            /** Format: int32 */
+            year?: number;
+            favoritedAt?: string;
+        };
+        PageResponseMemberFavoriteResponse: {
+            records?: components["schemas"]["MemberFavoriteResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
+        ApiResponseMemberFavoriteStatusResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberFavoriteStatusResponse"];
+            traceId?: string;
+        };
+        MemberFavoriteStatusResponse: {
+            favorited?: boolean;
+        };
+        ApiResponseListMemberOwnDeviceResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberOwnDeviceResponse"][];
+            traceId?: string;
+        };
+        MemberOwnDeviceResponse: {
+            id?: string;
+            deviceName?: string;
+            clientIp?: string;
+            online?: boolean;
+            current?: boolean;
+            loginAt?: string;
+            lastActiveAt?: string;
         };
         ApiResponseAppLaunchResponse: {
             /** Format: int32 */
@@ -602,6 +812,164 @@ export interface operations {
             };
         };
     };
+    progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                videoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberHistoryResponse"];
+                };
+            };
+        };
+    };
+    saveProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                videoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberHistoryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    deleteHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                videoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    favorited: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                videoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberFavoriteStatusResponse"];
+                };
+            };
+        };
+    };
+    addFavorite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                videoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    removeFavorite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                videoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    offline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     register: {
         parameters: {
             query?: never;
@@ -622,30 +990,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseMemberLoginResponse"];
-                };
-            };
-        };
-    };
-    resetPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberPasswordResetRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };
@@ -694,7 +1038,7 @@ export interface operations {
             };
         };
     };
-    sendCode: {
+    submit: {
         parameters: {
             query?: never;
             header?: never;
@@ -703,7 +1047,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MemberCodeRequest"];
+                "application/json": components["schemas"]["AppFeedbackSubmitRequest"];
             };
         };
         responses: {
@@ -806,6 +1150,92 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListCategoryResponse"];
+                };
+            };
+        };
+    };
+    history: {
+        parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseMemberHistoryResponse"];
+                };
+            };
+        };
+    };
+    clearHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    favorites: {
+        parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseMemberFavoriteResponse"];
+                };
+            };
+        };
+    };
+    list_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMemberOwnDeviceResponse"];
                 };
             };
         };

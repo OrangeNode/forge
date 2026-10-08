@@ -35,15 +35,15 @@ public class MemberDeviceController {
     /**
      * 分页查询登录设备。
      */
-    @Operation(summary = "分页查询登录设备", description = "可按用户 ID、邮箱关键字与在线状态筛选，在线设备在前")
+    @Operation(summary = "分页查询登录设备", description = "可按用户 ID、用户名关键字与在线状态筛选，在线设备在前")
     @PreAuthorize("hasAnyAuthority('member:device:view', 'member:user:view')")
     @GetMapping("/devices")
     public ApiResponse<PageResponse<MemberDeviceResponse>> devices(@RequestParam(required = false) Integer pageNum,
             @RequestParam(required = false) Integer pageSize, @RequestParam(required = false) String memberId,
-            @RequestParam(required = false) String email, @RequestParam(required = false) Boolean online,
+            @RequestParam(required = false) String username, @RequestParam(required = false) Boolean online,
             HttpServletRequest http) {
         Long member = memberId == null || memberId.isBlank() ? null : MemberValues.id(memberId);
-        return ApiResponse.successWithTrace(service.devices(pageNum, pageSize, member, email, online),
+        return ApiResponse.successWithTrace(service.devices(pageNum, pageSize, member, username, online),
                 TraceIdFilter.currentTraceId(http));
     }
 

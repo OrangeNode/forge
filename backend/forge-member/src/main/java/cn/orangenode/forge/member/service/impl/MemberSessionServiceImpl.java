@@ -145,6 +145,15 @@ public class MemberSessionServiceImpl implements MemberSessionService {
     @Override
     @Transactional
     public void forceOffline(Long deviceId) {
+        offline(deviceId, MemberOfflineReason.ADMIN);
+    }
+
+    /**
+     * 撤销设备令牌并按给定原因标记离线。
+     */
+    @Override
+    @Transactional
+    public void offline(Long deviceId, MemberOfflineReason reason) {
         MemberDeviceEntity device = devices.selectById(deviceId);
         if (device == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "登录设备不存在");
@@ -153,7 +162,7 @@ public class MemberSessionServiceImpl implements MemberSessionService {
             throw new BusinessException(ErrorCode.CONFLICT, "设备已离线");
         }
         tokens.revokeDigest(device.getTokenDigest());
-        markOffline(device, MemberOfflineReason.ADMIN, MemberValues.now());
+        markOffline(device, reason, MemberValues.now());
     }
 
     /**

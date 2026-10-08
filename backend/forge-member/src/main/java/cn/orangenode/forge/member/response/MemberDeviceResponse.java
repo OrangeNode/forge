@@ -5,7 +5,7 @@ package cn.orangenode.forge.member.response;
  *
  * @param id            设备记录 ID
  * @param memberId      用户 ID
- * @param memberEmail   用户邮箱
+ * @param memberUsername 用户名
  * @param deviceCode    设备编号
  * @param deviceName    设备名称
  * @param clientIp      最近来源地址
@@ -15,7 +15,7 @@ package cn.orangenode.forge.member.response;
  * @param lastActiveAt  最近活跃时间
  * @param offlineAt     离线时间
  */
-public record MemberDeviceResponse(String id, String memberId, String memberEmail, String deviceCode,
+public record MemberDeviceResponse(String id, String memberId, String memberUsername, String deviceCode,
         String deviceName, String clientIp, boolean online, String offlineReason, String loginAt,
         String lastActiveAt, String offlineAt) {
 }

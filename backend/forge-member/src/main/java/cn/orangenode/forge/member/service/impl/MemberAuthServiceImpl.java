@@ -1,5 +1,10 @@
 package cn.orangenode.forge.member.service.impl;
 
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.Locale;
+
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,20 +18,17 @@ import cn.orangenode.forge.framework.member.AppFeatureResolver;
 import cn.orangenode.forge.framework.member.AuthenticatedMember;
 import cn.orangenode.forge.framework.member.CurrentMember;
 import cn.orangenode.forge.framework.member.MemberToken;
+import cn.orangenode.forge.framework.redis.ForgeRedisTemplate;
 import cn.orangenode.forge.framework.security.LoginAttemptGuard;
+import cn.orangenode.forge.member.config.MemberProperties;
 import cn.orangenode.forge.member.converter.MemberConverter;
 import cn.orangenode.forge.member.entity.MemberUserEntity;
-import cn.orangenode.forge.member.mail.MemberCodePurpose;
 import cn.orangenode.forge.member.mapper.MemberUserMapper;
-import cn.orangenode.forge.member.request.MemberCodeRequest;
 import cn.orangenode.forge.member.request.MemberLoginRequest;
-import cn.orangenode.forge.member.request.MemberPasswordResetRequest;
 import cn.orangenode.forge.member.request.MemberRegisterRequest;
 import cn.orangenode.forge.member.response.MemberLoginResponse;
 import cn.orangenode.forge.member.service.MemberAuthService;
-import cn.orangenode.forge.member.service.MemberCodeService;
 import cn.orangenode.forge.member.service.MemberSessionService;
-import cn.orangenode.forge.member.support.MemberOfflineReason;
 import cn.orangenode.forge.member.support.MemberStatus;
 import cn.orangenode.forge.member.support.MemberValues;
 
@@ -37,60 +39,48 @@ import lombok.extern.slf4j.Slf4j;
  * 普通用户认证实现。
  *
  * <p>登录失败计数复用基础层限流组件，键名加普通用户前缀，与管理员用户名互不影响；
- * 账号不存在与密码错误返回同一句 401 提示。</p>
+ * 账号不存在与密码错误返回同一句 401 提示。用户名注册不经过邮箱验证，按来源地址限制每日注册次数。</p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class MemberAuthServiceImpl implements MemberAuthService {
     private static final String ATTEMPT_PREFIX = "member:";
+    private static final String REGISTER_IP_KEY = "member:register-ip:";
     private static final String TOKEN_TYPE = "Bearer";
-    private static final String BAD_CREDENTIALS = "邮箱或密码错误";
+    private static final String BAD_CREDENTIALS = "用户名或密码错误";
+    private static final Duration DAY = Duration.ofDays(1);
     private final MemberUserMapper users;
-    private final MemberCodeService codes;
     private final MemberSessionService sessions;
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptGuard attemptGuard;
     private final AppFeatureResolver features;
     private final MemberConverter converter;
+    private final ForgeRedisTemplate redis;
+    private final MemberProperties properties;
 
     /**
-     * 按用途检查注册开关与邮箱状态后发送验证码。
-     */
-    @Override
-    public void sendCode(MemberCodeRequest request, String clientIp) {
-        String email = MemberValues.email(request.email());
-        MemberCodePurpose purpose = MemberCodePurpose.valueOf(request.purpose());
-        boolean exists = findByEmail(email) != null;
-        if (purpose == MemberCodePurpose.REGISTER) {
-            assertRegistrationOpen();
-            if (exists) {
-                throw new BusinessException(ErrorCode.CONFLICT, "该邮箱已注册，请直接登录");
-            }
-        } else if (!exists) {
-            log.info("找回密码的邮箱未注册，静默不发信，收件人={}", MemberValues.mask(email));
-            return;
-        }
-        codes.send(email, purpose, clientIp);
-    }
-
-    /**
-     * 校验验证码后创建账号并登录当前设备；并发重复注册由唯一键兜底返回 409。
+     * 检查注册开关、用户名占用与来源地址每日次数后创建账号并登录当前设备；并发重复注册由唯一键兜底返回 409。
      */
     @Override
     @Transactional
     public MemberLoginResponse register(MemberRegisterRequest request, String clientIp) {
         assertRegistrationOpen();
-        String email = MemberValues.email(request.email());
-        if (findByEmail(email) != null) {
-            throw new BusinessException(ErrorCode.CONFLICT, "该邮箱已注册，请直接登录");
+        String username = MemberValues.username(request.username());
+        if (findByUsername(username) != null) {
+            throw new BusinessException(ErrorCode.CONFLICT, "该用户名已被注册");
         }
-        codes.consume(email, MemberCodePurpose.REGISTER, request.code());
+        if (clientIp != null) {
+            String key = REGISTER_IP_KEY + LocalDate.now(ZoneOffset.UTC) + ":" + clientIp;
+            if (redis.increment(key, DAY) > properties.getRegister().getIpDailyLimit()) {
+                throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS, "注册过于频繁，请明天再试");
+            }
+        }
         MemberUserEntity user = new MemberUserEntity();
-        user.setEmail(email);
+        user.setUsername(username);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         String nickname = MemberValues.clean(request.nickname());
-        user.setNickname(nickname == null ? defaultNickname(email) : nickname);
+        user.setNickname(nickname == null ? username : nickname);
         user.setStatus(MemberStatus.ENABLED.name());
         user.setSessionVersion(0L);
         user.setRegisterIp(clientIp);
@@ -101,9 +91,9 @@ public class MemberAuthServiceImpl implements MemberAuthService {
         try {
             users.insert(user);
         } catch (DuplicateKeyException duplicate) {
-            throw new BusinessException(ErrorCode.CONFLICT, "该邮箱已注册，请直接登录");
+            throw new BusinessException(ErrorCode.CONFLICT, "该用户名已被注册");
         }
-        log.info("普通用户注册成功，用户 ID={}，邮箱={}", user.getId(), MemberValues.mask(email));
+        log.info("普通用户注册成功，用户 ID={}，用户名={}", user.getId(), username);
         MemberToken token = sessions.open(user.getId(), request.deviceCode(), request.deviceName().strip(), clientIp);
         return response(token, users.selectById(user.getId()));
     }
@@ -114,43 +104,24 @@ public class MemberAuthServiceImpl implements MemberAuthService {
     @Override
     @Transactional
     public MemberLoginResponse login(MemberLoginRequest request, String clientIp) {
-        String email = MemberValues.email(request.email());
-        attemptGuard.assertAllowed(ATTEMPT_PREFIX + email);
-        MemberUserEntity user = findByEmail(email);
+        String username = MemberValues.username(request.username());
+        String attemptKey = ATTEMPT_PREFIX + (username == null ? "" : username.toLowerCase(Locale.ROOT));
+        attemptGuard.assertAllowed(attemptKey);
+        MemberUserEntity user = findByUsername(username);
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            attemptGuard.recordFailure(ATTEMPT_PREFIX + email);
+            attemptGuard.recordFailure(attemptKey);
             throw new BusinessException(ErrorCode.UNAUTHORIZED, BAD_CREDENTIALS);
         }
         if (!MemberStatus.ENABLED.name().equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "账号已停用，请联系客服");
         }
-        attemptGuard.clear(ATTEMPT_PREFIX + email);
+        attemptGuard.clear(attemptKey);
         users.update(null, Wrappers.<MemberUserEntity>lambdaUpdate()
                 .set(MemberUserEntity::getLastLoginAt, MemberValues.now())
                 .set(MemberUserEntity::getLastLoginIp, clientIp)
                 .eq(MemberUserEntity::getId, user.getId()));
         MemberToken token = sessions.open(user.getId(), request.deviceCode(), request.deviceName().strip(), clientIp);
         return response(token, users.selectById(user.getId()));
-    }
-
-    /**
-     * 校验验证码后重置密码并撤销全部令牌。
-     */
-    @Override
-    @Transactional
-    public void resetPassword(MemberPasswordResetRequest request) {
-        String email = MemberValues.email(request.email());
-        codes.consume(email, MemberCodePurpose.RESET_PASSWORD, request.code());
-        MemberUserEntity user = findByEmail(email);
-        if (user == null) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "验证码错误或已失效");
-        }
-        users.update(null, Wrappers.<MemberUserEntity>lambdaUpdate()
-                .set(MemberUserEntity::getPasswordHash, passwordEncoder.encode(request.newPassword()))
-                .set(MemberUserEntity::getUpdatedAt, MemberValues.now())
-                .eq(MemberUserEntity::getId, user.getId()));
-        sessions.revokeAll(user.getId(), MemberOfflineReason.REVOKED);
-        attemptGuard.clear(ATTEMPT_PREFIX + email);
     }
 
     /**
@@ -172,19 +143,13 @@ public class MemberAuthServiceImpl implements MemberAuthService {
     }
 
     /**
-     * 按规范化邮箱查询账号。
+     * 按用户名查询账号，比较不区分大小写（由表排序规则保证）。
      */
-    private MemberUserEntity findByEmail(String email) {
-        return users.selectOne(Wrappers.<MemberUserEntity>lambdaQuery().eq(MemberUserEntity::getEmail, email));
-    }
-
-    /**
-     * 使用邮箱前缀作为默认昵称。
-     */
-    private String defaultNickname(String email) {
-        String prefix = email.substring(0, Math.max(email.indexOf('@'), 1));
-        return prefix.length() > MemberValues.NICKNAME_MAX_LENGTH
-                ? prefix.substring(0, MemberValues.NICKNAME_MAX_LENGTH) : prefix;
+    private MemberUserEntity findByUsername(String username) {
+        if (username == null) {
+            return null;
+        }
+        return users.selectOne(Wrappers.<MemberUserEntity>lambdaQuery().eq(MemberUserEntity::getUsername, username));
     }
 
     /**

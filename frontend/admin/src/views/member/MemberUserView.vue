@@ -12,7 +12,7 @@ import '@/views/video/video.css'
 const session = useSessionStore()
 const { busy, errors, act } = useVideoActions()
 const rows = ref<MemberUser[]>([])
-const filters = reactive<{ email: string; status: string | null; vip: string | null }>({ email: '', status: null, vip: null })
+const filters = reactive<{ username: string; status: string | null; vip: string | null }>({ username: '', status: null, vip: null })
 const pagination = reactive({ page: 1, pageSize: videoPageSize, itemCount: 0, showSizePicker: true, pageSizes: videoPageSizeOptions })
 const current = ref<MemberUser>()
 const detailShow = ref(false)
@@ -30,7 +30,7 @@ const vipOptions = [{ label: 'VIP 有效', value: 'ACTIVE' }, { label: 'VIP 已�
  */
 async function load() {
   await act(async () => {
-    const page = await memberApi.users({ pageNum: pagination.page, pageSize: pagination.pageSize, email: filters.email || undefined, status: filters.status ?? undefined, vip: filters.vip ?? undefined })
+    const page = await memberApi.users({ pageNum: pagination.page, pageSize: pagination.pageSize, username: filters.username || undefined, status: filters.status ?? undefined, vip: filters.vip ?? undefined })
     rows.value = page.records
     pagination.itemCount = page.total
   })
@@ -127,7 +127,7 @@ async function offlineAll(row: MemberUser) {
 }
 
 const columns: DataTableColumns<MemberUser> = [
-  { title: '邮箱', key: 'email', minWidth: 200, ellipsis: { tooltip: true } },
+  { title: '用户名', key: 'username', minWidth: 160, ellipsis: { tooltip: true } },
   { title: '昵称', key: 'nickname', width: 130, ellipsis: { tooltip: true } },
   { title: '状态', key: 'status', width: 80, render: row => h(NTag, { type: row.status === 'ENABLED' ? 'success' : 'default', bordered: false }, () => memberStatusLabels[row.status] ?? row.status) },
   { title: 'VIP', key: 'vipExpireAt', width: 190, render: row => row.vipActive ? h(NTag, { type: 'warning', bordered: false }, () => `至 ${formatTime(row.vipExpireAt)}`) : (row.vipExpireAt ? `已过期 ${formatTime(row.vipExpireAt)}` : '未开通') },
@@ -140,7 +140,7 @@ const columns: DataTableColumns<MemberUser> = [
     session.hasPermission('member:user:password') ? h(NButton, { size: 'small', onClick: () => openPassword(row) }, () => '重置密码') : null,
     session.hasPermission('member:user:status') ? h(NPopconfirm, { onPositiveClick: () => toggleStatus(row) }, {
       trigger: () => h(NButton, { size: 'small', type: row.status === 'ENABLED' ? 'error' : 'primary', quaternary: true }, () => row.status === 'ENABLED' ? '停用' : '启用'),
-      default: () => row.status === 'ENABLED' ? `确认停用「${row.email}」？其全部登录设备会立即下线。` : `确认启用「${row.email}」？`,
+      default: () => row.status === 'ENABLED' ? `确认停用「${row.username}」？其全部登录设备会立即下线。` : `确认启用「${row.username}」？`,
     }) : null,
   ]) },
 ]
@@ -190,8 +190,8 @@ onMounted(load)
       <div class="video-content">
         <NSpace class="video-filters">
           <NInput
-            v-model:value="filters.email"
-            placeholder="搜索邮箱"
+            v-model:value="filters.username"
+            placeholder="搜索用户名"
             clearable
             style="width: 220px"
             @keyup.enter="search"
@@ -240,7 +240,7 @@ onMounted(load)
     >
       <NDrawerContent
         v-if="current"
-        :title="current.email"
+        :title="current.username"
         closable
       >
         <NDescriptions
@@ -319,7 +319,7 @@ onMounted(load)
     <NModal
       v-model:show="vipShow"
       preset="card"
-      :title="`调整 VIP · ${current?.email ?? ''}`"
+      :title="`调整 VIP · ${current?.username ?? ''}`"
       class="video-modal"
       style="width: min(520px, calc(100vw - 32px))"
     >
@@ -386,7 +386,7 @@ onMounted(load)
     <NModal
       v-model:show="passwordShow"
       preset="card"
-      :title="`重置密码 · ${current?.email ?? ''}`"
+      :title="`重置密码 · ${current?.username ?? ''}`"
       style="width: min(440px, calc(100vw - 32px))"
     >
       <NFormItem

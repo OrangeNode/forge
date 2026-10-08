@@ -1,4 +1,4 @@
-import type { adminComponents } from '@orange-forge/api-client'
+import type { adminComponents, PageResponse } from '@orange-forge/api-client'
 import { API_BASE_URL, API_PREFIX, request } from './request'
 
 type Schemas = adminComponents['schemas']
@@ -11,10 +11,11 @@ export type SplashInput = Schemas['AppSplashRequest']
 export type BannerInput = Schemas['AppBannerRequest']
 export type SectionInput = Schemas['AppSectionRequest']
 export type FeatureInput = Schemas['AppFeatureRequest']
+export type Feedback = Required<Schemas['AppFeedbackResponse']>
 const base = `${API_PREFIX}/app`
 
 /**
- * App 管理接口：开屏、轮播、推荐位、热搜与功能开关。
+ * App 管理接口：开屏、轮播、推荐位、热搜、功能开关与反馈处理。
  */
 export const appConfigApi = {
   splashes: () => request.get<Splash[]>(`${base}/splashes`),
@@ -36,6 +37,9 @@ export const appConfigApi = {
   saveFeatures: (body: FeatureInput) => request.put<Features>(`${base}/features`, { body }),
   hotSearch: () => request.get<HotSearch>(`${base}/hot-search`),
   saveHotSearch: (body: HotSearch) => request.put<HotSearch>(`${base}/hot-search`, { body }),
+  feedbacks: (query: { pageNum: number; pageSize: number; status?: string; type?: string }) =>
+    request.get<PageResponse<Feedback>>(`${base}/feedbacks`, { query }),
+  resolveFeedback: (id: string, remark: string) => request.post<void>(`${base}/feedbacks/${id}/resolve`, { body: { remark } }),
 }
 
 /**
