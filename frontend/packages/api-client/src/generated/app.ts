@@ -4,6 +4,150 @@
  */
 
 export interface paths {
+    "/api/app/v1/member/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 当前用户资料
+         * @description 返回昵称、头像、VIP 是否有效、到期时间及当前是否只有 VIP 能观看
+         */
+        get: operations["current"];
+        /**
+         * 修改个人资料
+         * @description 只允许修改昵称与头像地址
+         */
+        put: operations["update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/profile/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 修改密码
+         * @description 原密码错误 400；成功后全部令牌失效，需要重新登录
+         */
+        put: operations["changePassword"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 邮箱验证码注册
+         * @description 验证码错误或失效 400；邮箱已注册 409；未开放注册 403；成功后直接返回令牌
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 邮箱验证码重置密码
+         * @description 验证码错误或失效 400；成功后该账号全部令牌失效
+         */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 退出登录
+         * @description 撤销当前令牌并标记当前设备离线；未登录 401
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 邮箱密码登录
+         * @description 邮箱或密码错误 401；账号停用 403；失败过多 429；超过同时登录台数时踢出最早登录的设备
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/member/auth/email-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 发送邮箱验证码
+         * @description 注册要求开放注册且邮箱未注册（已注册 409、未开放 403）；找回密码对未注册邮箱同样返回成功但不发信；发送过于频繁 429；发信服务未配置或发送失败 503
+         */
+        post: operations["sendCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/app/v1/video/videos": {
         parameters: {
             query?: never;
@@ -45,7 +189,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 播放线路与分集地址 */
+        /**
+         * 播放线路与分集地址
+         * @description VIP 开关开启时要求 VIP 未过期，否则 body.code=403；只返回 M3U8/MP4 分集，没有可播分集的线路不返回
+         */
         get: operations["lines"];
         put?: never;
         post?: never;
@@ -72,10 +219,161 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/app/v1/app/launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 启动配置
+         * @description 当前生效的开屏（无则为空）、VIP 开关、注册开关、客服与公告文字；匿名可读
+         */
+        get: operations["launch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/app/images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * App 图片
+         * @description 只开放开屏与轮播引用的图片文件，成功为二进制图片，失败为统一 JSON
+         */
+        get: operations["image"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/app/hot-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 热搜词
+         * @description 后台手动热搜词，已排除包含屏蔽词的项
+         */
+        get: operations["hotSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/app/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 首页数据
+         * @description 在线轮播与推荐行；推荐行影片只含已上架影片，没有影片的行不返回
+         */
+        get: operations["home"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        MemberProfileUpdateRequest: {
+            nickname: string;
+            avatarUrl?: string;
+        };
+        ApiResponseMemberProfileResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberProfileResponse"];
+            traceId?: string;
+        };
+        MemberProfileResponse: {
+            id?: string;
+            email?: string;
+            nickname?: string;
+            avatarUrl?: string;
+            vipActive?: boolean;
+            vipExpireAt?: string;
+            vipRequired?: boolean;
+        };
+        MemberPasswordChangeRequest: {
+            oldPassword: string;
+            newPassword: string;
+        };
+        ApiResponseVoid: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: unknown;
+            traceId?: string;
+        };
+        MemberRegisterRequest: {
+            /** Format: email */
+            email: string;
+            code: string;
+            password: string;
+            nickname?: string;
+            deviceCode: string;
+            deviceName: string;
+        };
+        ApiResponseMemberLoginResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberLoginResponse"];
+            traceId?: string;
+        };
+        MemberLoginResponse: {
+            accessToken?: string;
+            tokenType?: string;
+            /** Format: int64 */
+            expiresIn?: number;
+            profile?: components["schemas"]["MemberProfileResponse"];
+        };
+        MemberPasswordResetRequest: {
+            /** Format: email */
+            email: string;
+            code: string;
+            newPassword: string;
+        };
+        MemberLoginRequest: {
+            email: string;
+            password: string;
+            deviceCode: string;
+            deviceName: string;
+        };
+        MemberCodeRequest: {
+            /** Format: email */
+            email: string;
+            purpose: string;
+        };
         ApiResponsePageResponseAppVideoResponse: {
             /** Format: int32 */
             code?: number;
@@ -159,7 +457,73 @@ export interface components {
             /** Format: int32 */
             sortNo?: number;
             enabled?: boolean;
+            /** Format: int64 */
+            videoCount?: number;
             children?: components["schemas"]["CategoryResponse"][];
+        };
+        ApiResponseAppLaunchResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppLaunchResponse"];
+            traceId?: string;
+        };
+        AppLaunchResponse: {
+            splash?: components["schemas"]["AppLaunchSplashResponse"];
+            vipRequired?: boolean;
+            registrationOpen?: boolean;
+            serviceText?: string;
+            noticeText?: string;
+        };
+        AppLaunchSplashResponse: {
+            imageUrl?: string;
+            /** Format: int32 */
+            durationSeconds?: number;
+            skippable?: boolean;
+        };
+        ApiResponseAppHotWordsResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppHotWordsResponse"];
+            traceId?: string;
+        };
+        AppHotWordsResponse: {
+            words?: string[];
+        };
+        ApiResponseAppHomeResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppHomeResponse"];
+            traceId?: string;
+        };
+        AppHomeBannerResponse: {
+            id?: string;
+            title?: string;
+            imageUrl?: string;
+            targetType?: string;
+            targetId?: string;
+        };
+        AppHomeResponse: {
+            banners?: components["schemas"]["AppHomeBannerResponse"][];
+            sections?: components["schemas"]["AppHomeSectionResponse"][];
+        };
+        AppHomeSectionResponse: {
+            id?: string;
+            title?: string;
+            sourceType?: string;
+            categoryId?: string;
+            videos?: components["schemas"]["AppVideoCardResponse"][];
+        };
+        AppVideoCardResponse: {
+            id?: string;
+            name?: string;
+            posterUrl?: string;
+            remarks?: string;
+            /** Format: int32 */
+            year?: number;
+            categoryId?: string;
         };
     };
     responses: never;
@@ -170,6 +534,190 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    current: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberProfileResponse"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberProfileUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberProfileResponse"];
+                };
+            };
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberPasswordChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberRegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberLoginResponse"];
+                };
+            };
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberPasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberLoginResponse"];
+                };
+            };
+        };
+    };
+    sendCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     list: {
         parameters: {
             query?: {
@@ -258,6 +806,86 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListCategoryResponse"];
+                };
+            };
+        };
+    };
+    launch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppLaunchResponse"];
+                };
+            };
+        };
+    };
+    image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hotSearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppHotWordsResponse"];
+                };
+            };
+        };
+    };
+    home: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppHomeResponse"];
                 };
             };
         };

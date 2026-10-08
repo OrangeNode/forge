@@ -15,8 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * OpenAPI 文档装配。
  *
- * <p>项目只有一个后台管理前端与一种管理员身份，基础层装配管理端分组；视频模块另装配 App 只读分组，
- * 匹配前缀 {@code /api/admin/**}，与接口前缀约定一致。分组只影响文档展示，
+ * <p>项目有管理员与普通用户两种身份：管理端分组匹配 {@code /api/admin/**}，
+ * App 分组匹配 {@code /api/app/**}（普通用户账号、App 配置与视频读取），与接口前缀约定一致。分组只影响文档展示，
  * 不改变接口权限，权限仍由安全过滤链与权限注解决定。</p>
  *
  * <p>文档说明为中文，并声明 Bearer 认证方案；对外 ID 在控制器与 DTO 中使用字符串类型，
@@ -62,6 +62,21 @@ public class OpenApiConfig {
                 .group("admin")
                 .displayName("管理端接口")
                 .pathsToMatch("/api/admin/**")
+                .build();
+    }
+
+    /**
+     * App 接口分组，覆盖普通用户账号、App 公开配置与视频读取。
+     *
+     * @return App 分组定义
+     */
+    @Bean
+    public GroupedOpenApi appApi() {
+        log.info("OpenAPI App 分组已装配，匹配前缀 /api/app/**");
+        return GroupedOpenApi.builder()
+                .group("app")
+                .displayName("App 接口")
+                .pathsToMatch("/api/app/**")
                 .build();
     }
 }

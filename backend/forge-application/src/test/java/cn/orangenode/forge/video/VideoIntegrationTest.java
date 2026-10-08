@@ -101,6 +101,10 @@ class VideoIntegrationTest {
             }
         }
         jdbc.execute("ALTER TABLE video_settings ADD COLUMN missing_policies TEXT NULL");
+        jdbc.execute("ALTER TABLE video_task ADD COLUMN cron_expression VARCHAR(128) NOT NULL");
+        for (String column : List.of("frequency", "interval_hours", "weekday", "time_of_day", "zone_id")) {
+            jdbc.execute("ALTER TABLE video_task DROP COLUMN " + column);
+        }
         SettingsEntity rules = new SettingsEntity();
         rules.setId(1L);
         rules.setMatchFields("name,year,category");
@@ -260,14 +264,16 @@ class VideoIntegrationTest {
     }
 
     /**
-     * 新任务默认停用，到期补触发只排队一次并给出窗口丢失提示。
+     * cron 非法时拒绝保存；到期补触发只排队一次并给出窗口丢失提示。
      */
     @Test
     void dispatchesOneMissedSchedule() {
-        var request = new TaskRequest("日采集", "1", "DAY", "6", "DAILY", null, null, "02:00", "Asia/Shanghai", true);
-        var task = collections.saveTask(null, request);
+        assertThatThrownBy(() -> collections.saveTask(null, new TaskRequest("错误", "1", "DAY", "6", "0 2 * *", false)))
+                .hasMessageContaining("cron");
+        var task = collections.saveTask(null, new TaskRequest("日采集", "1", "DAY", "6", "0 2 * * *", false));
         assertThat(task.enabled()).isFalse();
-        collections.saveTask(Long.valueOf(task.id()), request);
+        assertThat(collections.saveTask(Long.valueOf(task.id()),
+                new TaskRequest("日采集", "1", "DAY", "6", "0 2 * * *", true)).enabled()).isTrue();
         jdbc.update("UPDATE video_task SET next_run_at=? WHERE id=?", VideoValues.now().minusDays(3), Long.valueOf(task.id()));
         collections.dispatchDue();
         collections.dispatchDue();
@@ -292,25 +298,18 @@ class VideoIntegrationTest {
     }
 
     /**
-     * 只放行明确的公开 GET，写入、未知路径和管理接口仍须认证，限流使用统一响应。
+     * 2026-10-07 起 App 视频接口必须普通用户登录：匿名读取、写入、未知路径和管理接口一律 401，管理员令牌也不能替代普通用户令牌。
      */
     @Test
-    void limitsAnonymousGetAndProtectsEveryWrite() {
+    void requiresMemberLoginForEveryAppVideoRead() {
         String base = "/api/app/v1/video";
-        String body = http.get().uri(base + "/categories").exchange().expectStatus().isOk()
-                .expectBody(String.class).returnResult().getResponseBody();
-        assertThat(body).contains("\"code\":0", "\"traceId\":");
-        http.get().uri(base + "/videos").exchange().expectStatus().isOk();
-        http.get().uri(base + "/videos").exchange().expectStatus().isOk();
-        body = http.get().uri(base + "/videos").exchange().expectStatus().isOk()
-                .expectBody(String.class).returnResult().getResponseBody();
-        assertThat(body).contains("\"code\":429");
-        for (String path : List.of(base + "/unknown", "/api/admin/v1/video/sources")) {
-            body = http.get().uri(path).exchange().expectStatus().isOk()
+        for (String path : List.of(base + "/categories", base + "/videos", base + "/videos/1",
+                base + "/videos/1/play-lines", base + "/unknown", "/api/admin/v1/video/sources")) {
+            String body = http.get().uri(path).exchange().expectStatus().isOk()
                     .expectBody(String.class).returnResult().getResponseBody();
-            assertThat(body).contains("\"code\":401");
+            assertThat(body).contains("\"code\":401", "\"traceId\":");
         }
-        body = http.post().uri(base + "/videos").exchange().expectStatus().isOk()
+        String body = http.post().uri(base + "/videos").exchange().expectStatus().isOk()
                 .expectBody(String.class).returnResult().getResponseBody();
         assertThat(body).contains("\"code\":401");
     }
@@ -376,17 +375,19 @@ class VideoIntegrationTest {
     }
 
     /**
-     * 批量删除有影片的分类时只跳过该分类，影片与分类均保留。
+     * 删除有影片的分类时一并逻辑删除影片，管理端分类树先给出影片数量用于确认。
      */
     @Test
-    void batchDeleteKeepsCategoriesWithVideos() {
+    void deletingCategoryRemovesItsVideos() {
         collect(1, movie("1", "占用分类", 2026, "资料"), 1, 1);
         Long empty = Long.valueOf(catalog.saveCategory(null, new CategoryRequest(null, "空分类", 0, true)).id());
+        assertThat(catalog.categories(false)).filteredOn(c -> c.id().equals(category.toString()))
+                .extracting(c -> c.videoCount()).containsExactly(1L);
         var result = catalog.deleteCategories(List.of(category, empty));
-        assertThat(result.succeeded()).isEqualTo(1);
-        assertThat(result.failures()).extracting(f -> f.message()).containsExactly("分类下还有影片，请先移动或删除影片");
-        assertThat(count("video")).isEqualTo(1);
-        assertThat(catalog.categories(false)).extracting(c -> c.id()).containsExactly(category.toString());
+        assertThat(result.succeeded()).isEqualTo(2);
+        assertThat(result.failures()).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM video_video WHERE deleted=0", Long.class)).isZero();
+        assertThat(catalog.categories(false)).isEmpty();
     }
 
     /**
@@ -621,6 +622,30 @@ class VideoIntegrationTest {
                 .isEqualTo("DELETED");
         assertThatThrownBy(() -> batches.runs(new cn.orangenode.forge.video.request.CollectionBatchRequest(
                 "SELECTED", List.of(), null, null, "DELETE"))).isInstanceOf(BusinessException.class);
+    }
+
+    /**
+     * 清空待确认只删除待确认状态，已忽略记录保留，选中状态不符时逐条拒删。
+     */
+    @Test
+    void clearsOnlyPendingRecords() {
+        collect(1, movie("1", "忽略", null, "资料"), 1, 1);
+        String ignored = collections.pending(1, 20, "PENDING", null).records().getFirst().id();
+        ingest.resolve(Long.valueOf(ignored), new PendingResolveRequest("IGNORE", null, null));
+        collect(1, movie("2", "待清空甲", null, "资料"), 1, 1);
+        collect(1, movie("3", "待清空乙", null, "资料"), 1, 1);
+        var result = batches.pending(new cn.orangenode.forge.video.request.CollectionBatchRequest(
+                "ALL", null, "PENDING", null, "DELETE"));
+        assertThat(result.total()).isEqualTo(2);
+        assertThat(result.succeeded()).isEqualTo(2);
+        assertThat(collections.pending(1, 20, "PENDING", null).total()).isZero();
+        assertThat(collections.pending(1, 20, "IGNORED", null).total()).isEqualTo(1);
+        result = batches.pending(new cn.orangenode.forge.video.request.CollectionBatchRequest(
+                "SELECTED", List.of(ignored), "PENDING", null, "DELETE"));
+        assertThat(result.succeeded()).isZero();
+        assertThat(result.failures()).hasSize(1);
+        assertThat(jdbc.queryForObject("SELECT status FROM video_pending WHERE id=?", String.class, Long.valueOf(ignored)))
+                .isEqualTo("IGNORED");
     }
 
     /**

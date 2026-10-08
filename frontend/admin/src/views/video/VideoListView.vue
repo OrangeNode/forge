@@ -4,13 +4,14 @@ import { NButton, NCard, NCollapse, NCollapseItem, NDataTable, NForm, NFormItem,
 import { videoApi, type Video, type VideoDetail, type VideoInput, type Category, type PlayLine, type Episode } from '@/api/video'
 import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import VideoPlayer from '@/components/VideoPlayer.vue'
 import { useSessionStore } from '@/stores/session'
 import { useVideoActions } from '@/composables/use-video-actions'
 import { categoryOptions, videoPageSize, videoPageSizeOptions } from './video-options'
 import './video.css'
 
 const session = useSessionStore()
-const { busy, errors, act } = useVideoActions()
+const { busy, errors, act, message } = useVideoActions()
 const categories = ref<Category[]>([])
 const options = computed(() => categoryOptions(categories.value))
 const rows = ref<Video[]>([])
@@ -22,6 +23,9 @@ const show = ref(false)
 const detail = ref<VideoDetail>()
 const primaryId = ref<string | null>(null)
 const form = ref<VideoInput>({ name: '', categoryId: '' })
+const playing = ref<{ title: string; line: PlayLine; index: number }>()
+const playShow = ref(false)
+const playEpisode = computed(() => playing.value ? playing.value.line.episodes[playing.value.index] : undefined)
 
 /**
  * 查询管理端影片，不把大体积分集混入列表。
@@ -82,6 +86,39 @@ async function saveLine(line: PlayLine) {
 }
 
 /**
+ * 在弹窗内播放指定线路的某一集，可继续切换上一集或下一集。
+ */
+function play(line: PlayLine, episode: Episode) {
+  playing.value = { title: detail.value?.video.name ?? '', line, index: Math.max(0, line.episodes.findIndex(item => item.id === episode.id)) }
+  playShow.value = true
+}
+
+/**
+ * 在同一线路内切换分集。
+ */
+function step(offset: number) {
+  if (!playing.value) return
+  const index = playing.value.index + offset
+  if (index >= 0 && index < playing.value.line.episodes.length) playing.value = { ...playing.value, index }
+}
+
+/**
+ * 从第一集开始播放，优先选择启用且可直接播放（M3U8/MP4）的线路；没有可播放分集时提示。
+ */
+async function playFirst(row: Video) {
+  let lines: PlayLine[] = []
+  if (!await act(async () => { lines = (await videoApi.detail(row.id)).playLines })) return
+  const playable = lines.filter(line => line.episodes.length).sort((a, b) => Number(b.enabled) - Number(a.enabled))
+  const first = playable.find(line => line.episodes[0].urlType !== 'OTHER') ?? playable[0]
+  if (first) {
+    playing.value = { title: row.name, line: first, index: 0 }
+    playShow.value = true
+  } else {
+    message.warning('该影片暂无可播放的分集')
+  }
+}
+
+/**
  * 管理员主动调整上下架状态。
  */
 async function publish(row: Video) {
@@ -101,15 +138,20 @@ const columns: DataTableColumns<Video> = [
   { title: '年份', key: 'year', width: 80 },
   { title: '更新说明', key: 'remarks', minWidth: 150, ellipsis: { tooltip: true } },
   { title: '状态', key: 'published', width: 90, render: row => h(NTag, { type: row.published ? 'success' : 'default', bordered: false }, () => row.published ? '上架' : '下架') },
-  { title: '操作', key: 'actions', width: 240, render: row => h(NSpace, {}, () => [
+  { title: '操作', key: 'actions', width: 300, render: row => h(NSpace, {}, () => [
+    h(NButton, { size: 'small', type: 'primary', secondary: true, onClick: () => playFirst(row) }, () => '播放'),
     h(NButton, { size: 'small', onClick: () => open(row) }, () => '详情'),
     session.hasPermission('video:video:edit') ? h(NButton, { size: 'small', onClick: () => publish(row) }, () => row.published ? '下架' : '上架') : null,
     session.hasPermission('video:video:delete') ? h(NPopconfirm, { onPositiveClick: () => remove(row) }, { trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, () => '删除'), default: () => '确认删除？重采不会自动恢复。' }) : null,
   ]) },
 ]
-const episodeColumns: DataTableColumns<Episode> = [
+/**
+ * 分集表格列，每条线路独立绑定播放入口。
+ */
+const episodeColumns = (line: PlayLine): DataTableColumns<Episode> => [
   { title: '分集', key: 'name', width: 120 }, { title: '类型', key: 'urlType', width: 90 },
   { title: '完整播放地址', key: 'url', ellipsis: { tooltip: true } },
+  { title: '操作', key: 'play', width: 90, render: row => h(NButton, { size: 'small', type: 'primary', secondary: true, onClick: () => play(line, row) }, () => '播放') },
 ]
 onMounted(async () => {
   await act(async () => { categories.value = await videoApi.categories() })
@@ -190,7 +232,7 @@ onMounted(async () => {
           :data="rows"
           :loading="busy"
           :row-key="row => row.id"
-          :scroll-x="900"
+          :scroll-x="960"
           remote
           :pagination="{ page, pageSize, itemCount: total, showSizePicker: true, pageSizes: videoPageSizeOptions }"
           @update:page="page = $event; load()"
@@ -328,10 +370,10 @@ onMounted(async () => {
             </NButton>
           </NSpace>
           <NDataTable
-            :columns="episodeColumns"
+            :columns="episodeColumns(line)"
             :data="line.episodes"
             :row-key="episode => episode.id"
-            :scroll-x="650"
+            :scroll-x="740"
             :max-height="300"
           />
         </NCollapseItem>
@@ -348,6 +390,41 @@ onMounted(async () => {
           >
             保存资料
           </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+    <NModal
+      v-model:show="playShow"
+      preset="card"
+      :title="playing ? [playing.title, playing.line.sourceName, playing.line.name, playEpisode?.name].filter(Boolean).join(' · ') : '播放'"
+      class="video-modal"
+    >
+      <VideoPlayer
+        v-if="playShow && playEpisode"
+        :url="playEpisode.url"
+        :url-type="playEpisode.urlType"
+      />
+      <template #footer>
+        <NSpace justify="space-between">
+          <span class="video-muted">第 {{ (playing?.index ?? 0) + 1 }} / {{ playing?.line.episodes.length ?? 0 }} 集</span>
+          <NSpace>
+            <NButton
+              :disabled="!playing || playing.index === 0"
+              @click="step(-1)"
+            >
+              上一集
+            </NButton><NButton
+              :disabled="!playing || playing.index >= playing.line.episodes.length - 1"
+              @click="step(1)"
+            >
+              下一集
+            </NButton><NButton
+              type="primary"
+              @click="playShow = false"
+            >
+              关闭
+            </NButton>
+          </NSpace>
         </NSpace>
       </template>
     </NModal>

@@ -306,6 +306,164 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/member/users/{id}/vip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 设置或取消 VIP
+         * @description expireAt 为空表示取消 VIP
+         */
+        put: operations["setVip"];
+        /**
+         * 开通或延长 VIP
+         * @description 未开通或已过期从当前时刻起算，未过期在原到期时间上顺延；下一次 App 请求即生效
+         */
+        post: operations["extendVip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/member/users/{id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 重置普通用户密码
+         * @description 重置后该用户全部令牌立即失效
+         */
+        put: operations["resetPassword"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/splashes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 修改开屏
+         * @description 开屏不存在 404
+         */
+        put: operations["updateSplash"];
+        post?: never;
+        /**
+         * 删除开屏
+         * @description 逻辑删除；开屏不存在 404
+         */
+        delete: operations["deleteSplash"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/sections/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 修改推荐位
+         * @description 推荐位不存在 404
+         */
+        put: operations["updateSection"];
+        post?: never;
+        /**
+         * 删除推荐位
+         * @description 逻辑删除；推荐位不存在 404
+         */
+        delete: operations["deleteSection"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/hot-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取热搜设置 */
+        get: operations["hotSearch"];
+        /**
+         * 修改热搜设置
+         * @description 空白词忽略、重复词去重；包含屏蔽词的热搜词不返回给 App
+         */
+        put: operations["updateHotSearch"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取功能开关 */
+        get: operations["features"];
+        /**
+         * 修改功能开关
+         * @description VIP 开关与注册开关下一次请求即生效；同时登录台数在下一次登录时生效
+         */
+        put: operations["updateFeatures"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/banners/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 修改轮播
+         * @description 轮播不存在 404
+         */
+        put: operations["updateBanner"];
+        post?: never;
+        /**
+         * 删除轮播
+         * @description 逻辑删除；轮播不存在 404
+         */
+        delete: operations["deleteBanner"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/video/tasks": {
         parameters: {
             query?: never;
@@ -530,6 +688,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/video/categories/batch-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 视频分类：批量删除 */
+        post: operations["batchDelete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/system/roles": {
         parameters: {
             query?: never;
@@ -646,6 +821,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/member/users/{id}/offline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 强制用户全部设备下线
+         * @description 用户不存在 404；该用户此前签发的全部令牌立即失效
+         */
+        post: operations["offlineAll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/member/devices/{id}/offline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 强制设备下线
+         * @description 设备不存在 404；已离线 409；该设备令牌立即失效
+         */
+        post: operations["offline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/files": {
         parameters: {
             query?: never;
@@ -726,6 +941,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/app/splashes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 开屏列表 */
+        get: operations["splashes"];
+        put?: never;
+        /**
+         * 新增开屏
+         * @description 图片文件不存在或时间区间非法返回 400
+         */
+        post: operations["createSplash"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 推荐位列表 */
+        get: operations["sections"];
+        put?: never;
+        /**
+         * 新增推荐位
+         * @description CATEGORY 需要有效分类，MANUAL 需要至少一部有效影片，否则 400
+         */
+        post: operations["createSection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/banners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 轮播列表 */
+        get: operations["banners"];
+        put?: never;
+        /**
+         * 新增轮播
+         * @description 跳转影片或分类不存在、图片不存在返回 400
+         */
+        post: operations["createBanner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/video/videos/{id}/status": {
         parameters: {
             query?: never;
@@ -780,7 +1058,27 @@ export interface paths {
          * 重置管理员密码
          * @description 新密码按创建规则校验后只保存编码结果，成功后撤销该账号全部令牌；响应不包含任何密码相关内容
          */
-        patch: operations["resetPassword"];
+        patch: operations["resetPassword_1"];
+        trace?: never;
+    };
+    "/api/admin/v1/member/users/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 启停普通用户
+         * @description 状态未变化 409；停用后该用户全部令牌立即失效
+         */
+        patch: operations["status_1"];
         trace?: never;
     };
     "/api/admin/v1/video/videos": {
@@ -900,6 +1198,86 @@ export interface paths {
          * @description 返回当前默认存储配置；默认指针缺失时按 forge.file.default-config-code 解析，仍未配置返回 body.code=404
          */
         get: operations["defaultConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/member/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询普通用户
+         * @description 按邮箱关键字、状态 ENABLED/DISABLED、VIP 状态 ACTIVE/EXPIRED/NONE 筛选
+         */
+        get: operations["page_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/member/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 普通用户详情
+         * @description 用户不存在 404
+         */
+        get: operations["detail_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/member/users/{id}/vip-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * VIP 变更记录
+         * @description 按时间倒序
+         */
+        get: operations["vipLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/member/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询登录设备
+         * @description 可按用户 ID、邮箱关键字与在线状态筛选，在线设备在前
+         */
+        get: operations["devices"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1131,13 +1509,7 @@ export interface components {
             sourceId: string;
             rangeCode: string;
             upstreamCategoryId?: string;
-            frequency: string;
-            /** Format: int32 */
-            intervalHours?: number;
-            /** Format: int32 */
-            weekday?: number;
-            timeOfDay: string;
-            zoneId: string;
+            cronExpression: string;
             enabled: boolean;
         };
         ApiResponseTaskResponse: {
@@ -1153,13 +1525,7 @@ export interface components {
             sourceId?: string;
             rangeCode?: string;
             upstreamCategoryId?: string;
-            frequency?: string;
-            /** Format: int32 */
-            intervalHours?: number;
-            /** Format: int32 */
-            weekday?: number;
-            timeOfDay?: string;
-            zoneId?: string;
+            cronExpression?: string;
             enabled?: boolean;
             nextRunAt?: string;
         };
@@ -1231,6 +1597,8 @@ export interface components {
             /** Format: int32 */
             sortNo?: number;
             enabled?: boolean;
+            /** Format: int64 */
+            videoCount?: number;
             children?: components["schemas"]["CategoryResponse"][];
         };
         RoleUpdateRequest: {
@@ -1383,6 +1751,181 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        MemberVipSetRequest: {
+            /** Format: date-time */
+            expireAt?: string;
+            remark?: string;
+        };
+        ApiResponseMemberUserResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberUserResponse"];
+            traceId?: string;
+        };
+        MemberUserResponse: {
+            id?: string;
+            email?: string;
+            nickname?: string;
+            avatarUrl?: string;
+            status?: string;
+            vipActive?: boolean;
+            vipExpireAt?: string;
+            /** Format: int64 */
+            onlineDevices?: number;
+            registerIp?: string;
+            lastLoginAt?: string;
+            lastLoginIp?: string;
+            createdAt?: string;
+        };
+        MemberAdminPasswordRequest: {
+            password: string;
+        };
+        AppSplashRequest: {
+            name: string;
+            imageFileId: string;
+            /** Format: int32 */
+            durationSeconds: number;
+            skippable: boolean;
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            enabled: boolean;
+            /** Format: int32 */
+            sortNo: number;
+        };
+        ApiResponseAppSplashResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppSplashResponse"];
+            traceId?: string;
+        };
+        AppSplashResponse: {
+            id?: string;
+            name?: string;
+            imageFileId?: string;
+            imageUrl?: string;
+            /** Format: int32 */
+            durationSeconds?: number;
+            skippable?: boolean;
+            startAt?: string;
+            endAt?: string;
+            enabled?: boolean;
+            /** Format: int32 */
+            sortNo?: number;
+            active?: boolean;
+        };
+        AppSectionRequest: {
+            title: string;
+            sourceType: string;
+            categoryId?: string;
+            videoIds?: string[];
+            /** Format: int32 */
+            itemLimit: number;
+            enabled: boolean;
+            /** Format: int32 */
+            sortNo: number;
+        };
+        ApiResponseAppSectionResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppSectionResponse"];
+            traceId?: string;
+        };
+        AppPickedVideoResponse: {
+            id?: string;
+            name?: string;
+        };
+        AppSectionResponse: {
+            id?: string;
+            title?: string;
+            sourceType?: string;
+            categoryId?: string;
+            categoryName?: string;
+            videos?: components["schemas"]["AppPickedVideoResponse"][];
+            /** Format: int32 */
+            itemLimit?: number;
+            enabled?: boolean;
+            /** Format: int32 */
+            sortNo?: number;
+        };
+        AppHotSearchRequest: {
+            hotWords: string[];
+            blockedWords: string[];
+        };
+        ApiResponseAppHotSearchResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppHotSearchResponse"];
+            traceId?: string;
+        };
+        AppHotSearchResponse: {
+            hotWords?: string[];
+            blockedWords?: string[];
+        };
+        AppFeatureRequest: {
+            vipRequired: boolean;
+            registrationOpen: boolean;
+            /** Format: int32 */
+            maxDevices: number;
+            serviceText?: string;
+            noticeText?: string;
+        };
+        ApiResponseAppFeatureResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppFeatureResponse"];
+            traceId?: string;
+        };
+        AppFeatureResponse: {
+            vipRequired?: boolean;
+            registrationOpen?: boolean;
+            /** Format: int32 */
+            maxDevices?: number;
+            serviceText?: string;
+            noticeText?: string;
+            updatedAt?: string;
+        };
+        AppBannerRequest: {
+            title: string;
+            imageFileId: string;
+            targetType: string;
+            targetId?: string;
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            enabled: boolean;
+            /** Format: int32 */
+            sortNo: number;
+        };
+        ApiResponseAppBannerResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppBannerResponse"];
+            traceId?: string;
+        };
+        AppBannerResponse: {
+            id?: string;
+            title?: string;
+            imageFileId?: string;
+            imageUrl?: string;
+            targetType?: string;
+            targetId?: string;
+            targetName?: string;
+            startAt?: string;
+            endAt?: string;
+            enabled?: boolean;
+            /** Format: int32 */
+            sortNo?: number;
+            active?: boolean;
+        };
         CollectRequest: {
             sourceId: string;
             rangeCode: string;
@@ -1494,6 +2037,9 @@ export interface components {
             videoId?: string;
             categoryId?: string;
         };
+        CategoryBatchDeleteRequest: {
+            ids: string[];
+        };
         RoleCreateRequest: {
             code: string;
             name: string;
@@ -1548,6 +2094,11 @@ export interface components {
             /** Format: int64 */
             elapsedMillis?: number;
             message?: string;
+        };
+        MemberVipExtendRequest: {
+            /** Format: int32 */
+            days: number;
+            remark?: string;
         };
         ApiResponseFileUploadResponse: {
             /** Format: int32 */
@@ -1622,6 +2173,9 @@ export interface components {
         };
         AdminPasswordResetRequest: {
             newPassword: string;
+        };
+        MemberStatusRequest: {
+            status: string;
         };
         ApiResponsePageResponseVideoResponse: {
             /** Format: int32 */
@@ -1817,6 +2371,69 @@ export interface components {
             data?: components["schemas"]["StorageConfigResponse"][];
             traceId?: string;
         };
+        ApiResponsePageResponseMemberUserResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseMemberUserResponse"];
+            traceId?: string;
+        };
+        PageResponseMemberUserResponse: {
+            records?: components["schemas"]["MemberUserResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
+        ApiResponseListMemberVipLogResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberVipLogResponse"][];
+            traceId?: string;
+        };
+        MemberVipLogResponse: {
+            id?: string;
+            changeType?: string;
+            /** Format: int32 */
+            days?: number;
+            beforeExpireAt?: string;
+            afterExpireAt?: string;
+            remark?: string;
+            operatorId?: string;
+            createdAt?: string;
+        };
+        ApiResponsePageResponseMemberDeviceResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseMemberDeviceResponse"];
+            traceId?: string;
+        };
+        MemberDeviceResponse: {
+            id?: string;
+            memberId?: string;
+            memberEmail?: string;
+            deviceCode?: string;
+            deviceName?: string;
+            clientIp?: string;
+            online?: boolean;
+            offlineReason?: string;
+            loginAt?: string;
+            lastActiveAt?: string;
+            offlineAt?: string;
+        };
+        PageResponseMemberDeviceResponse: {
+            records?: components["schemas"]["MemberDeviceResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
         FileRecordPageRequest: {
             /** Format: int32 */
             defaultPageNum?: number;
@@ -1992,6 +2609,27 @@ export interface components {
             pageNum?: number;
             /** Format: int32 */
             pageSize?: number;
+        };
+        ApiResponseListAppSplashResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppSplashResponse"][];
+            traceId?: string;
+        };
+        ApiResponseListAppSectionResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppSectionResponse"][];
+            traceId?: string;
+        };
+        ApiResponseListAppBannerResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppBannerResponse"][];
+            traceId?: string;
         };
     };
     responses: never;
@@ -2626,6 +3264,316 @@ export interface operations {
             };
         };
     };
+    setVip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberVipSetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberUserResponse"];
+                };
+            };
+        };
+    };
+    extendVip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberVipExtendRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberUserResponse"];
+                };
+            };
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAdminPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    updateSplash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppSplashRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppSplashResponse"];
+                };
+            };
+        };
+    };
+    deleteSplash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    updateSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppSectionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppSectionResponse"];
+                };
+            };
+        };
+    };
+    deleteSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    hotSearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppHotSearchResponse"];
+                };
+            };
+        };
+    };
+    updateHotSearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppHotSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppHotSearchResponse"];
+                };
+            };
+        };
+    };
+    features: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppFeatureResponse"];
+                };
+            };
+        };
+    };
+    updateFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppFeatureRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppFeatureResponse"];
+                };
+            };
+        };
+    };
+    updateBanner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppBannerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppBannerResponse"];
+                };
+            };
+        };
+    };
+    deleteBanner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     list: {
         parameters: {
             query?: never;
@@ -2994,6 +3942,30 @@ export interface operations {
             };
         };
     };
+    batchDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryBatchDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCollectionBatchResponse"];
+                };
+            };
+        };
+    };
     page: {
         parameters: {
             query?: {
@@ -3201,6 +4173,50 @@ export interface operations {
             };
         };
     };
+    offlineAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    offline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     page_2: {
         parameters: {
             query: {
@@ -3320,6 +4336,138 @@ export interface operations {
             };
         };
     };
+    splashes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAppSplashResponse"];
+                };
+            };
+        };
+    };
+    createSplash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppSplashRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppSplashResponse"];
+                };
+            };
+        };
+    };
+    sections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAppSectionResponse"];
+                };
+            };
+        };
+    };
+    createSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppSectionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppSectionResponse"];
+                };
+            };
+        };
+    };
+    banners: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAppBannerResponse"];
+                };
+            };
+        };
+    };
+    createBanner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppBannerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppBannerResponse"];
+                };
+            };
+        };
+    };
     status: {
         parameters: {
             query?: never;
@@ -3372,7 +4520,7 @@ export interface operations {
             };
         };
     };
-    resetPassword: {
+    resetPassword_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -3394,6 +4542,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    status_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberUserResponse"];
                 };
             };
         };
@@ -3556,6 +4730,102 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseStorageConfigResponse"];
+                };
+            };
+        };
+    };
+    page_3: {
+        parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+                email?: string;
+                status?: string;
+                vip?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseMemberUserResponse"];
+                };
+            };
+        };
+    };
+    detail_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberUserResponse"];
+                };
+            };
+        };
+    };
+    vipLogs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMemberVipLogResponse"];
+                };
+            };
+        };
+    };
+    devices: {
+        parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+                memberId?: string;
+                email?: string;
+                online?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseMemberDeviceResponse"];
                 };
             };
         };

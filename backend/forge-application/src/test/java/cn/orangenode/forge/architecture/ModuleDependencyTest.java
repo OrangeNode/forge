@@ -38,7 +38,9 @@ class ModuleDependencyTest {
         "cn.orangenode.forge.file",
         "cn.orangenode.forge.audit",
         "cn.orangenode.forge.example",
-        "cn.orangenode.forge.video"
+        "cn.orangenode.forge.video",
+        "cn.orangenode.forge.member",
+        "cn.orangenode.forge.app"
     };
 
     /**

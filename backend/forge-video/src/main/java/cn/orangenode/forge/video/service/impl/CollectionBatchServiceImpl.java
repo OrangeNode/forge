@@ -61,6 +61,7 @@ public class CollectionBatchServiceImpl implements CollectionBatchService {
 
     /**
      * 待确认采集按最新设置重新判断，删除保留忽略身份以免重采恢复。
+     * 带状态的删除在来源锁内复核状态，清空待确认时不误删期间已处理的记录。
      */
     @Override
     public CollectionBatchResponse pending(CollectionBatchRequest request) {
@@ -79,6 +80,10 @@ public class CollectionBatchServiceImpl implements CollectionBatchService {
                 ingest.retryPending(id);
             } else {
                 store.sources.lock(store.requirePending(id).getSourceId());
+                String expected = VideoValues.clean(request.status());
+                if (expected != null && !expected.equals(store.requirePending(id).getStatus())) {
+                    throw new BusinessException(ErrorCode.CONFLICT, "记录状态已变化，未删除");
+                }
                 store.pendings.update(Wrappers.<PendingEntity>lambdaUpdate().eq(PendingEntity::getId, id)
                         .set(PendingEntity::getStatus, "DELETED").set(PendingEntity::getUpdatedAt, VideoValues.now()));
             }

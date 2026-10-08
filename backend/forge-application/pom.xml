@@ -19,6 +19,8 @@
 
     <dependencies>
         <dependency><groupId>cn.orangenode</groupId><artifactId>forge-video</artifactId></dependency>
+        <dependency><groupId>cn.orangenode</groupId><artifactId>forge-member</artifactId></dependency>
+        <dependency><groupId>cn.orangenode</groupId><artifactId>forge-app</artifactId></dependency>
         <dependency>
             <groupId>cn.orangenode</groupId>
             <artifactId>forge-framework</artifactId>

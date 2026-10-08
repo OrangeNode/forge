@@ -65,8 +65,7 @@ public class VideoConverter {
      */
     public TaskResponse task(TaskEntity e) {
         return new TaskResponse(VideoValues.textId(e.getId()), e.getName(), VideoValues.textId(e.getSourceId()),
-                e.getRangeCode(), e.getUpstreamCategoryId(), e.getFrequency(), e.getIntervalHours(), e.getWeekday(),
-                e.getTimeOfDay(), e.getZoneId(), Boolean.TRUE.equals(e.getEnabled()), VideoValues.time(e.getNextRunAt()));
+                e.getRangeCode(), e.getUpstreamCategoryId(), e.getCronExpression(), Boolean.TRUE.equals(e.getEnabled()), VideoValues.time(e.getNextRunAt()));
     }
     /**
      * 转换采集运行，进度与统计不依赖当前线程。

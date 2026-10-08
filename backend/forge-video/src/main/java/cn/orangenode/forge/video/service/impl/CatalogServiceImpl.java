@@ -47,6 +47,10 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class CatalogServiceImpl implements CatalogService {
+    /**
+     * App 端可直接播放的地址类型；OTHER 为网页分享地址，电视与手机播放器无法播放。
+     */
+    private static final List<String> PLAYABLE_URL_TYPES = List.of("M3U8", "MP4");
     private final VideoStore store;
     private final VideoConverter converter;
     private final VideoPaging paging;
@@ -60,17 +64,39 @@ public class CatalogServiceImpl implements CatalogService {
     public List<CategoryResponse> categories(boolean publicOnly) {
         List<CategoryEntity> all = store.categories.selectList(Wrappers.<CategoryEntity>lambdaQuery()
                 .orderByAsc(CategoryEntity::getSortNo).orderByAsc(CategoryEntity::getId));
-        return categoryTree(all, 0L, publicOnly);
+        return categoryTree(all, 0L, publicOnly, publicOnly ? null : videoCounts());
     }
 
     /**
-     * 组装指定父分类的子节点。
+     * 按分类统计未删除影片数量，逻辑删除条件由 MyBatis-Plus 自动附加。
      */
-    private List<CategoryResponse> categoryTree(List<CategoryEntity> all, Long parent, boolean publicOnly) {
+    private Map<Long, Long> videoCounts() {
+        return store.videos.selectMaps(Wrappers.<VideoEntity>query()
+                        .select("category_id AS categoryId", "COUNT(*) AS total").groupBy("category_id"))
+                .stream().filter(row -> column(row, "categoryId") != null)
+                .collect(Collectors.toMap(row -> column(row, "categoryId").longValue(),
+                        row -> column(row, "total").longValue()));
+    }
+
+    /**
+     * 按列别名读取统计值，忽略不同数据库对未加引号别名的大小写处理差异。
+     */
+    private Number column(Map<String, Object> row, String name) {
+        return row.entrySet().stream().filter(entry -> entry.getKey().equalsIgnoreCase(name))
+                .map(entry -> (Number) entry.getValue()).filter(java.util.Objects::nonNull).findFirst().orElse(null);
+    }
+
+    /**
+     * 组装指定父分类的子节点；公开树不返回影片数量。
+     */
+    private List<CategoryResponse> categoryTree(List<CategoryEntity> all, Long parent, boolean publicOnly,
+            Map<Long, Long> counts) {
         return all.stream().filter(e -> VideoValues.same(e.getParentId(), parent))
                 .filter(e -> !publicOnly || Boolean.TRUE.equals(e.getEnabled()))
                 .map(e -> new CategoryResponse(e.getId().toString(), e.getParentId().toString(), e.getName(),
-                        e.getSortNo(), Boolean.TRUE.equals(e.getEnabled()), categoryTree(all, e.getId(), publicOnly)))
+                        e.getSortNo(), Boolean.TRUE.equals(e.getEnabled()),
+                        counts == null ? null : counts.getOrDefault(e.getId(), 0L),
+                        categoryTree(all, e.getId(), publicOnly, counts)))
                 .toList();
     }
 
@@ -106,11 +132,12 @@ public class CatalogServiceImpl implements CatalogService {
             store.categories.updateById(e);
         }
         return new CategoryResponse(e.getId().toString(), parent.toString(), e.getName(), e.getSortNo(),
-                Boolean.TRUE.equals(e.getEnabled()), List.of());
+                Boolean.TRUE.equals(e.getEnabled()), store.videos.selectCount(Wrappers.<VideoEntity>lambdaQuery()
+                        .eq(VideoEntity::getCategoryId, e.getId())), List.of());
     }
 
     /**
-     * 有子分类或影片时阻止删除；来源分类映射只是绑定配置，删除时自动解绑。
+     * 有子分类时阻止删除；分类下影片一并逻辑删除，来源分类映射自动解绑。
      */
     @Override
     @Transactional
@@ -120,7 +147,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     /**
      * 先固定目标并按层级从深到浅排序，使同时勾选的父子分类可以一次删除；
-     * 每条分类使用独立事务，业务冲突逐条返回，不承诺整批原子性。
+     * 每条分类使用独立事务，业务冲突逐条返回，不承诺整批原子性；分类下影片一并逻辑删除。
      */
     @Override
     public CollectionBatchResponse deleteCategories(List<Long> ids) {
@@ -157,16 +184,14 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     /**
-     * 执行单个分类删除校验与解绑，由调用方提供事务。
+     * 执行单个分类删除校验与解绑，并逻辑删除该分类下全部影片（来源关联保留，重采不会恢复），由调用方提供事务。
      */
     private void removeCategory(Long id) {
         store.requireCategory(id);
         if (store.categories.selectCount(Wrappers.<CategoryEntity>lambdaQuery().eq(CategoryEntity::getParentId, id)) > 0) {
             throw new BusinessException(ErrorCode.CONFLICT, "分类下还有子分类，请先删除或移动子分类");
         }
-        if (store.videos.selectCount(Wrappers.<VideoEntity>lambdaQuery().eq(VideoEntity::getCategoryId, id)) > 0) {
-            throw new BusinessException(ErrorCode.CONFLICT, "分类下还有影片，请先移动或删除影片");
-        }
+        store.videos.delete(Wrappers.<VideoEntity>lambdaQuery().eq(VideoEntity::getCategoryId, id));
         store.sourceCategories.update(null, Wrappers.<SourceCategoryEntity>lambdaUpdate()
                 .set(SourceCategoryEntity::getCategoryId, null)
                 .set(SourceCategoryEntity::getUpdatedAt, VideoValues.now())
@@ -264,7 +289,7 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     /**
-     * 查询各来源线路，公开调用不返回停用线路。
+     * 查询各来源线路，公开调用不返回停用线路、不可播放类型的分集及因此为空的线路。
      */
     @Override
     public List<PlayLineResponse> lines(Long id, boolean publicOnly) {
@@ -281,8 +306,13 @@ public class CatalogServiceImpl implements CatalogService {
                     .eq(publicOnly, PlayLineEntity::getEnabled, true)
                     .orderByAsc(PlayLineEntity::getSortNo).orderByAsc(PlayLineEntity::getId))) {
                 List<EpisodeResponse> episodes = store.episodes.selectList(Wrappers.<EpisodeEntity>lambdaQuery()
-                        .eq(EpisodeEntity::getLineId, line.getId()).orderByAsc(EpisodeEntity::getSortNo))
+                        .eq(EpisodeEntity::getLineId, line.getId())
+                        .in(publicOnly, EpisodeEntity::getUrlType, PLAYABLE_URL_TYPES)
+                        .orderByAsc(EpisodeEntity::getSortNo))
                         .stream().map(converter::episode).toList();
+                if (publicOnly && episodes.isEmpty()) {
+                    continue;
+                }
                 result.add(new PlayLineResponse(line.getId().toString(), origin.getId().toString(),
                         sourceName(origin.getSourceId()), line.getCode(), line.getName(), line.getSortNo(),
                         Boolean.TRUE.equals(line.getEnabled()), episodes.size(), episodes));

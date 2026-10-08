@@ -2,8 +2,6 @@ package cn.orangenode.forge.video.config;
 
 import java.time.Duration;
 import java.time.Instant;
-import org.springdoc.core.models.GroupedOpenApi;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -16,22 +14,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 视频公开文档与限流装配，安全放行仍由基础过滤链控制。
+ * App 视频接口限流装配；身份校验由基础过滤链完成，App 文档分组由基础层统一装配。
  */
 @Configuration
 @RequiredArgsConstructor
 public class VideoWebConfig implements WebMvcConfigurer {
     private final ForgeRedisTemplate redis;
     private final VideoProperties properties;
-
-    /**
-     * 注册独立 App 只读文档分组。
-     */
-    @Bean
-    public GroupedOpenApi videoAppApi() {
-        return GroupedOpenApi.builder().group("app").displayName("App 视频只读")
-                .pathsToMatch("/api/app/v1/video/**").build();
-    }
 
     /**
      * 公开读取按真实连接地址与固定时间窗口计数，Redis 失败不跳过限制。

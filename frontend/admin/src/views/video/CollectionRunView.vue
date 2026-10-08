@@ -85,6 +85,21 @@ async function submitBatch() {
     await refresh()
   }
 }
+
+/**
+ * 清空全部待确认状态记录，服务端逐条复核状态，已确认和已忽略记录保留。
+ */
+async function clearPending() {
+  if (busy.value) return
+  if (await act(async () => {
+    batchResult.value = await videoApi.batchPending({ scope: 'ALL', action: 'DELETE', status: 'PENDING' })
+    batchResultShow.value = true
+  })) {
+    pendingSelection.value = []
+    pendingPage.value = 1
+    await loadPending()
+  }
+}
 let timer: ReturnType<typeof setInterval> | undefined
 const canStop = (row: Run) => ['QUEUED', 'RUNNING'].includes(row.status)
 const canResume = (row: Run) => ['FAILED', 'STOPPED', 'INTERRUPTED'].includes(row.status)
@@ -306,6 +321,22 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
               /><NButton @click="pendingPage = 1; loadPending()">
                 查询
               </NButton>
+              <NPopconfirm
+                v-if="session.hasPermission('video:run:resolve')"
+                :disabled="busy"
+                @positive-click="clearPending"
+              >
+                <template #trigger>
+                  <NButton
+                    type="error"
+                    secondary
+                    :loading="busy"
+                  >
+                    清空待确认
+                  </NButton>
+                </template>
+                将删除全部“待确认”状态的记录（包含所有分页，不受当前筛选影响），已确认和已忽略记录保留。删除后重采也会跳过这些来源数据，已入库影片不受影响。确定清空？
+              </NPopconfirm>
             </NSpace>
             <NDataTable
               v-model:checked-row-keys="pendingSelection"

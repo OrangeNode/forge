@@ -54,17 +54,35 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
     private final WebErrorWriter errorWriter;
 
     /**
+     * 普通用户接口路径前缀；该前缀下不识别管理员令牌，两种身份互不通用。
+     */
+    private final String memberPathPrefix;
+
+    /**
      * 构造 Bearer 令牌认证过滤器。
      *
      * @param tokenService     令牌会话校验入口
      * @param accountDirectory 账号与权限查询端口
      * @param errorWriter      统一错误响应写出组件
+     * @param memberPathPrefix 普通用户接口路径前缀
      */
     public BearerTokenAuthenticationFilter(AdminTokenService tokenService, AdminAccountDirectory accountDirectory,
-            WebErrorWriter errorWriter) {
+            WebErrorWriter errorWriter, String memberPathPrefix) {
         this.tokenService = tokenService;
         this.accountDirectory = accountDirectory;
         this.errorWriter = errorWriter;
+        this.memberPathPrefix = memberPathPrefix;
+    }
+
+    /**
+     * 普通用户接口前缀下跳过管理员令牌识别。
+     *
+     * @param request 当前请求
+     * @return 位于普通用户接口前缀下时为 {@code true}
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getRequestURI().startsWith(memberPathPrefix);
     }
 
     /**

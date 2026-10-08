@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import cn.orangenode.forge.core.page.PageResponse;
 import cn.orangenode.forge.core.response.ApiResponse;
+import cn.orangenode.forge.framework.member.PlaybackAccessGuard;
 import cn.orangenode.forge.framework.web.TraceIdFilter;
 import cn.orangenode.forge.video.response.CategoryResponse;
 import cn.orangenode.forge.video.response.AppVideoResponse;
@@ -20,14 +21,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
- * App 公开只读视频接口，不提供账号或管理能力。
+ * App 视频只读接口：全部要求普通用户登录，播放线路另需通过观看授权（VIP 开关开启时要求 VIP 未过期）。
  */
-@Tag(name = "App 视频只读")
+@Tag(name = "App 视频只读", description = "需要普通用户令牌；未登录 body.code=401，播放线路非 VIP 时 body.code=403")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/app/v1/video")
 public class AppVideoController {
     private final CatalogService service;
+    private final PlaybackAccessGuard playbackGuard;
 
     /**
      * 查询可用分类树。
@@ -62,11 +64,13 @@ public class AppVideoController {
     }
 
     /**
-     * 查询启用线路及完整播放地址。
+     * 查询启用线路及完整播放地址，只返回 M3U8/MP4 分集，先校验观看授权。
      */
-    @Operation(summary = "播放线路与分集地址")
+    @Operation(summary = "播放线路与分集地址",
+            description = "VIP 开关开启时要求 VIP 未过期，否则 body.code=403；只返回 M3U8/MP4 分集，没有可播分集的线路不返回")
     @GetMapping("/videos/{id}/play-lines")
     public ApiResponse<List<PlayLineResponse>> lines(@PathVariable String id, HttpServletRequest http) {
+        playbackGuard.assertCanPlay();
         return ApiResponse.successWithTrace(service.lines(VideoValues.id(id), true), TraceIdFilter.currentTraceId(http));
     }
 }

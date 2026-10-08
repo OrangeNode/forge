@@ -76,6 +76,17 @@ M4 与 M5 已提供的公共能力（业务模块直接复用）：
 | 权限解析与缓存 | `system` 的 `AdminAuthorityService` | 读权限走缓存（键含全局版本）；任何角色、权限或管理员角色变更在提交后调用 `evictAllPermissions()` 失效，不使用通配扫描 |
 | 分页入参构造 | `framework` 的 `ForgePageProperties` | 查询接口按请求构造分页入参并校验，不把分页入参装配成单例 Bean |
 
+2026-10-07（A1）新增的基础层能力（业务模块直接复用）：
+
+| 能力 | 位置 | 使用要点 |
+| --- | --- | --- |
+| 普通用户令牌与过滤器 | `framework` 的 `member`（`MemberTokenService`、`MemberBearerAuthenticationFilter`、`AuthenticatedMember`、`CurrentMember`） | 只在 `forge.member.auth.path-prefix` 下识别；业务从 `CurrentMember` 取当前用户，不接受客户端提交的用户 ID |
+| 普通用户账号目录端口 | `framework` 的 `member`（`MemberAccountDirectory`、`MemberAccountView`） | 由 member 模块实现，每次读取数据库当前状态 |
+| App 功能开关端口与观看授权 | `framework` 的 `member`（`AppFeatureSwitches`、`AppFeatureResolver`、`PlaybackAccessGuard`） | 由 app 模块实现开关；未装配时退回 `forge.member.auth.default-*`；播放类接口调用 `PlaybackAccessGuard.assertCanPlay()` |
+| 影片目录端口 | `framework` 的 `catalog`（`VideoCatalogPort`、`VideoCard`） | 由 video 模块实现，只输出已上架且分类可见的影片 |
+| 文件读取端口 | `framework` 的 `storage`（`StoredFileReader`、`StoredFileContent`） | 由 file 模块实现；调用方先确认文件被自身配置引用再对外提供 |
+| 来源地址 | `framework` 的 `web.ClientAddresses` | 只用于展示与留痕，不参与授权 |
+
 M5 起权限解析带版本化缓存（`auth:perm:v{版本}:{管理员ID}`）：读取缓存失败按 Redis 不可用处理并返回 503，缓存内容损坏按未命中重新解析数据库。分页上限、默认页码与条数统一来自 `forge.page.*`，Controller 不再各自写死。
 
 技术配置优先使用类型化配置类；环境配置必须有用途说明和必要校验，不能到处散落字符串 Key。

@@ -133,6 +133,8 @@ public final class RedisTestDouble {
             ttlByKey.put(invocation.getArgument(0, String.class), invocation.getArgument(1, Duration.class));
             return true;
         });
+        when(template.hasKey(anyString())).thenAnswer(invocation ->
+                values.containsKey(invocation.getArgument(0, String.class)));
         when(template.delete(anyString())).thenAnswer(invocation ->
                 values.remove(invocation.getArgument(0, String.class)) != null);
     }

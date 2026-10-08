@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref, watch } from 'vue'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NInputNumber, NModal, NPopconfirm, NSelect, NSpace, NSwitch, type DataTableColumns, type FormInst } from 'naive-ui'
+import { NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NModal, NPopconfirm, NSelect, NSpace, NSwitch, NTag, type DataTableColumns, type FormInst } from 'naive-ui'
 import { videoApi, type Source, type SourceCategory, type Task, type TaskInput, type CollectInput } from '@/api/video'
 import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
 import { useVideoActions } from '@/composables/use-video-actions'
-import { ranges, videoZone, videoTaskTime, videoIntervalHours } from './video-options'
+import { cronPresets, ranges, videoDefaultCron } from './video-options'
 import './video.css'
 
 const session = useSessionStore()
@@ -15,16 +15,18 @@ const router = useRouter()
 const { busy, errors, act } = useVideoActions()
 const rows = ref<Task[]>([])
 const sources = ref<Source[]>([])
+const sourceOptions = computed(() => sources.value.map(s => ({ label: s.enabled ? s.name : `${s.name}（已停用）`, value: s.id, disabled: !s.enabled })))
 const show = ref(false)
 const manualShow = ref(false)
 const editing = ref<string>()
 const formRef = ref<FormInst>()
-const form = reactive<TaskInput>({ name: '', sourceId: '', rangeCode: 'DAY', frequency: 'DAILY', intervalHours: videoIntervalHours, weekday: 1, timeOfDay: videoTaskTime, zoneId: videoZone, enabled: false })
+const form = reactive<TaskInput>({ name: '', sourceId: '', rangeCode: 'DAY', cronExpression: videoDefaultCron, enabled: false })
 const manual = reactive<CollectInput>({ sourceId: '', rangeCode: 'DAY' })
 const taskCategories = ref<SourceCategory[]>([])
 const manualCategories = ref<SourceCategory[]>([])
 const previewUrl = ref('')
 const lastRun = ref('')
+const presetValue = computed(() => cronPresets.find(p => p.value === form.cronExpression.trim().replace(/\s+/g, ' '))?.value ?? null)
 
 /**
  * 读取任务和可选来源。
@@ -32,32 +34,42 @@ const lastRun = ref('')
 async function load() { await act(async () => { rows.value = await videoApi.tasks(); sources.value = await videoApi.sources() }) }
 
 /**
- * 再次打开手动采集时清除上次运行入口，保留管理员已选择的范围。
+ * 打开手动采集弹窗，清除上次运行入口，默认选中第一个可用资源站。
  */
 function openManual() {
   lastRun.value = ''
+  previewUrl.value = ''
+  if (!manual.sourceId) manual.sourceId = sources.value.find(s => s.enabled)?.id ?? ''
   manualShow.value = true
 }
 
 /**
- * 打开任务表单，新任务默认停用。
+ * 打开任务表单；新任务默认停用，可在保存前直接打开。
  */
 function edit(row?: Task) {
   editing.value = row?.id
   Object.assign(form, { name: row?.name ?? '', sourceId: row?.sourceId ?? '', rangeCode: row?.rangeCode ?? 'DAY',
-    upstreamCategoryId: row?.upstreamCategoryId, frequency: row?.frequency ?? 'DAILY', intervalHours: row?.intervalHours ?? videoIntervalHours,
-    weekday: row?.weekday ?? 1, timeOfDay: row?.timeOfDay ?? videoTaskTime, zoneId: row?.zoneId ?? videoZone, enabled: row?.enabled ?? false })
+    upstreamCategoryId: row?.upstreamCategoryId, cronExpression: row?.cronExpression ?? videoDefaultCron, enabled: row?.enabled ?? false })
   show.value = true
 }
 
 /**
- * 提交调度设置，运行频率和采集窗口互不绑定。
+ * 提交任务；cron 与启用条件（来源启用、已配置分类映射）由后端校验。
  */
 async function save() {
   if (busy.value) return
   if (await act(async () => { await formRef.value?.validate(); await videoApi.saveTask(editing.value, form) }, '任务已保存')) {
     show.value = false; await load()
   }
+}
+
+/**
+ * 在列表中直接启停任务。
+ */
+async function toggle(row: Task, enabled: boolean) {
+  if (busy.value) return
+  if (await act(() => videoApi.saveTask(row.id, { name: row.name, sourceId: row.sourceId, rangeCode: row.rangeCode,
+    upstreamCategoryId: row.upstreamCategoryId, cronExpression: row.cronExpression, enabled }), enabled ? '任务已启用' : '任务已停用')) await load()
 }
 
 /**
@@ -74,11 +86,19 @@ async function preview() {
 async function copy() { await act(() => navigator.clipboard.writeText(previewUrl.value), '链接已复制') }
 
 /**
- * 提交持久化采集运行，立即返回进度入口。
+ * 提交持久化采集运行，立即返回进度入口；弹窗本身即确认步骤，不再叠加气泡确认。
  */
 async function collect() {
   if (!manual.sourceId || busy.value) return
   await act(async () => { const run = await videoApi.collect(manual); lastRun.value = run.id }, '采集已排队')
+}
+
+/**
+ * 跳转到采集记录查看本次运行。
+ */
+function viewRun() {
+  manualShow.value = false
+  void router.push({ name: 'video-run', query: { runId: lastRun.value } })
 }
 
 /**
@@ -100,16 +120,19 @@ watch(() => form.sourceId, id => { void sourceCategories(id, 'task') })
 watch(() => manual.sourceId, id => { manual.upstreamCategoryId = undefined; void sourceCategories(id, 'manual') })
 watch(() => [manual.sourceId, manual.rangeCode, manual.upstreamCategoryId], () => { previewUrl.value = ''; lastRun.value = '' })
 
-const frequencies = [{ label: '每隔若干小时', value: 'INTERVAL' }, { label: '每天指定时间', value: 'DAILY' }, { label: '每周指定时间', value: 'WEEKLY' }]
-const weekdays = ['一', '二', '三', '四', '五', '六', '日'].map((label, index) => ({ label: '星期' + label, value: index + 1 }))
 const columns: DataTableColumns<Task> = [
   { title: '任务', key: 'name', minWidth: 140 },
   { title: '资源站', key: 'sourceId', width: 150, render: row => sources.value.find(s => s.id === row.sourceId)?.name ?? row.sourceId },
-  { title: '采集范围', key: 'rangeCode', width: 150, render: row => ranges.find(r => r.value === row.rangeCode)?.label ?? row.rangeCode },
-  { title: '执行频率', key: 'frequency', width: 150, render: row => row.frequency === 'INTERVAL' ? '每 ' + row.intervalHours + ' 小时' : (row.frequency === 'WEEKLY' ? '星期' + row.weekday + ' ' : '每天 ') + row.timeOfDay },
-  { title: '状态', key: 'enabled', width: 90, render: row => row.enabled ? '启用' : '停用' },
-  { title: '下一次执行', key: 'nextRunAt', minWidth: 180, render: row => row.enabled && row.nextRunAt ? new Date(row.nextRunAt).toLocaleString() : '—' },
-  { title: '操作', key: 'actions', width: 160, render: row => h(NSpace, {}, () => [
+  { title: '采集范围', key: 'rangeCode', width: 140, render: row => ranges.find(r => r.value === row.rangeCode)?.label ?? row.rangeCode },
+  { title: '执行计划（cron）', key: 'cronExpression', width: 200, render: row => h('span', {}, [
+    h('code', {}, row.cronExpression),
+    h('span', { class: 'video-muted' }, cronPresets.find(p => p.value === row.cronExpression) ? ' · ' + cronPresets.find(p => p.value === row.cronExpression)?.label : ''),
+  ]) },
+  { title: '状态', key: 'enabled', width: 90, render: row => session.hasPermission('video:task:edit')
+    ? h(NSwitch, { value: row.enabled, size: 'small', disabled: busy.value, onUpdateValue: (value: boolean) => toggle(row, value) })
+    : h(NTag, { type: row.enabled ? 'success' : 'default', bordered: false }, () => row.enabled ? '启用' : '停用') },
+  { title: '下一次执行', key: 'nextRunAt', minWidth: 170, render: row => row.enabled && row.nextRunAt ? new Date(row.nextRunAt).toLocaleString() : '—' },
+  { title: '操作', key: 'actions', width: 150, render: row => h(NSpace, {}, () => [
     session.hasPermission('video:task:edit') ? h(NButton, { size: 'small', onClick: () => edit(row) }, () => '编辑') : null,
     session.hasPermission('video:task:delete') ? h(NPopconfirm, { onPositiveClick: () => remove(row.id) }, { trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, () => '删除'), default: () => '确认删除任务？' }) : null,
   ]) },
@@ -124,7 +147,7 @@ onMounted(load)
     >
       <PageHeader
         title="采集任务"
-        description="手动采集与内部定时，日/周/全部范围独立设置"
+        description="手动采集与 cron 定时采集，采集范围与执行时间独立设置"
         icon="activity"
       >
         <template #actions>
@@ -172,13 +195,17 @@ onMounted(load)
         :bordered="false"
         class="video-filters"
       >
-        新任务默认停用。先确认分类映射，再编辑并启用；采集不会通过外部匿名链接触发。
+        执行时间使用标准五段 cron：分 时 日 月 周，按服务器统一调度时区解释。启用前需先在资源站管理中配置分类映射。
       </NAlert>
       <NForm
         ref="formRef"
         :model="form"
         label-placement="top"
-        :rules="{ name: { required: true, message: '请输入任务名称', trigger: 'blur' }, sourceId: { required: true, message: '请选择资源站', trigger: 'change' } }"
+        :rules="{
+          name: { required: true, message: '请输入任务名称', trigger: 'blur' },
+          sourceId: { required: true, message: '请选择资源站', trigger: 'change' },
+          cronExpression: { required: true, message: '请输入 cron 表达式', trigger: 'blur' },
+        }"
       >
         <div class="video-form-grid">
           <NFormItem
@@ -195,7 +222,7 @@ onMounted(load)
             <NSelect
               :value="form.sourceId || null"
               placeholder="选择资源站"
-              :options="sources.map(s => ({ label: s.name, value: s.id, disabled: !s.enabled }))"
+              :options="sourceOptions"
               @update:value="form.sourceId = $event ?? ''"
             />
           </NFormItem>
@@ -213,46 +240,28 @@ onMounted(load)
               :options="taskCategories.map(c => ({ label: c.name, value: c.upstreamId }))"
             />
           </NFormItem>
-          <NFormItem label="执行频率">
+          <NFormItem
+            label="cron 表达式（分 时 日 月 周）"
+            path="cronExpression"
+            :feedback="errors.cronExpression"
+            :validation-status="errors.cronExpression ? 'error' : undefined"
+          >
+            <NInput
+              v-model:value="form.cronExpression"
+              placeholder="0 2 * * *"
+              class="video-address"
+            />
+          </NFormItem>
+          <NFormItem label="常用预设">
             <NSelect
-              v-model:value="form.frequency"
-              :options="frequencies"
+              :value="presetValue"
+              :options="cronPresets"
+              placeholder="选择预设填入 cron"
+              @update:value="form.cronExpression = $event ?? form.cronExpression"
             />
-          </NFormItem>
-          <NFormItem
-            v-if="form.frequency === 'INTERVAL'"
-            label="间隔小时"
-          >
-            <NInputNumber
-              :value="form.intervalHours"
-              :min="1"
-              :max="8760"
-              @update:value="form.intervalHours = $event ?? undefined"
-            />
-          </NFormItem>
-          <NFormItem
-            v-if="form.frequency === 'WEEKLY'"
-            label="星期"
-          >
-            <NSelect
-              v-model:value="form.weekday"
-              :options="weekdays"
-            />
-          </NFormItem>
-          <NFormItem
-            label="执行时间（HH:mm）"
-            :feedback="errors.timeOfDay"
-          >
-            <NInput v-model:value="form.timeOfDay" />
-          </NFormItem>
-          <NFormItem label="时区">
-            <NInput v-model:value="form.zoneId" />
           </NFormItem>
           <NFormItem label="启用">
-            <NSwitch
-              v-model:value="form.enabled"
-              :disabled="!editing"
-            />
+            <NSwitch v-model:value="form.enabled" />
           </NFormItem>
         </div>
       </NForm>
@@ -281,7 +290,7 @@ onMounted(load)
           <NSelect
             :value="manual.sourceId || null"
             placeholder="选择资源站"
-            :options="sources.map(s => ({ label: s.name, value: s.id, disabled: !s.enabled }))"
+            :options="sourceOptions"
             @update:value="manual.sourceId = $event ?? ''"
           />
         </NFormItem>
@@ -300,6 +309,14 @@ onMounted(load)
           />
         </NFormItem>
       </NForm>
+      <NAlert
+        v-if="manual.rangeCode === 'ALL' && !lastRun"
+        type="warning"
+        :bordered="false"
+        class="video-filters"
+      >
+        全量采集会逐页读取资源站全部影片，可能需要较长时间；运行中可在采集记录里停止，已提交的数据保留。
+      </NAlert>
       <NSpace class="video-filters">
         <NButton
           :disabled="!manual.sourceId"
@@ -328,10 +345,10 @@ onMounted(load)
         :bordered="false"
         style="margin-top: 16px"
       >
-        运行 {{ lastRun }} 已排队。<NButton
+        运行 {{ lastRun }} 已排队，采集在后台执行。<NButton
           text
           type="primary"
-          @click="router.push({ name: 'video-run', query: { runId: lastRun } }); manualShow = false"
+          @click="viewRun"
         >
           查看进度
         </NButton>
@@ -340,17 +357,14 @@ onMounted(load)
         <NSpace justify="end">
           <NButton @click="manualShow = false">
             关闭
-          </NButton><NPopconfirm @positive-click="collect">
-            <template #trigger>
-              <NButton
-                type="primary"
-                :loading="busy"
-                :disabled="!manual.sourceId || !!lastRun"
-              >
-                开始采集
-              </NButton>
-            </template>确认采集所选范围？全量任务可能需要较长时间。
-          </NPopconfirm>
+          </NButton><NButton
+            type="primary"
+            :loading="busy"
+            :disabled="!manual.sourceId || !!lastRun"
+            @click="collect"
+          >
+            开始采集
+          </NButton>
         </NSpace>
       </template>
     </NModal>

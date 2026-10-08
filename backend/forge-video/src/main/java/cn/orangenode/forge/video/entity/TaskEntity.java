@@ -46,31 +46,9 @@ public class TaskEntity {
     private String upstreamCategoryId;
 
     /**
-     * 独立执行频率 INTERVAL DAILY WEEKLY。
+     * 五段 cron 表达式（分 时 日 月 周），按统一调度时区解释。
      */
-    private String frequency;
-
-    /**
-     * 按小时执行间隔。
-     */
-    @TableField(updateStrategy = FieldStrategy.ALWAYS)
-    private Integer intervalHours;
-
-    /**
-     * 周一至周日编号一至七。
-     */
-    @TableField(updateStrategy = FieldStrategy.ALWAYS)
-    private Integer weekday;
-
-    /**
-     * 本地执行时间 HH:mm。
-     */
-    private String timeOfDay;
-
-    /**
-     * 执行时区。
-     */
-    private String zoneId;
+    private String cronExpression;
 
     /**
      * 启用状态。

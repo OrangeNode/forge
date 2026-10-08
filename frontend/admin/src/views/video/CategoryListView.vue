@@ -27,6 +27,23 @@ const names = computed(() => {
   walk(rows.value)
   return map
 })
+const counts = computed(() => {
+  const map = new Map<string, number>()
+  const walk = (items: Category[]) => items.forEach(item => { map.set(item.id, Number(item.videoCount ?? 0)); walk(item.children) })
+  walk(rows.value)
+  return map
+})
+const selectedVideos = computed(() => selection.value.reduce((sum, id) => sum + (counts.value.get(id) ?? 0), 0))
+
+/**
+ * 删除确认文案：明确告知分类下现有影片数量，以及影片会随分类一并删除。
+ */
+function deleteHint(row: Category) {
+  const total = Number(row.videoCount ?? 0)
+  return total
+    ? `「${row.name}」下还有 ${total} 个视频，删除分类后这些视频也会全部删除（重采不会自动恢复）。确定删除吗？`
+    : `「${row.name}」下没有视频，确定删除吗？`
+}
 const failureRows = computed(() => (batchResult.value?.failures ?? [])
   .map(item => ({ ...item, name: names.value.get(item.id) ?? item.id })))
 
@@ -61,7 +78,7 @@ async function save() {
 }
 
 /**
- * 删除分类，被影片或映射引用时不会删除。
+ * 删除分类及其下全部影片；有子分类时由后端阻止，来源映射自动解绑。
  */
 async function remove(id: string) { if (await act(() => videoApi.deleteCategory(id), '分类已删除')) await load() }
 
@@ -82,12 +99,13 @@ async function removeSelected() {
 const columns: DataTableColumns<Category> = [
   { type: 'selection', disabled: () => !canDelete.value },
   { title: '分类名称', key: 'name', minWidth: 200 },
+  { title: '视频数', key: 'videoCount', width: 100, render: row => Number(row.videoCount ?? 0) },
   { title: '排序', key: 'sortNo', width: 100 },
   { title: '状态', key: 'enabled', width: 100, render: row => row.enabled ? '启用' : '停用' },
   { title: '操作', key: 'actions', width: 270, render: row => h(NSpace, {}, () => [
     session.hasPermission('video:category:edit') ? h(NButton, { size: 'small', onClick: () => edit(undefined, row.id) }, () => '新增子分类') : null,
     session.hasPermission('video:category:edit') ? h(NButton, { size: 'small', onClick: () => edit(row) }, () => '编辑') : null,
-    session.hasPermission('video:category:delete') ? h(NPopconfirm, { onPositiveClick: () => remove(row.id) }, { trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, () => '删除'), default: () => '确认删除未引用分类？' }) : null,
+    session.hasPermission('video:category:delete') ? h(NPopconfirm, { onPositiveClick: () => remove(row.id) }, { trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, () => '删除'), default: () => h('div', { style: 'max-width: 280px' }, deleteHint(row)) }) : null,
   ]) },
 ]
 onMounted(load)
@@ -132,7 +150,9 @@ onMounted(load)
                 批量删除（{{ selection.length }}）
               </NButton>
             </template>
-            确认删除已勾选的 {{ selection.length }} 个分类？子分类会先删除，有影片或未勾选子分类的分类将保留。
+            <div style="max-width: 320px">
+              确认删除已勾选的 {{ selection.length }} 个分类？其中共有 {{ selectedVideos }} 个视频，会随分类一并删除（重采不会自动恢复）。子分类先删除，仍有未勾选子分类的分类将保留。
+            </div>
           </NPopconfirm>
         </template>
       </PageHeader>
@@ -143,7 +163,7 @@ onMounted(load)
           :loading="busy"
           :row-key="row => row.id"
           :checked-row-keys="selection"
-          :scroll-x="700"
+          :scroll-x="800"
           @update:checked-row-keys="keys => selection = keys as string[]"
         />
       </div>

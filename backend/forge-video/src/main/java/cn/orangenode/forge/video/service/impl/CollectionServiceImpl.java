@@ -1,7 +1,6 @@
 package cn.orangenode.forge.video.service.impl;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -60,21 +59,20 @@ public class CollectionServiceImpl implements CollectionService {
     }
 
     /**
-     * 校验运行频率和时区，新建任务一律停用，启用时检查分类映射。
+     * 校验 cron 表达式，启用时检查来源状态与分类映射；调度时区统一取配置，不按任务单独设置。
      */
     @Override
     @Transactional
     public synchronized TaskResponse saveTask(Long id, TaskRequest r) {
         store.requireSource(VideoValues.id(r.sourceId()));
+        LocalDateTime next;
         try {
-            ZoneId.of(r.zoneId());
-            LocalTime.parse(r.timeOfDay());
-        } catch (java.time.DateTimeException failure) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "任务时间或时区不合法");
+            next = TaskSchedules.next(r.cronExpression(), zone(), VideoValues.now());
+        } catch (IllegalArgumentException failure) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "cron 表达式不合法：" + failure.getMessage());
         }
-        if (("INTERVAL".equals(r.frequency()) && r.intervalHours() == null)
-                || ("WEEKLY".equals(r.frequency()) && r.weekday() == null)) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "按小时执行需要间隔，每周执行需要星期");
+        if (next == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "cron 表达式不会再触发");
         }
         TaskEntity e = id == null ? new TaskEntity() : store.requireTask(id);
         if (id == null) {
@@ -85,12 +83,8 @@ public class CollectionServiceImpl implements CollectionService {
         e.setSourceId(VideoValues.id(r.sourceId()));
         e.setRangeCode(r.rangeCode());
         e.setUpstreamCategoryId(VideoValues.clean(r.upstreamCategoryId()));
-        e.setFrequency(r.frequency());
-        e.setIntervalHours(r.intervalHours());
-        e.setWeekday(r.weekday());
-        e.setTimeOfDay(r.timeOfDay());
-        e.setZoneId(r.zoneId());
-        e.setEnabled(id != null && r.enabled());
+        e.setCronExpression(TaskSchedules.normalize(r.cronExpression()));
+        e.setEnabled(r.enabled());
         if (Boolean.TRUE.equals(e.getEnabled())) {
             SourceEntity source = store.requireSource(e.getSourceId());
             if (!Boolean.TRUE.equals(source.getEnabled()) || store.sourceCategories.selectCount(
@@ -100,7 +94,7 @@ public class CollectionServiceImpl implements CollectionService {
                 throw new BusinessException(ErrorCode.CONFLICT, "启用任务前请启用来源并配置分类映射");
             }
         }
-        e.setNextRunAt(TaskSchedules.next(e, VideoValues.now()));
+        e.setNextRunAt(next);
         e.setUpdatedAt(VideoValues.now());
         if (id == null) {
             store.tasks.insert(e);
@@ -108,6 +102,13 @@ public class CollectionServiceImpl implements CollectionService {
             store.tasks.updateById(e);
         }
         return converter.task(e);
+    }
+
+    /**
+     * 定时任务统一使用的调度时区，来自配置。
+     */
+    private ZoneId zone() {
+        return ZoneId.of(properties.getDefaultZone());
     }
 
     /**
@@ -308,7 +309,12 @@ public class CollectionServiceImpl implements CollectionService {
                 failed.setSettingsSnapshot(json.writeValueAsString(settings.get()));
                 store.runs.insert(failed);
             }
-            task.setNextRunAt(TaskSchedules.next(task, now));
+            LocalDateTime next = TaskSchedules.next(task.getCronExpression(), zone(), now);
+            if (next == null) {
+                task.setEnabled(false);
+            } else {
+                task.setNextRunAt(next);
+            }
             task.setUpdatedAt(now);
             store.tasks.updateById(task);
         }

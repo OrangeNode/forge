@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue'
-import { NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NModal, NPopconfirm, NSelect, NSpace, NSwitch, NTag, type DataTableColumns, type FormInst } from 'naive-ui'
+import { useRouter } from 'vue-router'
+import { NAlert, NButton, NButtonGroup, NCard, NDataTable, NForm, NFormItem, NInput, NModal, NPopconfirm, NSelect, NSpace, NSwitch, NTag, type DataTableColumns, type FormInst } from 'naive-ui'
 import { videoApi, type Source, type SourceInput, type SourceCategory, type Category } from '@/api/video'
 import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
 import { useVideoActions } from '@/composables/use-video-actions'
-import { categoryOptions, videoZone } from './video-options'
+import { categoryOptions, ranges, videoZone } from './video-options'
 import './video.css'
 
 const session = useSessionStore()
+const router = useRouter()
 const { busy, errors, act } = useVideoActions()
+const lastRun = ref<{ id: string; source: string; range: string }>()
 const sources = ref<Source[]>([])
 const localCategories = ref<Category[]>([])
 const options = computed(() => categoryOptions(localCategories.value))
@@ -100,18 +103,38 @@ async function bind(row: SourceCategory, categoryId: string | null) {
 }
 
 /**
+ * 按所选范围立即为资源站排队一次手动采集，返回运行编号用于查看进度。
+ */
+async function collect(row: Source, rangeCode: string) {
+  if (busy.value) return
+  await act(async () => {
+    const run = await videoApi.collect({ sourceId: row.id, rangeCode })
+    lastRun.value = { id: run.id, source: row.name, range: ranges.find(r => r.value === rangeCode)?.label ?? rangeCode }
+  }, '采集已排队')
+}
+
+/**
  * 删除未引用来源，有引用时由后端阻止。
  */
 async function remove(id: string) {
   if (await act(() => videoApi.deleteSource(id), '来源已删除')) await load()
 }
 
+const collectButton = (row: Source, label: string, onClick?: () => void) =>
+  h(NButton, { size: 'small', type: 'primary', secondary: true, disabled: !row.enabled || busy.value, onClick }, () => label)
 const columns: DataTableColumns<Source> = [
   { title: '资源站', key: 'name', width: 150 },
-  { title: '接口地址', key: 'apiUrl', ellipsis: { tooltip: true } },
-  { title: '时区', key: 'sourceZone', width: 140 },
-  { title: '状态', key: 'enabled', width: 90, render: row => h(NTag, { type: row.enabled ? 'success' : 'default', bordered: false }, () => row.enabled ? '启用' : '停用') },
-  { title: '操作', key: 'actions', width: 250, render: row => h(NSpace, {}, () => [
+  { title: '接口地址', key: 'apiUrl', minWidth: 220, ellipsis: { tooltip: true } },
+  { title: '状态', key: 'enabled', width: 80, render: row => h(NTag, { type: row.enabled ? 'success' : 'default', bordered: false }, () => row.enabled ? '启用' : '停用') },
+  { title: '手动采集', key: 'collect', width: 250, render: row => session.hasPermission('video:task:collect') ? h(NButtonGroup, { size: 'small' }, () => [
+    collectButton(row, '采集当日', () => collect(row, 'DAY')),
+    collectButton(row, '采集7天', () => collect(row, 'WEEK')),
+    h(NPopconfirm, { onPositiveClick: () => collect(row, 'ALL') }, {
+      trigger: () => collectButton(row, '采集全部'),
+      default: () => `确认全量采集「${row.name}」？全量可能需要较长时间。`,
+    }),
+  ]) : '—' },
+  { title: '操作', key: 'actions', width: 230, render: row => h(NSpace, {}, () => [
     h(NButton, { size: 'small', onClick: () => openMapping(row) }, () => '分类映射'),
     session.hasPermission('video:source:edit') ? h(NButton, { size: 'small', onClick: () => edit(row) }, () => '编辑') : null,
     session.hasPermission('video:source:delete') ? h(NPopconfirm, { onPositiveClick: () => remove(row.id) }, { trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, () => '删除'), default: () => '确认删除未引用的资源站？' }) : null,
@@ -164,12 +187,29 @@ onMounted(load)
           clearable
           class="video-filters"
         />
+        <NAlert
+          v-if="lastRun"
+          type="success"
+          :bordered="false"
+          closable
+          class="video-filters"
+          @close="lastRun = undefined"
+        >
+          {{ lastRun.source }} · {{ lastRun.range }} 已排队（运行 {{ lastRun.id }}）。采集在后台执行，同一资源站同时只允许一个运行。
+          <NButton
+            text
+            type="primary"
+            @click="router.push({ name: 'video-run', query: { runId: lastRun.id } })"
+          >
+            查看进度
+          </NButton>
+        </NAlert>
         <NDataTable
           :columns="columns"
           :data="rows"
           :loading="busy"
           :row-key="row => row.id"
-          :scroll-x="850"
+          :scroll-x="980"
         />
       </div>
     </NCard>
@@ -204,7 +244,7 @@ onMounted(load)
             placeholder="https://…"
           />
         </NFormItem>
-        <NFormItem label="来源时间的时区">
+        <NFormItem label="源站时间的时区（用于解析源站更新时间，国内资源站保持默认即可）">
           <NInput v-model:value="form.sourceZone" />
         </NFormItem>
         <NFormItem label="启用">

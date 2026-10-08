@@ -4,12 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 import cn.orangenode.forge.core.exception.BusinessException;
 import cn.orangenode.forge.video.config.VideoProperties;
-import cn.orangenode.forge.video.entity.TaskEntity;
 import cn.orangenode.forge.video.support.VideoValues;
 
 /**
@@ -95,23 +95,16 @@ class MacCmsParserTest {
     }
 
     /**
-     * 时间范围不影响执行频率，跨时区和补触发后只计算一个未来时间。
+     * 五段 cron 按调度时区计算，补触发后只得到一个未来时间，非法表达式明确拒绝。
      */
     @Test
-    void calculatesNextTimeFromCurrentInstant() {
-        TaskEntity task = new TaskEntity();
-        task.setZoneId("Asia/Shanghai");
-        task.setFrequency("DAILY");
-        task.setTimeOfDay("02:00");
-        assertThat(TaskSchedules.next(task, LocalDateTime.of(2026, 9, 30, 17, 0)))
-                .isEqualTo(LocalDateTime.of(2026, 9, 30, 18, 0));
-        task.setFrequency("WEEKLY");
-        task.setWeekday(1);
-        assertThat(TaskSchedules.next(task, LocalDateTime.of(2026, 9, 30, 17, 0)))
-                .isEqualTo(LocalDateTime.of(2026, 10, 4, 18, 0));
-        task.setFrequency("INTERVAL");
-        task.setIntervalHours(3);
-        assertThat(TaskSchedules.next(task, LocalDateTime.of(2026, 9, 30, 17, 0)))
-                .isEqualTo(LocalDateTime.of(2026, 9, 30, 20, 0));
+    void calculatesNextTimeFromCron() {
+        ZoneId zone = ZoneId.of("Asia/Shanghai");
+        LocalDateTime now = LocalDateTime.of(2026, 9, 30, 17, 0);
+        assertThat(TaskSchedules.next("0 2 * * *", zone, now)).isEqualTo(LocalDateTime.of(2026, 9, 30, 18, 0));
+        assertThat(TaskSchedules.next("0 2 * * 1", zone, now)).isEqualTo(LocalDateTime.of(2026, 10, 4, 18, 0));
+        assertThat(TaskSchedules.next("0 */3 * * *", zone, now)).isEqualTo(LocalDateTime.of(2026, 9, 30, 19, 0));
+        assertThatThrownBy(() -> TaskSchedules.next("0 2 * *", zone, now)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TaskSchedules.next("0 25 * * *", zone, now)).isInstanceOf(IllegalArgumentException.class);
     }
 }

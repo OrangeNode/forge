@@ -134,13 +134,55 @@ forge:
       - /v3/api-docs/**
       - /swagger-ui/**
       - /swagger-ui.html
-    # 仅以下 GET 接口匿名可用。
+      # App 普通用户注册、登录与找回密码（2026-10-07 恢复普通用户体系）
+      - /api/app/v1/member/auth/email-code
+      - /api/app/v1/member/auth/register
+      - /api/app/v1/member/auth/login
+      - /api/app/v1/member/auth/password/reset
+    # 仅以下 GET 接口匿名可用：App 启动配置与其引用的开屏/轮播图片。
+    # 视频分类、列表、详情与播放线路自 2026-10-07 起必须普通用户登录，不再匿名。
     public-get-paths:
-      - /api/app/v1/video/categories
-      - /api/app/v1/video/videos
-      - /api/app/v1/video/videos/{id}
-      - /api/app/v1/video/videos/{id}/play-lines
+      - /api/app/v1/app/launch
+      - /api/app/v1/app/images/{id}
 
+
+  # 普通用户（App 用户）：令牌、验证码与发信。令牌与管理员令牌的 Redis 键、接口前缀完全分开。
+  member:
+    auth:
+      # 令牌有效期秒数（默认 30 天），滑动续期：距上次续期超过间隔的请求重置为完整有效期
+      token-ttl-seconds: ${FORGE_MEMBER_TOKEN_TTL_SECONDS:2592000}
+      # 两次续期之间的最短间隔秒数，同时决定设备“最近活跃时间”的刷新频率
+      renew-interval-seconds: ${FORGE_MEMBER_TOKEN_RENEW_INTERVAL_SECONDS:3600}
+      # 普通用户接口前缀：该前缀下只识别普通用户令牌，其余路径只识别管理员令牌
+      path-prefix: /api/app/
+      # 以下三项只在 App 管理模块未装配时使用；装配后以“App 管理 → 功能开关”为准
+      default-vip-required: true
+      default-registration-open: true
+      default-max-devices: 2
+    code:
+      # 验证码位数、有效秒数、同一邮箱同一用途的重发间隔秒数、单个验证码允许的错误次数
+      length: 6
+      ttl-seconds: ${FORGE_MEMBER_CODE_TTL_SECONDS:600}
+      resend-interval-seconds: ${FORGE_MEMBER_CODE_RESEND_SECONDS:60}
+      max-attempts: 5
+      # 同一邮箱、同一来源地址每天最多发送次数
+      email-daily-limit: ${FORGE_MEMBER_CODE_EMAIL_DAILY_LIMIT:10}
+      ip-daily-limit: ${FORGE_MEMBER_CODE_IP_DAILY_LIMIT:50}
+    # 发信服务器（SMTP）：主机为空表示未配置，此时发送验证码返回 body.code=503“邮件发送服务尚未配置”。
+    # 凭据只从环境变量读取；465 端口一般 ssl=true，587 端口一般 ssl=false（使用 STARTTLS）。
+    mail:
+      host: ${FORGE_MAIL_HOST:}
+      port: ${FORGE_MAIL_PORT:465}
+      username: ${FORGE_MAIL_USERNAME:}
+      password: ${FORGE_MAIL_PASSWORD:}
+      from: ${FORGE_MAIL_FROM:}
+      ssl: ${FORGE_MAIL_SSL:true}
+      timeout-millis: ${FORGE_MAIL_TIMEOUT_MILLIS:10000}
+      subject: ${FORGE_MAIL_SUBJECT:验证码}
+
+  # App 管理：首页推荐行单行最多影片数
+  app:
+    section-max-items: ${FORGE_APP_SECTION_MAX_ITEMS:30}
 
   # 视频采集：单实例队列，所有可调参数集中于此。
   video:
@@ -158,6 +200,7 @@ forge:
     # 每个连接地址的公开接口窗口秒数与最大请求数。
     app-rate-limit: ${FORGE_VIDEO_APP_RATE_LIMIT:120}
     app-rate-window-seconds: ${FORGE_VIDEO_APP_RATE_WINDOW:60}
+    # 定时任务 cron 的统一调度时区，也是新增资源站解析源站时间的默认时区。
     default-zone: ${FORGE_VIDEO_DEFAULT_ZONE:Asia/Shanghai}
     worker-enabled: ${FORGE_VIDEO_WORKER_ENABLED:true}
     # 可选 HTTP CONNECT 代理；空值直接访问，不能通过资源站管理修改。

@@ -84,6 +84,10 @@ export const calmTechTheme: GlobalThemeOverrides = {
   Tag: {
     borderRadius: '6px',
   },
+  // 复选框保持方形；未覆盖时会继承 common.borderRadiusSmall，16px 方框会显示成圆形。
+  Checkbox: {
+    borderRadius: '4px',
+  },
   Dialog: {
     borderRadius: '15px',
   },
