@@ -57,6 +57,8 @@ class VideoIntegrationTest {
     @Autowired
     private CatalogService catalog;
     @Autowired
+    private cn.orangenode.forge.video.service.impl.VideoInitialsBackfill backfill;
+    @Autowired
     private CollectionService collections;
     @Autowired
     private IngestService ingest;
@@ -101,6 +103,7 @@ class VideoIntegrationTest {
             }
         }
         jdbc.execute("ALTER TABLE video_settings ADD COLUMN missing_policies TEXT NULL");
+        jdbc.execute("ALTER TABLE video_video ADD COLUMN name_initials VARCHAR(255) NULL");
         jdbc.execute("ALTER TABLE video_task ADD COLUMN cron_expression VARCHAR(128) NOT NULL");
         for (String column : List.of("frequency", "interval_hours", "weekday", "time_of_day", "zone_id")) {
             jdbc.execute("ALTER TABLE video_task DROP COLUMN " + column);
@@ -312,6 +315,38 @@ class VideoIntegrationTest {
         String body = http.post().uri(base + "/videos").exchange().expectStatus().isOk()
                 .expectBody(String.class).returnResult().getResponseBody();
         assertThat(body).contains("\"code\":401");
+    }
+
+    /**
+     * 字母数字关键字同时按片名拼音首字母前缀匹配，中文关键字仍按片名包含匹配；历史影片由回填任务补齐首字母。
+     */
+    @Test
+    void searchesByPinyinInitials() {
+        collect(1, movie("1", "测试 第一季", 2026, "资料"), 1, 1);
+        assertThat(catalog.appVideos(1, 20, "csdyj", null, null, null, null).records()).hasSize(1);
+        assertThat(catalog.appVideos(1, 20, "CS", null, null, null, null).records()).hasSize(1);
+        assertThat(catalog.appVideos(1, 20, "dyj", null, null, null, null).records()).isEmpty();
+        assertThat(catalog.appVideos(1, 20, "第一季", null, null, null, null).records()).hasSize(1);
+        jdbc.update("UPDATE video_video SET name_initials = NULL");
+        assertThat(catalog.appVideos(1, 20, "cs", null, null, null, null).records()).isEmpty();
+        backfill.backfill();
+        assertThat(jdbc.queryForObject("SELECT name_initials FROM video_video", String.class)).isEqualTo("csdyj");
+    }
+
+    /**
+     * App 按一级分类筛选时包含其可见子分类；子分类停用后其影片不再出现。
+     */
+    @Test
+    void filtersAppVideosByCategorySubtree() {
+        collect(1, movie("1", "测试", 2026, "资料"), 1, 1);
+        Long child = jdbc.queryForObject("SELECT category_id FROM video_video", Long.class);
+        jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
+                + " VALUES (900,0,'父分类',99,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("UPDATE video_category SET parent_id = 900 WHERE id = ?", child);
+        assertThat(catalog.appVideos(1, 20, null, "900", null, null, null).records()).hasSize(1);
+        assertThat(catalog.appVideos(1, 20, null, String.valueOf(child), null, null, null).records()).hasSize(1);
+        jdbc.update("UPDATE video_category SET enabled = 0 WHERE id = ?", child);
+        assertThat(catalog.appVideos(1, 20, null, "900", null, null, null).records()).isEmpty();
     }
 
     /**

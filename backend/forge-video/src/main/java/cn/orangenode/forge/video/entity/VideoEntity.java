@@ -35,6 +35,11 @@ public class VideoEntity {
     private String matchName;
 
     /**
+     * 片名拼音首字母，为空表示尚未回填。
+     */
+    private String nameInitials;
+
+    /**
      * 本地分类主键。
      */
     private Long categoryId;

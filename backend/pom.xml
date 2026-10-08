@@ -44,6 +44,7 @@
         <mybatis-plus.version>3.5.17</mybatis-plus.version>
         <dynamic-datasource.version>4.5.0</dynamic-datasource.version>
         <springdoc.version>3.1.1</springdoc.version>
+        <icu4j.version>78.3</icu4j.version>
         <awssdk.version>2.55.7</awssdk.version>
         <checkstyle.version>10.26.1</checkstyle.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
@@ -105,6 +106,13 @@
                 <groupId>com.baomidou</groupId>
                 <artifactId>dynamic-datasource-spring-boot4-starter</artifactId>
                 <version>${dynamic-datasource.version}</version>
+            </dependency>
+
+            <!-- 汉字转拼音：影片拼音首字母搜索的生僻字补全 -->
+            <dependency>
+                <groupId>com.ibm.icu</groupId>
+                <artifactId>icu4j</artifactId>
+                <version>${icu4j.version}</version>
             </dependency>
 
             <!-- API 文档 -->

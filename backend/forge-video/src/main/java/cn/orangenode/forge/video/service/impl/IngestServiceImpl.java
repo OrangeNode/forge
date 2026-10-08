@@ -23,6 +23,7 @@ import cn.orangenode.forge.video.request.PendingResolveRequest;
 import cn.orangenode.forge.video.response.SettingsResponse;
 import cn.orangenode.forge.video.service.IngestService;
 import cn.orangenode.forge.video.service.SettingsService;
+import cn.orangenode.forge.video.support.PinyinInitials;
 import cn.orangenode.forge.video.support.VideoValues;
 import lombok.RequiredArgsConstructor;
 
@@ -218,6 +219,7 @@ public class IngestServiceImpl implements IngestService {
             video = new VideoEntity();
             video.setName(data.name());
             video.setMatchName(VideoValues.normalize(data.name()));
+            video.setNameInitials(PinyinInitials.of(data.name()));
             video.setCategoryId(category);
             video.setMetadataLocked(false);
             video.setPublished(rules.autoPublish() && store.categoryVisible(category));
@@ -385,6 +387,7 @@ public class IngestServiceImpl implements IngestService {
         if (fields.contains("name") && v.name() != null) {
             e.setName(v.name());
             e.setMatchName(VideoValues.normalize(v.name()));
+            e.setNameInitials(PinyinInitials.of(v.name()));
         }
         if (fields.contains("category") && category != null && store.categoryVisible(category)) {
             e.setCategoryId(category);

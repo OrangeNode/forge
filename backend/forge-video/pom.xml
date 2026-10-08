@@ -7,6 +7,7 @@
     <description>视频分类、资源站采集与只读接口</description>
     <dependencies>
         <dependency><groupId>cn.orangenode</groupId><artifactId>forge-framework</artifactId></dependency>
+        <dependency><groupId>com.ibm.icu</groupId><artifactId>icu4j</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
     </dependencies>
 </project>

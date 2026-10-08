@@ -5,7 +5,10 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +40,7 @@ import cn.orangenode.forge.video.response.OriginResponse;
 import cn.orangenode.forge.video.response.PlayLineResponse;
 import cn.orangenode.forge.video.response.EpisodeResponse;
 import cn.orangenode.forge.video.service.CatalogService;
+import cn.orangenode.forge.video.support.PinyinInitials;
 import cn.orangenode.forge.video.support.VideoValues;
 import cn.orangenode.forge.video.support.VideoPaging;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +55,10 @@ public class CatalogServiceImpl implements CatalogService {
      * App 端可直接播放的地址类型；OTHER 为网页分享地址，电视与手机播放器无法播放。
      */
     private static final List<String> PLAYABLE_URL_TYPES = List.of("M3U8", "MP4");
+    /**
+     * 只由字母数字组成的关键字同时按片名拼音首字母前缀匹配（电视遥控器字母键盘输入）。
+     */
+    private static final Pattern INITIALS_KEYWORD = Pattern.compile("[A-Za-z0-9]{1,32}");
     private final VideoStore store;
     private final VideoConverter converter;
     private final VideoPaging paging;
@@ -204,17 +212,25 @@ public class CatalogServiceImpl implements CatalogService {
      */
     private LambdaQueryWrapper<VideoEntity> filter(String keyword, String category, Integer year,
             String area, String language, Boolean published, boolean publicOnly) {
+        String text = VideoValues.clean(keyword);
+        String initials = text != null && INITIALS_KEYWORD.matcher(text).matches() ? text.toLowerCase(Locale.ROOT) : null;
         LambdaQueryWrapper<VideoEntity> q = Wrappers.<VideoEntity>lambdaQuery()
-                .like(VideoValues.clean(keyword) != null, VideoEntity::getName, VideoValues.clean(keyword))
-                .eq(category != null && !category.isBlank(), VideoEntity::getCategoryId,
+                .and(text != null, w -> w.like(VideoEntity::getName, text)
+                        .or(initials != null, o -> o.likeRight(VideoEntity::getNameInitials, initials)))
+                .eq(!publicOnly && category != null && !category.isBlank(), VideoEntity::getCategoryId,
                         category == null || category.isBlank() ? null : VideoValues.id(category))
                 .eq(year != null, VideoEntity::getYear, year)
                 .eq(VideoValues.clean(area) != null, VideoEntity::getArea, VideoValues.clean(area))
                 .eq(VideoValues.clean(language) != null, VideoEntity::getLanguage, VideoValues.clean(language))
                 .eq(published != null, VideoEntity::getPublished, published);
         if (publicOnly) {
-            List<Long> ids = store.categories.selectList(Wrappers.<CategoryEntity>lambdaQuery()).stream()
-                    .map(CategoryEntity::getId).filter(store::categoryVisible).toList();
+            // App 按分类筛选时包含其全部可见子分类，选一级分类即可看到二级分类下的影片。
+            List<CategoryEntity> all = store.categories.selectList(Wrappers.<CategoryEntity>lambdaQuery());
+            Long root = category == null || category.isBlank() ? null : VideoValues.id(category);
+            Map<Long, Long> parents = new HashMap<>();
+            all.forEach(item -> parents.put(item.getId(), item.getParentId()));
+            List<Long> ids = all.stream().map(CategoryEntity::getId).filter(store::categoryVisible)
+                    .filter(id -> root == null || underCategory(id, root, parents)).toList();
             if (ids.isEmpty()) {
                 q.eq(VideoEntity::getId, -1L);
             } else {
@@ -223,6 +239,20 @@ public class CatalogServiceImpl implements CatalogService {
             q.eq(VideoEntity::getPublished, true);
         }
         return q.orderByDesc(VideoEntity::getUpdatedAt).orderByDesc(VideoEntity::getId);
+    }
+
+    /**
+     * 分类是否为给定分类本身或其后代；层级异常成环时按不属于处理。
+     */
+    private static boolean underCategory(Long id, Long root, Map<Long, Long> parents) {
+        Long current = id;
+        for (int depth = 0; current != null && current != 0L && depth < parents.size() + 1; depth++) {
+            if (current.equals(root)) {
+                return true;
+            }
+            current = parents.get(current);
+        }
+        return false;
     }
 
     /**
@@ -332,6 +362,7 @@ public class CatalogServiceImpl implements CatalogService {
         store.requireCategory(category);
         e.setName(r.name().strip());
         e.setMatchName(VideoValues.normalize(r.name()));
+        e.setNameInitials(PinyinInitials.of(r.name()));
         e.setCategoryId(category);
         e.setYear(r.year());
         e.setArea(VideoValues.clean(r.area()));
