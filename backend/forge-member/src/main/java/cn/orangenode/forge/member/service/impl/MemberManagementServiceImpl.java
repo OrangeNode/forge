@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,6 +29,7 @@ import cn.orangenode.forge.member.mapper.MemberDeviceMapper;
 import cn.orangenode.forge.member.mapper.MemberUserMapper;
 import cn.orangenode.forge.member.mapper.MemberVipLogMapper;
 import cn.orangenode.forge.member.request.MemberAdminPasswordRequest;
+import cn.orangenode.forge.member.request.MemberCreateRequest;
 import cn.orangenode.forge.member.request.MemberStatusRequest;
 import cn.orangenode.forge.member.request.MemberVipExtendRequest;
 import cn.orangenode.forge.member.request.MemberVipSetRequest;
@@ -61,7 +63,7 @@ public class MemberManagementServiceImpl implements MemberManagementService {
     private final MemberPaging paging;
 
     /**
-     * 按邮箱关键字、状态与 VIP 状态分页查询，按注册时间倒序。
+     * 按用户名关键字、状态与 VIP 状态分页查询，按注册时间倒序。
      */
     @Override
     public PageResponse<MemberUserResponse> page(Integer pageNum, Integer pageSize, String username, String status,
@@ -94,6 +96,37 @@ public class MemberManagementServiceImpl implements MemberManagementService {
     @Override
     public MemberUserResponse detail(Long id) {
         return toResponse(require(id));
+    }
+
+    /**
+     * 新建账号；并发重复创建由用户名唯一键兜底返回 409，指定天数时在同一事务内开通 VIP。
+     */
+    @Override
+    @Transactional
+    public MemberUserResponse create(MemberCreateRequest request) {
+        String username = MemberValues.username(request.username());
+        if (users.selectCount(Wrappers.<MemberUserEntity>lambdaQuery().eq(MemberUserEntity::getUsername, username)) > 0) {
+            throw new BusinessException(ErrorCode.CONFLICT, "该用户名已被使用");
+        }
+        LocalDateTime now = MemberValues.now();
+        MemberUserEntity user = new MemberUserEntity();
+        user.setUsername(username);
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        String nickname = MemberValues.clean(request.nickname());
+        user.setNickname(nickname == null ? username : nickname);
+        user.setStatus(MemberStatus.ENABLED.name());
+        user.setSessionVersion(0L);
+        user.setCreatedAt(now);
+        user.setUpdatedAt(now);
+        try {
+            users.insert(user);
+        } catch (DuplicateKeyException duplicate) {
+            throw new BusinessException(ErrorCode.CONFLICT, "该用户名已被使用");
+        }
+        if (request.vipDays() != null) {
+            return extendVip(user.getId(), new MemberVipExtendRequest(request.vipDays(), "新建账号时开通"));
+        }
+        return detail(user.getId());
     }
 
     /**

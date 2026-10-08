@@ -19,6 +19,7 @@ import cn.orangenode.forge.framework.audit.AuditOperation;
 import cn.orangenode.forge.framework.audit.AuditResourceId;
 import cn.orangenode.forge.framework.web.TraceIdFilter;
 import cn.orangenode.forge.member.request.MemberAdminPasswordRequest;
+import cn.orangenode.forge.member.request.MemberCreateRequest;
 import cn.orangenode.forge.member.request.MemberStatusRequest;
 import cn.orangenode.forge.member.request.MemberVipExtendRequest;
 import cn.orangenode.forge.member.request.MemberVipSetRequest;
@@ -78,6 +79,19 @@ public class MemberUserController {
             @Valid @RequestBody MemberStatusRequest request, HttpServletRequest http) {
         return ApiResponse.successWithTrace(service.changeStatus(MemberValues.id(id), request),
                 TraceIdFilter.currentTraceId(http));
+    }
+
+    /**
+     * 新建普通用户。
+     */
+    @Operation(summary = "新建普通用户", description = "关闭公开注册后由管理员创建账号；用户名为 4 到 20 位字母、数字或下划线，"
+            + "已被使用 409；可同时开通 VIP")
+    @PreAuthorize("hasAuthority('member:user:create')")
+    @AuditOperation(action = "member:user:create", resourceType = "member_user")
+    @PostMapping
+    public ApiResponse<MemberUserResponse> create(@Valid @RequestBody MemberCreateRequest request,
+            HttpServletRequest http) {
+        return ApiResponse.successWithTrace(service.create(request), TraceIdFilter.currentTraceId(http));
     }
 
     /**

@@ -48,7 +48,7 @@ public class ForgeMemberAuthProperties {
     /**
      * App 功能开关模块未装配时：是否开放注册。
      */
-    private boolean defaultRegistrationOpen = true;
+    private boolean defaultRegistrationOpen = false;
 
     /**
      * App 功能开关模块未装配时：同一账号同时登录的设备上限。

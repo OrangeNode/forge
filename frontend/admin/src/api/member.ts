@@ -5,6 +5,7 @@ type Schemas = adminComponents['schemas']
 export type MemberUser = Required<Schemas['MemberUserResponse']>
 export type MemberDevice = Required<Schemas['MemberDeviceResponse']>
 export type MemberVipLog = Required<Schemas['MemberVipLogResponse']>
+export type MemberCreateInput = Schemas['MemberCreateRequest']
 type Query = PageQuery & Record<string, string | number | boolean | undefined>
 const base = `${API_PREFIX}/member`
 
@@ -14,6 +15,7 @@ const base = `${API_PREFIX}/member`
 export const memberApi = {
   users: (query: Query) => request.get<PageResponse<MemberUser>>(`${base}/users`, { query }),
   user: (id: string) => request.get<MemberUser>(`${base}/users/${id}`),
+  create: (body: MemberCreateInput) => request.post<MemberUser>(`${base}/users`, { body }),
   changeStatus: (id: string, status: 'ENABLED' | 'DISABLED') =>
     request.patch<MemberUser>(`${base}/users/${id}/status`, { body: { status } }),
   resetPassword: (id: string, password: string) =>

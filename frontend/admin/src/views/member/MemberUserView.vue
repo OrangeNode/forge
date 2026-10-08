@@ -20,6 +20,8 @@ const devices = ref<MemberDevice[]>([])
 const vipLogs = ref<MemberVipLog[]>([])
 const vipShow = ref(false)
 const vipForm = reactive<{ mode: 'EXTEND' | 'SET' | 'CANCEL'; days: number; expireAt: number | null; remark: string }>({ mode: 'EXTEND', days: 30, expireAt: null, remark: '' })
+const createShow = ref(false)
+const createForm = reactive<{ username: string; password: string; nickname: string; vipDays: number | null }>({ username: '', password: '', nickname: '', vipDays: 30 })
 const passwordShow = ref(false)
 const password = ref('')
 const statusOptions = [{ label: '启用', value: 'ENABLED' }, { label: '停用', value: 'DISABLED' }]
@@ -104,6 +106,32 @@ function openPassword(row: MemberUser) {
 }
 
 /**
+ * 打开新建账号对话框，清空上一次填写的内容。
+ */
+function openCreate() {
+  Object.assign(createForm, { username: '', password: '', nickname: '', vipDays: 30 })
+  createShow.value = true
+}
+
+/**
+ * 新建账号：关闭公开注册后由管理员创建，可同时开通 VIP。
+ */
+async function saveCreate() {
+  if (busy.value) return
+  const body = {
+    username: createForm.username.trim(),
+    password: createForm.password,
+    nickname: createForm.nickname.trim() || undefined,
+    vipDays: createForm.vipDays ?? undefined,
+  }
+  if (await act(() => memberApi.create(body), '账号已创建')) {
+    createShow.value = false
+    pagination.page = 1
+    await load()
+  }
+}
+
+/**
  * 重置密码，成功后该用户全部令牌失效。
  */
 async function savePassword() {
@@ -173,10 +201,17 @@ onMounted(load)
     >
       <PageHeader
         title="用户列表"
-        description="App 普通用户的查询、启停、重置密码、VIP 开通与登录设备"
+        description="App 普通用户的新建、查询、启停、重置密码、VIP 开通与登录设备；关闭公开注册时账号在这里创建"
         icon="users"
       >
         <template #actions>
+          <NButton
+            v-if="session.hasPermission('member:user:create')"
+            type="primary"
+            @click="openCreate"
+          >
+            新建会员
+          </NButton>
           <NButton
             secondary
             type="primary"
@@ -379,6 +414,67 @@ onMounted(load)
             @click="saveVip"
           >
             保存
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+    <NModal
+      v-model:show="createShow"
+      preset="card"
+      title="新建会员"
+      style="width: min(460px, calc(100vw - 32px))"
+    >
+      <NForm label-placement="top">
+        <NFormItem
+          label="用户名（4 到 20 位字母、数字或下划线）"
+          :feedback="errors.username"
+          :validation-status="errors.username ? 'error' : undefined"
+        >
+          <NInput
+            v-model:value="createForm.username"
+            :maxlength="20"
+            placeholder="例如 tv_user01"
+          />
+        </NFormItem>
+        <NFormItem
+          label="初始密码（6 到 64 个字符）"
+          :feedback="errors.password"
+          :validation-status="errors.password ? 'error' : undefined"
+        >
+          <NInput
+            v-model:value="createForm.password"
+            type="password"
+            show-password-on="click"
+          />
+        </NFormItem>
+        <NFormItem label="昵称（可选，默认同用户名）">
+          <NInput
+            v-model:value="createForm.nickname"
+            :maxlength="32"
+          />
+        </NFormItem>
+        <NFormItem label="同时开通 VIP 天数（清空表示不开通）">
+          <NInputNumber
+            v-model:value="createForm.vipDays"
+            :min="1"
+            :max="3650"
+            clearable
+            style="width: 100%"
+          />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="createShow = false">
+            取消
+          </NButton>
+          <NButton
+            type="primary"
+            :loading="busy"
+            :disabled="createForm.username.trim().length < 4 || createForm.password.length < 6"
+            @click="saveCreate"
+          >
+            创建
           </NButton>
         </NSpace>
       </template>

@@ -4,6 +4,7 @@ import java.util.List;
 
 import cn.orangenode.forge.core.page.PageResponse;
 import cn.orangenode.forge.member.request.MemberAdminPasswordRequest;
+import cn.orangenode.forge.member.request.MemberCreateRequest;
 import cn.orangenode.forge.member.request.MemberStatusRequest;
 import cn.orangenode.forge.member.request.MemberVipExtendRequest;
 import cn.orangenode.forge.member.request.MemberVipSetRequest;
@@ -25,6 +26,14 @@ public interface MemberManagementService {
      * 查询普通用户详情。
      */
     MemberUserResponse detail(Long id);
+
+    /**
+     * 后台新建普通用户，用户名已被占用返回 409；指定 VIP 天数时同时开通。
+     *
+     * @param request 用户名、初始密码、昵称与 VIP 天数
+     * @return 新用户
+     */
+    MemberUserResponse create(MemberCreateRequest request);
 
     /**
      * 启停普通用户，状态未变化返回 409；停用后全部令牌立即失效。
