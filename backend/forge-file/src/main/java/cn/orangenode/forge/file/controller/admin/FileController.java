@@ -163,6 +163,43 @@ public class FileController {
     }
 
     /**
+     * 为文件生成公开外链。
+     *
+     * @param id          文件 ID，对外字符串形式
+     * @param current     当前认证主体，来自安全上下文
+     * @param httpRequest 当前 HTTP 请求，用于读取追踪编号
+     * @return 带公开下载路径的文件元数据
+     */
+    @Operation(summary = "生成公开外链",
+            description = "返回的 publicUrl 不含域名，任何人可匿名下载；已公开时返回原链接")
+    @PostMapping("/{id}/public-link")
+    @PreAuthorize("hasAuthority('file:record:share')")
+    @AuditOperation(action = "file:record:share", resourceType = "file-record")
+    public ApiResponse<FileRecordResponse> share(@PathVariable("id") @AuditResourceId String id,
+            @AuthenticationPrincipal AuthenticatedAdmin current, HttpServletRequest httpRequest) {
+        return ApiResponse.successWithTrace(fileService.share(FileIds.toLong(id, "文件 ID"),
+                current == null ? null : current.id()), TraceIdFilter.currentTraceId(httpRequest));
+    }
+
+    /**
+     * 撤销文件公开外链。
+     *
+     * @param id          文件 ID，对外字符串形式
+     * @param current     当前认证主体，来自安全上下文
+     * @param httpRequest 当前 HTTP 请求，用于读取追踪编号
+     * @return 文件元数据
+     */
+    @Operation(summary = "撤销公开外链", description = "原链接立即失效；被 App 版本更新引用的 APK 撤销后 App 将无法下载更新")
+    @DeleteMapping("/{id}/public-link")
+    @PreAuthorize("hasAuthority('file:record:share')")
+    @AuditOperation(action = "file:record:share", resourceType = "file-record")
+    public ApiResponse<FileRecordResponse> unshare(@PathVariable("id") @AuditResourceId String id,
+            @AuthenticationPrincipal AuthenticatedAdmin current, HttpServletRequest httpRequest) {
+        return ApiResponse.successWithTrace(fileService.unshare(FileIds.toLong(id, "文件 ID"),
+                current == null ? null : current.id()), TraceIdFilter.currentTraceId(httpRequest));
+    }
+
+    /**
      * 按分页配置校验每页条数。
      *
      * <p>请求对象由参数绑定创建，字段级配置注入不会生效，因此这里把配置的上限写入请求对象后再校验，

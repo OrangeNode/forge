@@ -194,7 +194,11 @@ onBeforeUnmount(() => {
       :native-scrollbar="false"
     >
       <div class="brand">
-        <span class="brand__logo">O</span>
+        <img
+          class="brand__logo"
+          src="/logo.png"
+          alt="Orange"
+        >
         <span
           v-if="!collapsed"
           class="brand__text"
@@ -303,16 +307,10 @@ onBeforeUnmount(() => {
 }
 
 .brand__logo {
-  display: grid;
   flex: none;
   width: 32px;
   height: 32px;
-  place-items: center;
-  border-radius: 9px;
-  background: #2563eb;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 800;
+  object-fit: contain;
 }
 
 .brand__text {

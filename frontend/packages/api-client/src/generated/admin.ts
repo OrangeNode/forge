@@ -398,6 +398,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/app/release/min-version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 调整最低可用版本
+         * @description 为空表示不强制更新；不能高于最新版本号
+         */
+        put: operations["updateMinVersion"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/app/hot-search": {
         parameters: {
             query?: never;
@@ -821,6 +841,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/member/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询普通用户
+         * @description 按用户名关键字、状态 ENABLED/DISABLED、VIP 状态 ACTIVE/EXPIRED/NONE 筛选
+         */
+        get: operations["page_2"];
+        put?: never;
+        /**
+         * 新建普通用户
+         * @description 关闭公开注册后由管理员创建账号；用户名为 4 到 20 位字母、数字或下划线，已被使用 409；可同时开通 VIP
+         */
+        post: operations["create_7"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/member/users/{id}/offline": {
         parameters: {
             query?: never;
@@ -872,7 +916,7 @@ export interface paths {
          * 分页查询文件
          * @description 按文件名包含匹配与存储配置精确匹配筛选，按创建时间倒序；每页条数上限来自 forge.page.max-size
          */
-        get: operations["page_2"];
+        get: operations["page_3"];
         put?: never;
         /**
          * 上传文件
@@ -880,6 +924,30 @@ export interface paths {
          */
         post: operations["upload"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/files/{id}/public-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 生成公开外链
+         * @description 返回的 publicUrl 不含域名，任何人可匿名下载；已公开时返回原链接
+         */
+        post: operations["share"];
+        /**
+         * 撤销公开外链
+         * @description 原链接立即失效；被 App 版本更新引用的 APK 撤销后 App 将无法下载更新
+         */
+        delete: operations["unshare"];
         options?: never;
         head?: never;
         patch?: never;
@@ -978,6 +1046,31 @@ export interface paths {
          */
         post: operations["createSection"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取版本配置 */
+        get: operations["current"];
+        put?: never;
+        /**
+         * 发布新版本
+         * @description 包名不符、版本号不高于当前版本或文件不是 APK 时返回 400；成功后为 APK 生成公开外链
+         */
+        post: operations["publish"];
+        /**
+         * 撤销发布
+         * @description 清空版本配置，App 不再提示更新；APK 文件与外链保留
+         */
+        delete: operations["withdraw"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1218,26 +1311,6 @@ export interface paths {
          * @description 返回当前默认存储配置；默认指针缺失时按 forge.file.default-config-code 解析，仍未配置返回 body.code=404
          */
         get: operations["defaultConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/v1/member/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 分页查询普通用户
-         * @description 按用户名关键字、状态 ENABLED/DISABLED、VIP 状态 ACTIVE/EXPIRED/NONE 筛选
-         */
-        get: operations["page_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1834,6 +1907,8 @@ export interface components {
             enabled: boolean;
             /** Format: int32 */
             sortNo: number;
+            targetType?: string;
+            targetValue?: string;
         };
         ApiResponseAppSplashResponse: {
             /** Format: int32 */
@@ -1856,6 +1931,9 @@ export interface components {
             /** Format: int32 */
             sortNo?: number;
             active?: boolean;
+            targetType?: string;
+            targetValue?: string;
+            targetName?: string;
         };
         AppSectionRequest: {
             title: string;
@@ -1891,6 +1969,33 @@ export interface components {
             enabled?: boolean;
             /** Format: int32 */
             sortNo?: number;
+        };
+        AppReleaseMinVersionRequest: {
+            /** Format: int32 */
+            minVersionCode?: number;
+        };
+        ApiResponseAppReleaseResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppReleaseResponse"];
+            traceId?: string;
+        };
+        AppReleaseResponse: {
+            /** Format: int32 */
+            versionCode?: number;
+            versionName?: string;
+            /** Format: int32 */
+            minVersionCode?: number;
+            packageName?: string;
+            apkFileId?: string;
+            apkUrl?: string;
+            sha256?: string;
+            /** Format: int64 */
+            sizeBytes?: number;
+            changelog?: string;
+            updatedAt?: string;
+            expectedPackage?: string;
         };
         AppHotSearchRequest: {
             hotWords: string[];
@@ -1943,6 +2048,7 @@ export interface components {
             enabled: boolean;
             /** Format: int32 */
             sortNo: number;
+            targetUrl?: string;
         };
         ApiResponseAppBannerResponse: {
             /** Format: int32 */
@@ -1965,6 +2071,7 @@ export interface components {
             /** Format: int32 */
             sortNo?: number;
             active?: boolean;
+            targetUrl?: string;
         };
         CollectRequest: {
             sourceId: string;
@@ -2135,6 +2242,13 @@ export interface components {
             elapsedMillis?: number;
             message?: string;
         };
+        MemberCreateRequest: {
+            username: string;
+            password: string;
+            nickname?: string;
+            /** Format: int32 */
+            vipDays?: number;
+        };
         MemberVipExtendRequest: {
             /** Format: int32 */
             days: number;
@@ -2155,6 +2269,26 @@ export interface components {
             sizeBytes?: number;
             /** Format: date-time */
             createdAt?: string;
+        };
+        ApiResponseFileRecordResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["FileRecordResponse"];
+            traceId?: string;
+        };
+        FileRecordResponse: {
+            id?: string;
+            storageConfigId?: string;
+            originalName?: string;
+            contentType?: string;
+            /** Format: int64 */
+            sizeBytes?: number;
+            uploaderId?: string;
+            uploaderName?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            publicUrl?: string;
         };
         NestedSample: {
             name: string;
@@ -2204,6 +2338,11 @@ export interface components {
             message?: string;
             data?: components["schemas"]["AdminLoginResponse"];
             traceId?: string;
+        };
+        AppReleasePublishRequest: {
+            fileId: string;
+            changelog?: string;
+            force: boolean;
         };
         AppFeedbackHandleRequest: {
             remark?: string;
@@ -2499,18 +2638,6 @@ export interface components {
             message?: string;
             data?: components["schemas"]["PageResponseFileRecordResponse"];
             traceId?: string;
-        };
-        FileRecordResponse: {
-            id?: string;
-            storageConfigId?: string;
-            originalName?: string;
-            contentType?: string;
-            /** Format: int64 */
-            sizeBytes?: number;
-            uploaderId?: string;
-            uploaderName?: string;
-            /** Format: date-time */
-            createdAt?: string;
         };
         PageResponseFileRecordResponse: {
             records?: components["schemas"]["FileRecordResponse"][];
@@ -3515,6 +3642,30 @@ export interface operations {
             };
         };
     };
+    updateMinVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppReleaseMinVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppReleaseResponse"];
+                };
+            };
+        };
+    };
     hotSearch: {
         parameters: {
             query?: never;
@@ -4250,6 +4401,56 @@ export interface operations {
             };
         };
     };
+    page_2: {
+        parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+                username?: string;
+                status?: string;
+                vip?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseMemberUserResponse"];
+                };
+            };
+        };
+    };
+    create_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberUserResponse"];
+                };
+            };
+        };
+    };
     offlineAll: {
         parameters: {
             query?: never;
@@ -4294,7 +4495,7 @@ export interface operations {
             };
         };
     };
-    page_2: {
+    page_3: {
         parameters: {
             query: {
                 request: components["schemas"]["FileRecordPageRequest"];
@@ -4339,6 +4540,50 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseFileUploadResponse"];
+                };
+            };
+        };
+    };
+    share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFileRecordResponse"];
+                };
+            };
+        };
+    };
+    unshare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFileRecordResponse"];
                 };
             };
         };
@@ -4497,6 +4742,70 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseAppSectionResponse"];
+                };
+            };
+        };
+    };
+    current: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppReleaseResponse"];
+                };
+            };
+        };
+    };
+    publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppReleasePublishRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppReleaseResponse"];
+                };
+            };
+        };
+    };
+    withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppReleaseResponse"];
                 };
             };
         };
@@ -4833,32 +5142,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseStorageConfigResponse"];
-                };
-            };
-        };
-    };
-    page_3: {
-        parameters: {
-            query?: {
-                pageNum?: number;
-                pageSize?: number;
-                username?: string;
-                status?: string;
-                vip?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponsePageResponseMemberUserResponse"];
                 };
             };
         };

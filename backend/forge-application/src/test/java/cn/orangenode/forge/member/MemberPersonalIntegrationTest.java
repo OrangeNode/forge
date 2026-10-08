@@ -62,7 +62,7 @@ class MemberPersonalIntegrationTest {
         new RedisTestDouble(redis);
         RuntimeSchema.recreateSystemAndAuditTables(jdbc);
         for (String table : List.of("member_watch_history", "member_favorite", "member_vip_log", "member_device",
-                "member_user", "app_feedback", "app_splash", "app_banner", "app_section", "app_settings")) {
+                "member_user", "app_feedback", "app_splash", "app_banner", "app_section", "app_settings", "app_release")) {
             jdbc.execute("DROP TABLE IF EXISTS " + table);
         }
         for (String table : List.of("category", "source", "source_category", "video", "origin", "play_line",
@@ -77,6 +77,7 @@ class MemberPersonalIntegrationTest {
         migrate("db/migration/app/V20261007121000__app_tables.sql");
         migrate("db/migration/app/V20261008120100__app_feedback.sql");
         migrate("db/migration/app/V20261008150100__app_feedback_username.sql");
+        migrate("db/migration/app/V20261008170000__app_ads_and_release.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
                 + " VALUES (1,0,'电影',1,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         for (long id : List.of(10L, 11L, 12L)) {
@@ -201,6 +202,27 @@ class MemberPersonalIntegrationTest {
         } catch (BusinessException expected) {
             assertThat(expected.getMessage()).contains("已处理");
         }
+    }
+
+    /**
+     * 观看记录只保留最近 10 条（forge.member.history-keep 默认值）：第 11 部影片上报后最早的一条被删除，列表最多 10 条。
+     */
+    @Test
+    void keepsOnlyLatestHistories() {
+        String token = newMember("keep_user", "phone-0009");
+        for (long id = 100; id < 111; id++) {
+            jdbc.update("INSERT INTO video_video (id,name,match_name,category_id,published,metadata_locked,deleted,"
+                    + "created_at,updated_at) VALUES (?,?,?,1,1,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                    id, "影片" + id, "影片" + id);
+            assertThat(put("/api/app/v1/member/history/" + id, token, progress(0, "第1集", 60)).path("code").asInt())
+                    .isZero();
+        }
+        JsonNode page = get("/api/app/v1/member/history?pageNum=1&pageSize=50", token).path("data");
+        assertThat(page.path("total").asLong()).isEqualTo(10);
+        assertThat(page.path("records")).hasSize(10);
+        assertThat(page.path("records").get(0).path("videoId").asText()).isEqualTo("110");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM member_watch_history WHERE video_id=100", Long.class))
+                .isZero();
     }
 
     /**

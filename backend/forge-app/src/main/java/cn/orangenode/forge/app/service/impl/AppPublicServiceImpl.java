@@ -10,13 +10,16 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 
 import cn.orangenode.forge.app.converter.AppConverter;
 import cn.orangenode.forge.app.entity.AppBannerEntity;
+import cn.orangenode.forge.app.entity.AppReleaseEntity;
 import cn.orangenode.forge.app.entity.AppSectionEntity;
 import cn.orangenode.forge.app.entity.AppSettingsEntity;
 import cn.orangenode.forge.app.entity.AppSplashEntity;
 import cn.orangenode.forge.app.mapper.AppBannerMapper;
+import cn.orangenode.forge.app.mapper.AppReleaseMapper;
 import cn.orangenode.forge.app.mapper.AppSectionMapper;
 import cn.orangenode.forge.app.mapper.AppSplashMapper;
 import cn.orangenode.forge.app.response.AppHomeBannerResponse;
+import cn.orangenode.forge.app.response.AppLaunchReleaseResponse;
 import cn.orangenode.forge.app.response.AppHomeResponse;
 import cn.orangenode.forge.app.response.AppHomeSectionResponse;
 import cn.orangenode.forge.app.response.AppHotWordsResponse;
@@ -42,6 +45,7 @@ public class AppPublicServiceImpl implements AppPublicService {
     private static final String SOURCE_CATEGORY = "CATEGORY";
     private final AppSplashMapper splashes;
     private final AppBannerMapper banners;
+    private final AppReleaseMapper releases;
     private final AppSectionMapper sections;
     private final AppSettingsStore settings;
     private final VideoCatalogPort catalog;
@@ -59,10 +63,14 @@ public class AppPublicServiceImpl implements AppPublicService {
                 .orderByDesc(AppSplashEntity::getId)).stream()
                 .filter(e -> AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), now)).findFirst()
                 .map(e -> new AppLaunchSplashResponse(AppValues.imageUrl(e.getImageFileId()), e.getDurationSeconds(),
-                        Boolean.TRUE.equals(e.getSkippable()))).orElse(null);
+                        Boolean.TRUE.equals(e.getSkippable()), e.getTargetType(), e.getTargetValue())).orElse(null);
         AppSettingsEntity s = settings.require();
+        AppReleaseEntity r = releases.selectById(AppReleaseServiceImpl.RELEASE_ID);
+        AppLaunchReleaseResponse release = r == null || r.getVersionCode() == null ? null
+                : new AppLaunchReleaseResponse(r.getVersionCode(), r.getVersionName(), r.getMinVersionCode(),
+                        r.getApkUrl(), r.getApkSha256(), r.getApkSize() == null ? 0 : r.getApkSize(), r.getChangelog());
         return new AppLaunchResponse(splash, Boolean.TRUE.equals(s.getVipRequired()),
-                Boolean.TRUE.equals(s.getRegistrationOpen()), s.getServiceText(), s.getNoticeText());
+                Boolean.TRUE.equals(s.getRegistrationOpen()), s.getServiceText(), s.getNoticeText(), release);
     }
 
     /**
@@ -76,7 +84,8 @@ public class AppPublicServiceImpl implements AppPublicService {
                 .orderByDesc(AppBannerEntity::getId)).stream()
                 .filter(e -> AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), now))
                 .map(e -> new AppHomeBannerResponse(AppValues.textId(e.getId()), e.getTitle(),
-                        AppValues.imageUrl(e.getImageFileId()), e.getTargetType(), AppValues.textId(e.getTargetId())))
+                        AppValues.imageUrl(e.getImageFileId()), e.getTargetType(), AppValues.textId(e.getTargetId()),
+                        e.getTargetUrl()))
                 .toList();
         List<AppHomeSectionResponse> sectionList = sections.selectList(Wrappers.<AppSectionEntity>lambdaQuery()
                 .eq(AppSectionEntity::getEnabled, true).orderByAsc(AppSectionEntity::getSortNo)

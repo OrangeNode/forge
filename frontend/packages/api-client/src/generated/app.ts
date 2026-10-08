@@ -678,18 +678,33 @@ export interface components {
             data?: components["schemas"]["AppLaunchResponse"];
             traceId?: string;
         };
+        AppLaunchReleaseResponse: {
+            /** Format: int32 */
+            versionCode?: number;
+            versionName?: string;
+            /** Format: int32 */
+            minVersionCode?: number;
+            apkUrl?: string;
+            sha256?: string;
+            /** Format: int64 */
+            sizeBytes?: number;
+            changelog?: string;
+        };
         AppLaunchResponse: {
             splash?: components["schemas"]["AppLaunchSplashResponse"];
             vipRequired?: boolean;
             registrationOpen?: boolean;
             serviceText?: string;
             noticeText?: string;
+            release?: components["schemas"]["AppLaunchReleaseResponse"];
         };
         AppLaunchSplashResponse: {
             imageUrl?: string;
             /** Format: int32 */
             durationSeconds?: number;
             skippable?: boolean;
+            targetType?: string;
+            targetValue?: string;
         };
         ApiResponseAppHotWordsResponse: {
             /** Format: int32 */
@@ -714,6 +729,7 @@ export interface components {
             imageUrl?: string;
             targetType?: string;
             targetId?: string;
+            targetUrl?: string;
         };
         AppHomeResponse: {
             banners?: components["schemas"]["AppHomeBannerResponse"][];

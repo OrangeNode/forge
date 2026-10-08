@@ -9,7 +9,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * 普通用户业务配置，唯一默认来源为 application.yaml 的 {@code forge.member.register}。
+ * 普通用户业务配置，唯一默认来源为 application.yaml 的 {@code forge.member.register} 与 {@code forge.member.history-keep}。
  *
  * <p>令牌有效期等认证参数位于基础层的 {@code forge.member.auth}。</p>
  */
@@ -24,6 +24,12 @@ public class MemberProperties {
      */
     @Valid
     private Register register = new Register();
+
+    /**
+     * 每个用户保留并展示的最近观看记录条数，超出的旧记录在上报进度时删除。
+     */
+    @Min(1)
+    private int historyKeep = 10;
 
     /**
      * 注册限制参数：用户名注册不经过邮箱验证，按来源地址限制每日注册次数防止批量注册。

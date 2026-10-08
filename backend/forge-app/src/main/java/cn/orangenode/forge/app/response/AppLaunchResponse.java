@@ -8,7 +8,8 @@ package cn.orangenode.forge.app.response;
  * @param registrationOpen 是否开放注册
  * @param serviceText      客服文字
  * @param noticeText       公告文字
+ * @param release          最新版本，未发布时为空
  */
 public record AppLaunchResponse(AppLaunchSplashResponse splash, boolean vipRequired, boolean registrationOpen,
-        String serviceText, String noticeText) {
+        String serviceText, String noticeText, AppLaunchReleaseResponse release) {
 }

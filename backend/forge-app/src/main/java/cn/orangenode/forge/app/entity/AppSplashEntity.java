@@ -44,6 +44,16 @@ public class AppSplashEntity {
     private Boolean skippable;
 
     /**
+     * 点击跳转类型：NONE 不跳转 / VIDEO 影片详情 / URL 外部链接。
+     */
+    private String targetType;
+
+    /**
+     * 跳转影片主键或外部链接。
+     */
+    private String targetValue;
+
+    /**
      * 生效开始时间，UTC，空表示立即。
      */
     private LocalDateTime startAt;

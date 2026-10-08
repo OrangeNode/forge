@@ -30,6 +30,7 @@ import cn.orangenode.forge.file.service.StorageConfigResolver;
 import cn.orangenode.forge.file.storage.ObjectKeyGenerator;
 import cn.orangenode.forge.file.storage.StorageProviderFactory;
 import cn.orangenode.forge.file.support.FileIds;
+import cn.orangenode.forge.file.support.FilePublicLinks;
 import cn.orangenode.forge.framework.config.ForgeFileProperties;
 import cn.orangenode.forge.framework.page.PageResponses;
 import cn.orangenode.forge.framework.storage.StorageProvider;
@@ -223,6 +224,64 @@ public class FileServiceImpl implements FileService {
         if (updated == 0) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "文件不存在或已删除");
         }
+    }
+
+    /**
+     * 为文件生成公开外链。
+     *
+     * <p>已公开的文件保持原令牌，重复调用得到同一链接，避免已经分发出去的地址失效。</p>
+     *
+     * @param id         文件 ID
+     * @param operatorId 操作管理员 ID，系统内部调用时可为空
+     * @return 带公开下载路径的文件元数据
+     */
+    @Override
+    public FileRecordResponse share(Long id, Long operatorId) {
+        FileRecordEntity record = requireRecord(id);
+        if (record.getPublicToken() == null) {
+            recordMapper.update(null, Wrappers.<FileRecordEntity>lambdaUpdate()
+                    .eq(FileRecordEntity::getId, record.getId())
+                    .isNull(FileRecordEntity::getPublicToken)
+                    .set(FileRecordEntity::getPublicToken, FilePublicLinks.newToken())
+                    .set(FileRecordEntity::getUpdatedAt, LocalDateTime.now(ZoneOffset.UTC))
+                    .set(FileRecordEntity::getUpdatedBy, operatorId));
+        }
+        return converter.toResponse(requireRecord(id));
+    }
+
+    /**
+     * 撤销文件公开外链。
+     *
+     * @param id         文件 ID
+     * @param operatorId 操作管理员 ID
+     * @return 文件元数据
+     */
+    @Override
+    public FileRecordResponse unshare(Long id, Long operatorId) {
+        FileRecordEntity record = requireRecord(id);
+        recordMapper.update(null, Wrappers.<FileRecordEntity>lambdaUpdate()
+                .eq(FileRecordEntity::getId, record.getId())
+                .set(FileRecordEntity::getPublicToken, null)
+                .set(FileRecordEntity::getUpdatedAt, LocalDateTime.now(ZoneOffset.UTC))
+                .set(FileRecordEntity::getUpdatedBy, operatorId));
+        return converter.toResponse(requireRecord(id));
+    }
+
+    /**
+     * 按公开令牌查询文件元数据。
+     *
+     * @param token 公开令牌
+     * @return 文件元数据
+     */
+    @Override
+    public FileRecordResponse getPublicRecord(String token) {
+        FileRecordEntity record = token == null || token.isBlank() ? null
+                : recordMapper.selectOne(Wrappers.<FileRecordEntity>lambdaQuery()
+                        .eq(FileRecordEntity::getPublicToken, token));
+        if (record == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "链接无效或文件已删除");
+        }
+        return converter.toResponse(record);
     }
 
     /**

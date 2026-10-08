@@ -10,6 +10,7 @@ import cn.orangenode.forge.file.entity.FileRecordEntity;
 import cn.orangenode.forge.file.response.FileRecordResponse;
 import cn.orangenode.forge.file.response.FileUploadResponse;
 import cn.orangenode.forge.file.support.FileIds;
+import cn.orangenode.forge.file.support.FilePublicLinks;
 
 /**
  * 文件记录转换器。
@@ -32,7 +33,8 @@ public class FileRecordConverter {
     public FileRecordResponse toResponse(FileRecordEntity entity) {
         return new FileRecordResponse(FileIds.toText(entity.getId()), FileIds.toText(entity.getStorageConfigId()),
                 entity.getOriginalName(), entity.getContentType(), sizeOf(entity), FileIds.toText(entity.getUploaderId()),
-                entity.getUploaderName(), toInstant(entity.getCreatedAt()));
+                entity.getUploaderName(), toInstant(entity.getCreatedAt()),
+                FilePublicLinks.path(entity.getPublicToken(), entity.getOriginalName()));
     }
 
     /**

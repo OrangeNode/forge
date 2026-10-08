@@ -15,8 +15,9 @@ package cn.orangenode.forge.app.response;
  * @param enabled     是否启用
  * @param sortNo      显示顺序
  * @param active      当前是否在线
+ * @param targetUrl   跳转类型为 URL 时的外部链接
  */
 public record AppBannerResponse(String id, String title, String imageFileId, String imageUrl, String targetType,
         String targetId, String targetName, String startAt, String endAt, boolean enabled, int sortNo,
-        boolean active) {
+        boolean active, String targetUrl) {
 }

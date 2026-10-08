@@ -26,6 +26,7 @@ const MENU_ROUTE_WHITELIST: Record<string, string> = {
   'app-hot-search': 'app-hot-search',
   'app-feature': 'app-feature',
   'app-feedback': 'app-feedback',
+  'app-release': 'app-release',
   home: 'home',
   'system-admin': 'system-admin',
   'system-role': 'system-role',

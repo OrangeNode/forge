@@ -17,9 +17,12 @@ import {
 import { computed, h, onMounted, reactive, ref, type VNodeChild } from 'vue'
 
 import {
+  absoluteLink,
   deleteFile,
   fetchDefaultStorageConfig,
   fetchFiles,
+  shareFile,
+  unshareFile,
   uploadFile,
   type FileRecord,
   type StorageConfig,
@@ -28,6 +31,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
+import { copyText } from '@/utils/clipboard'
 import { downloadFile } from '@/utils/download'
 import { isBusinessCode, resolveErrorMessage } from '@/utils/error-message'
 
@@ -95,6 +99,11 @@ const downloadingId = ref('')
 const deletingId = ref('')
 
 /**
+ * 正在生成或撤销外链的文件 ID。
+ */
+const sharingId = ref('')
+
+/**
  * 是否显示上传入口，需要 file:record:upload 权限。
  */
 const canUpload = computed(() => session.hasPermission('file:record:upload'))
@@ -152,9 +161,11 @@ const columns = computed<DataTableColumns<FileRecord>>(() => {
       render: (row) => row.uploaderName || '—',
     },
     { title: '上传时间', key: 'createdAt', width: 190, render: (row) => formatTime(row.createdAt) },
+    { title: '公开外链', key: 'publicUrl', minWidth: 300, render: (row) => renderLink(row) },
   ]
-  if (session.hasPermission('file:record:download') || session.hasPermission('file:record:delete')) {
-    list.push({ title: '操作', key: 'actions', width: 170, fixed: 'right', render: (row) => renderActions(row) })
+  if (session.hasPermission('file:record:download') || session.hasPermission('file:record:delete')
+    || session.hasPermission('file:record:share')) {
+    list.push({ title: '操作', key: 'actions', width: 240, fixed: 'right', render: (row) => renderActions(row) })
   }
   return list
 })
@@ -414,6 +425,63 @@ async function handleDelete(record: FileRecord): Promise<void> {
 }
 
 /**
+ * 生成或撤销公开外链；生成后自动复制完整链接。
+ *
+ * @param record 文件记录
+ * @param share 是否生成（否则撤销）
+ */
+async function handleShare(record: FileRecord, share: boolean): Promise<void> {
+  const id = record.id
+  if (!id || sharingId.value) {
+    return
+  }
+  sharingId.value = id
+  try {
+    const updated = share ? await shareFile(id) : await unshareFile(id)
+    if (share && updated.publicUrl && await copyText(absoluteLink(updated.publicUrl))) {
+      message.success('外链已生成并复制')
+    } else {
+      message.success(share ? '外链已生成' : '外链已撤销，原链接立即失效')
+    }
+    await loadRecords()
+  } catch (error) {
+    notifyFailure(error)
+  } finally {
+    sharingId.value = ''
+  }
+}
+
+/**
+ * 渲染公开外链列：已公开时显示完整链接与复制按钮。
+ *
+ * @param record 文件记录
+ * @returns 外链列内容
+ */
+function renderLink(record: FileRecord): VNodeChild {
+  if (!record.publicUrl) {
+    return '未公开'
+  }
+  const link = absoluteLink(record.publicUrl)
+  return h(NSpace, { size: 4, align: 'center', wrapItem: false }, {
+    default: () => [
+      h('span', { style: 'word-break: break-all; font-size: 12px' }, link),
+      h(NButton, {
+        size: 'tiny',
+        quaternary: true,
+        type: 'primary',
+        onClick: async () => {
+          if (await copyText(link)) {
+            message.success('已复制外链')
+          } else {
+            message.warning('复制失败，请手动选择链接复制')
+          }
+        },
+      }, { default: () => '复制' }),
+    ],
+  })
+}
+
+/**
  * 渲染操作列按钮。
  *
  * @param record 文件记录
@@ -435,6 +503,29 @@ function renderActions(record: FileRecord): VNodeChild {
         { default: () => '下载' },
       ),
     )
+  }
+  if (session.hasPermission('file:record:share')) {
+    buttons.push(record.publicUrl
+      ? h(
+        NPopconfirm,
+        { positiveText: '撤销', negativeText: '取消', onPositiveClick: () => { void handleShare(record, false) } },
+        {
+          trigger: () => h(NButton, { size: 'small', quaternary: true, loading: sharingId.value === record.id },
+            { default: () => '撤销外链' }),
+          default: () => '撤销后原链接立即失效；若该文件是当前 App 安装包，App 将无法下载更新。确认撤销？',
+        },
+      )
+      : h(
+        NButton,
+        {
+          size: 'small',
+          quaternary: true,
+          type: 'primary',
+          loading: sharingId.value === record.id,
+          onClick: () => void handleShare(record, true),
+        },
+        { default: () => '生成外链' },
+      ))
   }
   if (session.hasPermission('file:record:delete')) {
     buttons.push(

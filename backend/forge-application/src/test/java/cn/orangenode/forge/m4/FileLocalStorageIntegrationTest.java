@@ -318,6 +318,52 @@ class FileLocalStorageIntegrationTest {
     }
 
     /**
+     * 验证公开外链：生成后匿名可下载并支持断点续传，重复生成保持原链接，撤销后链接失效。
+     */
+    @Test
+    @DisplayName("公开外链匿名下载、断点续传与撤销")
+    void shouldServePublicLinkWithRangeAndRevoke() {
+        createLocalConfig("public-plan", "public", 1048576L, "apk");
+        byte[] content = "0123456789abcdef".getBytes(StandardCharsets.UTF_8);
+        M4TestSupport.ResponseSnapshot uploaded = M4TestSupport.upload(port, token, "橙子.apk",
+                "application/vnd.android.package-archive", content);
+        String fileId = M4TestSupport.firstIdOf(uploaded.body());
+
+        M4TestSupport.ResponseSnapshot shared = M4TestSupport.exchange(client, HttpMethod.POST,
+                M4TestSupport.FILES_PATH + "/" + fileId + "/public-link", null, token);
+        assertThat(M4TestSupport.codeOf(shared.body())).isZero();
+        java.util.regex.Matcher link = java.util.regex.Pattern.compile("\"publicUrl\":\"([^\"]+)\"")
+                .matcher(shared.body());
+        assertThat(link.find()).isTrue();
+        String publicUrl = link.group(1);
+        assertThat(publicUrl).startsWith("/api/public/v1/files/").endsWith("/" + UriUtils.encode("橙子.apk",
+                StandardCharsets.UTF_8));
+        M4TestSupport.ResponseSnapshot again = M4TestSupport.exchange(client, HttpMethod.POST,
+                M4TestSupport.FILES_PATH + "/" + fileId + "/public-link", null, token);
+        assertThat(again.body()).contains(publicUrl);
+
+        byte[] whole = client.get().uri(java.net.URI.create(publicUrl)).exchange().expectStatus().isOk()
+                .expectHeader().valueEquals(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .expectBody(byte[].class).returnResult().getResponseBody();
+        assertThat(whole).isEqualTo(content);
+
+        byte[] tail = client.get().uri(java.net.URI.create(publicUrl)).header(HttpHeaders.RANGE, "bytes=10-")
+                .exchange().expectStatus().isEqualTo(HttpStatus.PARTIAL_CONTENT)
+                .expectHeader().valueEquals(HttpHeaders.CONTENT_RANGE, "bytes 10-15/16")
+                .expectBody(byte[].class).returnResult().getResponseBody();
+        assertThat(new String(tail, StandardCharsets.UTF_8)).isEqualTo("abcdef");
+        client.get().uri(java.net.URI.create(publicUrl)).header(HttpHeaders.RANGE, "bytes=99-").exchange()
+                .expectStatus().isEqualTo(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE);
+
+        M4TestSupport.ResponseSnapshot revoked = M4TestSupport.exchange(client, HttpMethod.DELETE,
+                M4TestSupport.FILES_PATH + "/" + fileId + "/public-link", null, token);
+        assertThat(M4TestSupport.codeOf(revoked.body())).isZero();
+        String gone = client.get().uri(java.net.URI.create(publicUrl)).exchange().expectStatus().isOk()
+                .expectBody(String.class).returnResult().getResponseBody();
+        assertThat(M4TestSupport.codeOf(gone)).isEqualTo(404);
+    }
+
+    /**
      * 创建一个本地存储方案并切换为默认方案。
      *
      * @param code        方案代码

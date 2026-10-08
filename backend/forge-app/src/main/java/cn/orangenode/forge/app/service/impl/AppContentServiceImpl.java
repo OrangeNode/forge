@@ -41,6 +41,7 @@ import lombok.RequiredArgsConstructor;
 public class AppContentServiceImpl implements AppContentService {
     private static final String TARGET_NONE = "NONE";
     private static final String TARGET_VIDEO = "VIDEO";
+    private static final String TARGET_URL = "URL";
     private static final String SOURCE_CATEGORY = "CATEGORY";
     private final AppSplashMapper splashes;
     private final AppBannerMapper banners;
@@ -56,7 +57,8 @@ public class AppContentServiceImpl implements AppContentService {
     @Override
     public List<AppSplashResponse> splashes() {
         return splashes.selectList(Wrappers.<AppSplashEntity>lambdaQuery().orderByAsc(AppSplashEntity::getSortNo)
-                .orderByDesc(AppSplashEntity::getId)).stream().map(converter::splash).toList();
+                .orderByDesc(AppSplashEntity::getId)).stream().map(e -> converter.splash(e, splashTargetName(e)))
+                .toList();
     }
 
     /**
@@ -75,6 +77,8 @@ public class AppContentServiceImpl implements AppContentService {
         e.setEndAt(AppValues.utc(r.endAt()));
         e.setEnabled(r.enabled());
         e.setSortNo(r.sortNo());
+        e.setTargetType(r.targetType() == null ? TARGET_NONE : r.targetType());
+        e.setTargetValue(splashTarget(e.getTargetType(), r.targetValue()));
         e.setUpdatedAt(AppValues.now());
         if (id == null) {
             e.setDeleted(0);
@@ -87,9 +91,12 @@ public class AppContentServiceImpl implements AppContentService {
                     .set(AppSplashEntity::getSkippable, e.getSkippable()).set(AppSplashEntity::getStartAt, e.getStartAt())
                     .set(AppSplashEntity::getEndAt, e.getEndAt()).set(AppSplashEntity::getEnabled, e.getEnabled())
                     .set(AppSplashEntity::getSortNo, e.getSortNo()).set(AppSplashEntity::getUpdatedAt, e.getUpdatedAt())
+                    .set(AppSplashEntity::getTargetType, e.getTargetType())
+                    .set(AppSplashEntity::getTargetValue, e.getTargetValue())
                     .eq(AppSplashEntity::getId, id));
         }
-        return converter.splash(requireSplash(e.getId()));
+        AppSplashEntity saved = requireSplash(e.getId());
+        return converter.splash(saved, splashTargetName(saved));
     }
 
     /**
@@ -119,7 +126,9 @@ public class AppContentServiceImpl implements AppContentService {
     public AppBannerResponse saveBanner(Long id, AppBannerRequest r) {
         AppValues.assertWindow(r.startAt(), r.endAt());
         AppBannerEntity e = id == null ? new AppBannerEntity() : requireBanner(id);
-        Long targetId = TARGET_NONE.equals(r.targetType()) ? null : AppValues.id(r.targetId(), "跳转目标 ID");
+        boolean noTargetId = TARGET_NONE.equals(r.targetType()) || TARGET_URL.equals(r.targetType());
+        Long targetId = noTargetId ? null : AppValues.id(r.targetId(), "跳转目标 ID");
+        String targetUrl = TARGET_URL.equals(r.targetType()) ? AppValues.httpUrl(r.targetUrl(), "广告链接") : null;
         if (targetId != null && (TARGET_VIDEO.equals(r.targetType()) ? catalog.videoName(targetId)
                 : catalog.categoryName(targetId)).isEmpty()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "跳转的影片或分类不存在");
@@ -128,6 +137,7 @@ public class AppContentServiceImpl implements AppContentService {
         e.setImageFileId(requireImage(r.imageFileId()));
         e.setTargetType(r.targetType());
         e.setTargetId(targetId);
+        e.setTargetUrl(targetUrl);
         e.setStartAt(AppValues.utc(r.startAt()));
         e.setEndAt(AppValues.utc(r.endAt()));
         e.setEnabled(r.enabled());
@@ -141,6 +151,7 @@ public class AppContentServiceImpl implements AppContentService {
             banners.update(null, Wrappers.<AppBannerEntity>lambdaUpdate()
                     .set(AppBannerEntity::getTitle, e.getTitle()).set(AppBannerEntity::getImageFileId, e.getImageFileId())
                     .set(AppBannerEntity::getTargetType, e.getTargetType()).set(AppBannerEntity::getTargetId, targetId)
+                    .set(AppBannerEntity::getTargetUrl, targetUrl)
                     .set(AppBannerEntity::getStartAt, e.getStartAt()).set(AppBannerEntity::getEndAt, e.getEndAt())
                     .set(AppBannerEntity::getEnabled, e.getEnabled()).set(AppBannerEntity::getSortNo, e.getSortNo())
                     .set(AppBannerEntity::getUpdatedAt, e.getUpdatedAt()).eq(AppBannerEntity::getId, id));
@@ -256,6 +267,30 @@ public class AppContentServiceImpl implements AppContentService {
                 .map(videoId -> new AppPickedVideoResponse(videoId.toString(), catalog.videoName(videoId).orElse(null)))
                 .toList();
         return converter.section(e, categoryName, videos);
+    }
+
+    /**
+     * 校验开屏跳转目标：影片必须存在，外部链接必须是 http/https，不跳转时清空。
+     */
+    private String splashTarget(String type, String value) {
+        if (TARGET_VIDEO.equals(type)) {
+            Long videoId = AppValues.id(value, "跳转影片 ID");
+            if (catalog.videoName(videoId).isEmpty()) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "跳转的影片不存在");
+            }
+            return videoId.toString();
+        }
+        return TARGET_URL.equals(type) ? AppValues.httpUrl(value, "广告链接") : null;
+    }
+
+    /**
+     * 读取开屏跳转影片名称。
+     */
+    private String splashTargetName(AppSplashEntity e) {
+        if (!TARGET_VIDEO.equals(e.getTargetType()) || e.getTargetValue() == null) {
+            return null;
+        }
+        return catalog.videoName(Long.valueOf(e.getTargetValue())).orElse(null);
     }
 
     /**

@@ -55,4 +55,15 @@ public class StoredFileReaderImpl implements StoredFileReader {
         FileRecordResponse record = fileService.getRecord(fileId);
         return new StoredFileContent(fileService.openContent(fileId), record.contentType(), record.sizeBytes());
     }
+
+    /**
+     * 确保文件已公开并返回公开下载路径。
+     *
+     * @param fileId 文件 ID
+     * @return 公开下载路径
+     */
+    @Override
+    public String publicPath(Long fileId) {
+        return fileService.share(fileId, null).publicUrl();
+    }
 }

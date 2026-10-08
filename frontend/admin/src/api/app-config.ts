@@ -12,10 +12,12 @@ export type BannerInput = Schemas['AppBannerRequest']
 export type SectionInput = Schemas['AppSectionRequest']
 export type FeatureInput = Schemas['AppFeatureRequest']
 export type Feedback = Required<Schemas['AppFeedbackResponse']>
+export type Release = Schemas['AppReleaseResponse']
+export type ReleasePublishInput = Schemas['AppReleasePublishRequest']
 const base = `${API_PREFIX}/app`
 
 /**
- * App 管理接口：开屏、轮播、推荐位、热搜、功能开关与反馈处理。
+ * App 管理接口：开屏、轮播、推荐位、热搜、功能开关、反馈处理与版本更新。
  */
 export const appConfigApi = {
   splashes: () => request.get<Splash[]>(`${base}/splashes`),
@@ -40,6 +42,11 @@ export const appConfigApi = {
   feedbacks: (query: { pageNum: number; pageSize: number; status?: string; type?: string }) =>
     request.get<PageResponse<Feedback>>(`${base}/feedbacks`, { query }),
   resolveFeedback: (id: string, remark: string) => request.post<void>(`${base}/feedbacks/${id}/resolve`, { body: { remark } }),
+  release: () => request.get<Release>(`${base}/release`),
+  publishRelease: (body: ReleasePublishInput) => request.post<Release>(`${base}/release`, { body }),
+  updateMinVersion: (minVersionCode: number | null) =>
+    request.put<Release>(`${base}/release/min-version`, { body: { minVersionCode: minVersionCode ?? undefined } }),
+  withdrawRelease: () => request.delete<Release>(`${base}/release`),
 }
 
 /**

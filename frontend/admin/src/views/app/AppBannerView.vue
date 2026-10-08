@@ -20,8 +20,8 @@ const videoSelect = ref<{ label: string; value: string }[]>([])
 const show = ref(false)
 const editingId = ref<string>()
 const preview = ref('')
-const form = reactive({ title: '', imageFileId: '', targetType: 'NONE', targetId: null as string | null, startAt: null as number | null, endAt: null as number | null, enabled: true, sortNo: 0 })
-const targetLabels: Record<string, string> = { NONE: '不跳转', VIDEO: '影片', CATEGORY: '分类' }
+const form = reactive({ title: '', imageFileId: '', targetType: 'NONE', targetId: null as string | null, targetUrl: null as string | null, startAt: null as number | null, endAt: null as number | null, enabled: true, sortNo: 0 })
+const targetLabels: Record<string, string> = { NONE: '不跳转', VIDEO: '影片', CATEGORY: '分类', URL: '链接' }
 
 /**
  * 读取轮播与可选分类。
@@ -53,7 +53,7 @@ function edit(row?: Banner) {
   videoSelect.value = row?.targetType === 'VIDEO' && row.targetId ? [{ label: row.targetName ?? row.targetId, value: row.targetId }] : []
   Object.assign(form, {
     title: row?.title ?? '', imageFileId: row?.imageFileId ?? '', targetType: row?.targetType ?? 'NONE',
-    targetId: row?.targetId ?? null, startAt: row?.startAt ? new Date(row.startAt).getTime() : null,
+    targetId: row?.targetId ?? null, targetUrl: row?.targetUrl ?? null, startAt: row?.startAt ? new Date(row.startAt).getTime() : null,
     endAt: row?.endAt ? new Date(row.endAt).getTime() : null, enabled: row?.enabled ?? true, sortNo: row?.sortNo ?? 0,
   })
   show.value = true
@@ -66,7 +66,8 @@ async function save() {
   if (busy.value) return
   const ok = await act(() => appConfigApi.saveBanner(editingId.value, {
     ...form,
-    targetId: form.targetType === 'NONE' ? undefined : form.targetId ?? undefined,
+    targetId: form.targetType === 'NONE' || form.targetType === 'URL' ? undefined : form.targetId ?? undefined,
+    targetUrl: form.targetType === 'URL' ? form.targetUrl?.trim() || undefined : undefined,
     startAt: form.startAt ? new Date(form.startAt).toISOString() : undefined,
     endAt: form.endAt ? new Date(form.endAt).toISOString() : undefined,
   }), '轮播已保存')
@@ -83,7 +84,7 @@ async function remove(id: string) {
 const columns: DataTableColumns<Banner> = [
   { title: '图片', key: 'imageUrl', width: 150, render: row => h('img', { src: imageSrc(row.imageUrl), alt: row.title, style: 'width:128px;height:54px;object-fit:cover;border-radius:6px' }) },
   { title: '标题', key: 'title', minWidth: 140 },
-  { title: '跳转', key: 'targetType', minWidth: 160, render: row => row.targetType === 'NONE' ? '不跳转' : `${targetLabels[row.targetType]}：${row.targetName ?? '目标已删除'}` },
+  { title: '跳转', key: 'targetType', minWidth: 160, ellipsis: { tooltip: true }, render: row => row.targetType === 'NONE' ? '不跳转' : row.targetType === 'URL' ? `链接：${row.targetUrl}` : `${targetLabels[row.targetType]}：${row.targetName ?? '目标已删除'}` },
   { title: '上下线时间', key: 'startAt', minWidth: 260, render: row => windowText(row.startAt, row.endAt) },
   { title: '顺序', key: 'sortNo', width: 70 },
   { title: '状态', key: 'active', width: 100, render: row => h(NTag, { type: row.active ? 'success' : 'default', bordered: false }, () => row.active ? '在线' : (row.enabled ? '不在时段' : '停用')) },
@@ -103,7 +104,7 @@ onMounted(load)
     >
       <PageHeader
         title="首页轮播"
-        description="App 首页顶部轮播：图片、标题、跳转影片或分类与上下线时间"
+        description="App 首页顶部轮播（手机与电视）：可跳转影片、分类，或作为广告跳转外部链接"
         icon="dashboard"
       >
         <template #actions>
@@ -168,7 +169,7 @@ onMounted(load)
         <NFormItem label="跳转目标">
           <NRadioGroup
             v-model:value="form.targetType"
-            @update:value="form.targetId = null"
+            @update:value="form.targetId = null; form.targetUrl = null"
           >
             <NRadioButton value="NONE">
               不跳转
@@ -178,6 +179,9 @@ onMounted(load)
             </NRadioButton>
             <NRadioButton value="CATEGORY">
               分类
+            </NRadioButton>
+            <NRadioButton value="URL">
+              外部链接（广告）
             </NRadioButton>
           </NRadioGroup>
         </NFormItem>
@@ -193,6 +197,18 @@ onMounted(load)
             :options="videoSelect"
             placeholder="输入片名搜索"
             @search="searchVideos"
+          />
+        </NFormItem>
+        <NFormItem
+          v-if="form.targetType === 'URL'"
+          label="外部链接（http:// 或 https:// 开头，在浏览器打开）"
+          :feedback="errors.targetUrl"
+          :validation-status="errors.targetUrl ? 'error' : undefined"
+        >
+          <NInput
+            v-model:value="form.targetUrl"
+            maxlength="512"
+            placeholder="https://"
           />
         </NFormItem>
         <NFormItem
@@ -234,7 +250,7 @@ onMounted(load)
           <NButton
             type="primary"
             :loading="busy"
-            :disabled="!form.imageFileId || !form.title || (form.targetType !== 'NONE' && !form.targetId)"
+            :disabled="!form.imageFileId || !form.title || (form.targetType === 'URL' ? !form.targetUrl : form.targetType !== 'NONE' && !form.targetId)"
             @click="save"
           >
             保存

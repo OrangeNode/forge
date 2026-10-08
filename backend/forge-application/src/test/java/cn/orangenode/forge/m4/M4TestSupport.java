@@ -151,6 +151,11 @@ public final class M4TestSupport {
     public static final String PERM_RECORD_DELETE = "file:record:delete";
 
     /**
+     * 文件公开外链权限码。
+     */
+    public static final String PERM_RECORD_SHARE = "file:record:share";
+
+    /**
      * 新增菜单的权限码，用于验证写接口的操作审计。
      *
      * <p>权限标识由菜单节点声明，因此审计用例的写操作是“新增菜单”而不是已经没有入口的“新增权限”。</p>
@@ -201,7 +206,7 @@ public final class M4TestSupport {
     public static List<String> filePermissionCodes() {
         return List.of(PERM_STORAGE_VIEW, PERM_STORAGE_CREATE, PERM_STORAGE_UPDATE, PERM_STORAGE_DELETE,
                 PERM_STORAGE_TEST, PERM_STORAGE_DEFAULT, PERM_RECORD_VIEW, PERM_RECORD_UPLOAD, PERM_RECORD_DOWNLOAD,
-                PERM_RECORD_DELETE);
+                PERM_RECORD_DELETE, PERM_RECORD_SHARE);
     }
 
     /**

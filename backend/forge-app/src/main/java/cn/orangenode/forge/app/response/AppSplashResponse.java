@@ -14,7 +14,11 @@ package cn.orangenode.forge.app.response;
  * @param enabled         是否启用
  * @param sortNo          优先顺序
  * @param active          当前是否处于生效状态
+ * @param targetType      点击跳转类型 NONE / VIDEO / URL
+ * @param targetValue     跳转影片 ID 或外部链接
+ * @param targetName      跳转影片名称，非影片或影片已删除时为空
  */
 public record AppSplashResponse(String id, String name, String imageFileId, String imageUrl, int durationSeconds,
-        boolean skippable, String startAt, String endAt, boolean enabled, int sortNo, boolean active) {
+        boolean skippable, String startAt, String endAt, boolean enabled, int sortNo, boolean active,
+        String targetType, String targetValue, String targetName) {
 }

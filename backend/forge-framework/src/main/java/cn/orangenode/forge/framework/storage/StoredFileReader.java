@@ -23,4 +23,12 @@ public interface StoredFileReader {
      * @return 文件内容与元数据
      */
     StoredFileContent open(Long fileId);
+
+    /**
+     * 确保文件已生成公开外链并返回公开下载路径（不含域名）；已公开时返回原链接。
+     *
+     * @param fileId 文件 ID
+     * @return 公开下载路径
+     */
+    String publicPath(Long fileId);
 }

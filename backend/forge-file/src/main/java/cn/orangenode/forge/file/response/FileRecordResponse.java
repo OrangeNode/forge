@@ -16,7 +16,8 @@ import java.time.Instant;
  * @param uploaderId      上传者管理员 ID，对外为字符串
  * @param uploaderName    上传者名称快照，可为空
  * @param createdAt       创建时间（UTC）
+ * @param publicUrl       公开下载路径（不含域名），未公开时为空
  */
 public record FileRecordResponse(String id, String storageConfigId, String originalName, String contentType,
-        long sizeBytes, String uploaderId, String uploaderName, Instant createdAt) {
+        long sizeBytes, String uploaderId, String uploaderName, Instant createdAt, String publicUrl) {
 }

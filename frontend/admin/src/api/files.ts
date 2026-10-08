@@ -1,6 +1,6 @@
 import type { adminComponents, PageQuery, PageResponse } from '@orange-forge/api-client'
 
-import { API_PREFIX, request } from './request'
+import { API_BASE_URL, API_PREFIX, request } from './request'
 
 /**
  * 文件与存储接口的类型别名，类型来自后端 OpenAPI 生成结果。
@@ -53,6 +53,36 @@ export async function uploadFile(file: File): Promise<FileUploadResult> {
  */
 export async function deleteFile(id: string): Promise<void> {
   await request.delete<null>(`${FILE_PATH}/${id}`)
+}
+
+/**
+ * 为文件生成公开外链，已公开时返回原链接。
+ *
+ * @param id 文件 ID
+ * @returns 带 publicUrl 的文件元数据
+ */
+export async function shareFile(id: string): Promise<FileRecord> {
+  return request.post<FileRecord>(`${FILE_PATH}/${id}/public-link`)
+}
+
+/**
+ * 撤销文件公开外链，原链接立即失效。
+ *
+ * @param id 文件 ID
+ * @returns 文件元数据
+ */
+export async function unshareFile(id: string): Promise<FileRecord> {
+  return request.delete<FileRecord>(`${FILE_PATH}/${id}/public-link`)
+}
+
+/**
+ * 把后端返回的公开下载路径拼成可直接分享的完整外链。
+ *
+ * @param publicUrl 后端返回的相对路径
+ * @returns 完整外链，空值返回空字符串
+ */
+export function absoluteLink(publicUrl?: string | null): string {
+  return publicUrl ? new URL(`${API_BASE_URL}${publicUrl}`, window.location.origin).href : ''
 }
 
 /**

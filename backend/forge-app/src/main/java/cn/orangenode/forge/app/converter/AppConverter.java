@@ -5,10 +5,12 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import cn.orangenode.forge.app.entity.AppBannerEntity;
+import cn.orangenode.forge.app.entity.AppReleaseEntity;
 import cn.orangenode.forge.app.entity.AppFeedbackEntity;
 import cn.orangenode.forge.app.entity.AppSectionEntity;
 import cn.orangenode.forge.app.entity.AppSplashEntity;
 import cn.orangenode.forge.app.response.AppBannerResponse;
+import cn.orangenode.forge.app.response.AppReleaseResponse;
 import cn.orangenode.forge.app.response.AppFeedbackResponse;
 import cn.orangenode.forge.app.response.AppPickedVideoResponse;
 import cn.orangenode.forge.app.response.AppSectionResponse;
@@ -26,11 +28,12 @@ public class AppConverter {
     /**
      * 转换开屏。
      */
-    public AppSplashResponse splash(AppSplashEntity e) {
+    public AppSplashResponse splash(AppSplashEntity e, String targetName) {
         return new AppSplashResponse(AppValues.textId(e.getId()), e.getName(), AppValues.textId(e.getImageFileId()),
                 AppValues.imageUrl(e.getImageFileId()), e.getDurationSeconds(), Boolean.TRUE.equals(e.getSkippable()),
                 AppValues.time(e.getStartAt()), AppValues.time(e.getEndAt()), Boolean.TRUE.equals(e.getEnabled()),
-                e.getSortNo(), AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), AppValues.now()));
+                e.getSortNo(), AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), AppValues.now()),
+                e.getTargetType(), e.getTargetValue(), targetName);
     }
 
     /**
@@ -40,7 +43,17 @@ public class AppConverter {
         return new AppBannerResponse(AppValues.textId(e.getId()), e.getTitle(), AppValues.textId(e.getImageFileId()),
                 AppValues.imageUrl(e.getImageFileId()), e.getTargetType(), AppValues.textId(e.getTargetId()), targetName,
                 AppValues.time(e.getStartAt()), AppValues.time(e.getEndAt()), Boolean.TRUE.equals(e.getEnabled()),
-                e.getSortNo(), AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), AppValues.now()));
+                e.getSortNo(), AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), AppValues.now()),
+                e.getTargetUrl());
+    }
+
+    /**
+     * 转换版本更新。
+     */
+    public AppReleaseResponse release(AppReleaseEntity e, String expectedPackage) {
+        return new AppReleaseResponse(e.getVersionCode(), e.getVersionName(), e.getMinVersionCode(),
+                e.getPackageName(), AppValues.textId(e.getApkFileId()), e.getApkUrl(), e.getApkSha256(),
+                e.getApkSize(), e.getChangelog(), AppValues.time(e.getUpdatedAt()), expectedPackage);
     }
 
     /**

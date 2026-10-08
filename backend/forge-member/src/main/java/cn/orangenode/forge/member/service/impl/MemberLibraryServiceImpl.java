@@ -20,6 +20,7 @@ import cn.orangenode.forge.core.response.ErrorCode;
 import cn.orangenode.forge.framework.catalog.VideoCard;
 import cn.orangenode.forge.framework.catalog.VideoCatalogPort;
 import cn.orangenode.forge.framework.member.CurrentMember;
+import cn.orangenode.forge.member.config.MemberProperties;
 import cn.orangenode.forge.member.converter.MemberConverter;
 import cn.orangenode.forge.member.entity.MemberFavoriteEntity;
 import cn.orangenode.forge.member.entity.MemberWatchHistoryEntity;
@@ -37,7 +38,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 观看历史与收藏实现。
  *
- * <p>影片只保存 ID，展示信息经影片目录端口按页批量读取；已下架或删除的影片在列表中被跳过，
+ * <p>每个用户只保留最近观看的若干条记录（{@code forge.member.history-keep}，默认 10）。影片只保存 ID，展示信息经影片目录端口按页批量读取；已下架或删除的影片在列表中被跳过，
  * 因此某一页的条数可能少于每页条数，总数仍按库内记录计算。</p>
  */
 @Service
@@ -48,13 +49,16 @@ public class MemberLibraryServiceImpl implements MemberLibraryService {
     private final VideoCatalogPort catalog;
     private final MemberPaging paging;
     private final MemberConverter converter;
+    private final MemberProperties properties;
 
     /**
      * 分页读取观看历史。
      */
     @Override
     public PageResponse<MemberHistoryResponse> history(Integer pageNum, Integer pageSize) {
-        Page<MemberWatchHistoryEntity> page = histories.selectPage(paging.page(pageNum, pageSize),
+        // 只展示最近若干条：分页参数保留兼容，始终返回第一页的保留条数。
+        int keep = properties.getHistoryKeep();
+        Page<MemberWatchHistoryEntity> page = histories.selectPage(new Page<>(1, keep),
                 Wrappers.<MemberWatchHistoryEntity>lambdaQuery()
                         .eq(MemberWatchHistoryEntity::getMemberId, memberId())
                         .orderByDesc(MemberWatchHistoryEntity::getUpdatedAt)
@@ -65,7 +69,7 @@ public class MemberLibraryServiceImpl implements MemberLibraryService {
                 .filter(history -> cards.containsKey(history.getVideoId()))
                 .map(history -> converter.history(history, cards.get(history.getVideoId())))
                 .toList();
-        return new PageResponse<>(records, page.getTotal(), (int) page.getCurrent(), (int) page.getSize());
+        return new PageResponse<>(records, Math.min(page.getTotal(), keep), 1, keep);
     }
 
     /**
@@ -104,6 +108,7 @@ public class MemberLibraryServiceImpl implements MemberLibraryService {
             history.setUpdatedAt(now);
             try {
                 histories.insert(history);
+                pruneHistory(memberId);
                 return;
             } catch (DuplicateKeyException duplicate) {
                 // 另一台设备同时首次上报，改为更新。
@@ -118,6 +123,23 @@ public class MemberLibraryServiceImpl implements MemberLibraryService {
                 .set(MemberWatchHistoryEntity::getUpdatedAt, now)
                 .eq(MemberWatchHistoryEntity::getMemberId, memberId)
                 .eq(MemberWatchHistoryEntity::getVideoId, videoId));
+        pruneHistory(memberId);
+    }
+
+    /**
+     * 只保留最近观看的若干条记录，删除更早的。
+     */
+    private void pruneHistory(Long memberId) {
+        List<Long> ids = histories.selectList(Wrappers.<MemberWatchHistoryEntity>lambdaQuery()
+                .select(MemberWatchHistoryEntity::getId)
+                .eq(MemberWatchHistoryEntity::getMemberId, memberId)
+                .orderByDesc(MemberWatchHistoryEntity::getUpdatedAt)
+                .orderByDesc(MemberWatchHistoryEntity::getId))
+                .stream().map(MemberWatchHistoryEntity::getId).toList();
+        int keep = properties.getHistoryKeep();
+        if (ids.size() > keep) {
+            histories.deleteByIds(ids.subList(keep, ids.size()));
+        }
     }
 
     /**

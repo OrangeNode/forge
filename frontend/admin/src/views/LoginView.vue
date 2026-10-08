@@ -45,7 +45,11 @@ async function submit(): Promise<void> {
   <div class="login">
     <section class="login__visual">
       <div class="login__brand login__brand--visual">
-        <span class="login__logo">OF</span>
+        <img
+          class="login__logo"
+          src="/logo.png"
+          alt="Orange"
+        >
         <span>Orange Forge</span>
       </div>
       <div class="login__visual-content">
@@ -75,7 +79,11 @@ async function submit(): Promise<void> {
     <section class="login__workspace">
       <div class="login__panel">
         <div class="login__brand login__brand--mobile">
-          <span class="login__logo">OF</span>
+          <img
+            class="login__logo"
+            src="/logo.png"
+            alt="Orange"
+          >
           <span>Orange Forge</span>
         </div>
         <div class="login__heading">
@@ -228,16 +236,9 @@ async function submit(): Promise<void> {
 }
 
 .login__logo {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border-radius: 11px;
-  background: #5868ee;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  box-shadow: 0 8px 24px rgba(88, 104, 238, 0.28);
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
 }
 
 .login__preview {

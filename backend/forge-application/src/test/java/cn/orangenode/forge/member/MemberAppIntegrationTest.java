@@ -25,8 +25,11 @@ import cn.orangenode.forge.app.request.AppBannerRequest;
 import cn.orangenode.forge.app.request.AppFeatureRequest;
 import cn.orangenode.forge.app.request.AppHotSearchRequest;
 import cn.orangenode.forge.app.request.AppSectionRequest;
+import cn.orangenode.forge.app.request.AppReleaseMinVersionRequest;
+import cn.orangenode.forge.app.request.AppReleasePublishRequest;
 import cn.orangenode.forge.app.request.AppSplashRequest;
 import cn.orangenode.forge.app.service.AppContentService;
+import cn.orangenode.forge.app.service.AppReleaseService;
 import cn.orangenode.forge.app.service.AppSettingsService;
 import cn.orangenode.forge.framework.storage.StoredFileContent;
 import cn.orangenode.forge.framework.storage.StoredFileReader;
@@ -63,6 +66,8 @@ class MemberAppIntegrationTest {
     private AppContentService content;
     @Autowired
     private AppSettingsService settings;
+    @Autowired
+    private AppReleaseService releases;
     @MockitoBean
     private StringRedisTemplate redis;
     @MockitoBean
@@ -81,7 +86,7 @@ class MemberAppIntegrationTest {
         new RedisTestDouble(redis);
         RuntimeSchema.recreateSystemAndAuditTables(jdbc);
         for (String table : List.of("member_vip_log", "member_device", "member_user", "app_splash", "app_banner",
-                "app_section", "app_settings")) {
+                "app_section", "app_settings", "app_release")) {
             jdbc.execute("DROP TABLE IF EXISTS " + table);
         }
         for (String table : List.of("category", "source", "source_category", "video", "origin", "play_line",
@@ -93,6 +98,7 @@ class MemberAppIntegrationTest {
         migrate("db/migration/member/V20261007120000__member_tables.sql");
         migrate("db/migration/member/V20261008150000__member_username.sql");
         migrate("db/migration/app/V20261007121000__app_tables.sql");
+        migrate("db/migration/app/V20261008170000__app_ads_and_release.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
                 + " VALUES (1,0,'电影',1,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
@@ -147,6 +153,25 @@ class MemberAppIntegrationTest {
         assertThat(register("user_ip_11", "device-r11").path("code").asInt()).isEqualTo(429);
         settings.updateFeatures(new AppFeatureRequest(true, false, 2, null, null));
         assertThat(register("other_user", "device-a4").path("code").asInt()).isEqualTo(403);
+    }
+
+    /**
+     * 关闭公开注册后由后台新建账号：可同时开通 VIP 并直接登录；用户名不区分大小写重复时拒绝。
+     */
+    @Test
+    void createsMembersFromAdmin() {
+        settings.updateFeatures(new AppFeatureRequest(true, false, 2, null, null));
+        assertThat(register("self_signup", "device-c0").path("code").asInt()).isEqualTo(403);
+        var created = members.create(new cn.orangenode.forge.member.request.MemberCreateRequest("Admin_Made",
+                "secret1", null, 30));
+        assertThat(created.username()).isEqualTo("Admin_Made");
+        assertThat(created.vipActive()).isTrue();
+        JsonNode body = loginBody("admin_made", "secret1", "device-c1");
+        assertThat(body.path("code").asInt()).isZero();
+        assertThat(body.path("data").path("profile").path("nickname").asText()).isEqualTo("Admin_Made");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> members.create(
+                new cn.orangenode.forge.member.request.MemberCreateRequest("ADMIN_MADE", "secret1", null, null)))
+                .hasMessageContaining("已被使用");
     }
 
     /**
@@ -231,10 +256,18 @@ class MemberAppIntegrationTest {
      */
     @Test
     void servesConfiguredHomeContent() {
-        content.saveSplash(null, new AppSplashRequest("国庆", "501", 5, true, null, null, true, 0));
+        content.saveSplash(null, new AppSplashRequest("国庆", "501", 5, true, null, null, true, 0, "URL",
+                "https://ad.example.com/landing"));
         content.saveSplash(null, new AppSplashRequest("已过期", "502", 3, false, null,
-                java.time.Instant.parse("2020-01-01T00:00:00Z"), true, 0));
-        content.saveBanner(null, new AppBannerRequest("热映", "503", "VIDEO", String.valueOf(videoId), null, null, true, 1));
+                java.time.Instant.parse("2020-01-01T00:00:00Z"), true, 0, null, null));
+        content.saveBanner(null, new AppBannerRequest("热映", "503", "VIDEO", String.valueOf(videoId), null, null, true, 1,
+                null));
+        content.saveBanner(null, new AppBannerRequest("广告", "504", "URL", null, null, null, true, 2,
+                "https://ad.example.com/banner"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> content.saveBanner(null, new AppBannerRequest("坏链接",
+                "505", "URL", null, null, null, true, 3, "javascript:alert(1)"))).hasMessageContaining("http");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> content.saveSplash(null, new AppSplashRequest("坏影片",
+                "506", 3, true, null, null, true, 1, "VIDEO", "99999"))).hasMessageContaining("影片不存在");
         content.saveSection(null, new AppSectionRequest("热播电影", "CATEGORY", String.valueOf(categoryId), null, 10,
                 true, 1));
         content.saveSection(null, new AppSectionRequest("编辑推荐", "MANUAL", null, List.of(String.valueOf(videoId)), 5,
@@ -245,11 +278,17 @@ class MemberAppIntegrationTest {
         assertThat(launch.path("code").asInt()).isZero();
         assertThat(launch.path("data").path("splash").path("imageUrl").asText()).isEqualTo("/api/app/v1/app/images/501");
         assertThat(launch.path("data").path("splash").path("durationSeconds").asInt()).isEqualTo(5);
+        assertThat(launch.path("data").path("splash").path("targetType").asText()).isEqualTo("URL");
+        assertThat(launch.path("data").path("splash").path("targetValue").asText())
+                .isEqualTo("https://ad.example.com/landing");
+        assertThat(launch.path("data").path("release").isNull()).isTrue();
         assertThat(get("/api/app/v1/app/home", null).path("code").asInt()).isEqualTo(401);
         String token = newMember("home_user", "device-h1");
         JsonNode home = get("/api/app/v1/app/home", token).path("data");
-        assertThat(home.path("banners")).hasSize(1);
+        assertThat(home.path("banners")).hasSize(2);
         assertThat(home.path("banners").get(0).path("targetId").asText()).isEqualTo(String.valueOf(videoId));
+        assertThat(home.path("banners").get(1).path("targetType").asText()).isEqualTo("URL");
+        assertThat(home.path("banners").get(1).path("targetUrl").asText()).isEqualTo("https://ad.example.com/banner");
         assertThat(home.path("sections")).hasSize(2);
         assertThat(home.path("sections").get(0).path("videos").get(0).path("name").asText()).isEqualTo("测试影片");
         assertThat(get("/api/app/v1/app/hot-search", token).path("data").path("words").toString())
@@ -260,6 +299,40 @@ class MemberAppIntegrationTest {
         assertThat(new String(image, StandardCharsets.UTF_8)).isEqualTo("png-bytes");
         assertThat(get("/api/app/v1/app/images/999", null).path("code").asInt()).isEqualTo(404);
         assertThat(post("/api/admin/v1/app/features", token, Map.of()).path("code").asInt()).isEqualTo(401);
+    }
+
+    /**
+     * 上传的 APK 自动解析包名与版本号：发布后启动配置带出版本与外链；同版本重复发布、非 APK 文件被拒绝；
+     * 可调整最低可用版本，撤销后启动配置不再带版本。
+     */
+    @Test
+    void publishesReleaseFromUploadedApk() throws Exception {
+        byte[] apk = new ClassPathResource("apk/sample-manifest-only.apk").getContentAsByteArray();
+        when(files.open(900L)).thenAnswer(invocation -> new StoredFileContent(new ByteArrayInputStream(apk),
+                "application/vnd.android.package-archive", apk.length));
+        when(files.publicPath(900L)).thenReturn("/api/public/v1/files/token900/orange.apk");
+        var published = releases.publish(new AppReleasePublishRequest("900", "首个版本", true), 1L);
+        assertThat(published.packageName()).isEqualTo("cn.orangenode.orange_app");
+        assertThat(published.versionCode()).isEqualTo(1);
+        assertThat(published.versionName()).isEqualTo("1.0.0");
+        assertThat(published.minVersionCode()).isEqualTo(1);
+        assertThat(published.sizeBytes()).isEqualTo(apk.length);
+        assertThat(published.sha256()).isEqualTo(java.util.HexFormat.of().formatHex(
+                java.security.MessageDigest.getInstance("SHA-256").digest(apk)));
+        JsonNode release = get("/api/app/v1/app/launch", null).path("data").path("release");
+        assertThat(release.path("versionCode").asInt()).isEqualTo(1);
+        assertThat(release.path("minVersionCode").asInt()).isEqualTo(1);
+        assertThat(release.path("apkUrl").asText()).isEqualTo("/api/public/v1/files/token900/orange.apk");
+        assertThat(release.path("sha256").asText()).isEqualTo(published.sha256());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> releases.publish(
+                new AppReleasePublishRequest("900", null, false), 1L)).hasMessageContaining("不高于");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> releases.publish(
+                new AppReleasePublishRequest("901", null, false), 1L)).hasMessageContaining("APK");
+        assertThat(releases.updateMinVersion(new AppReleaseMinVersionRequest(null), 1L).minVersionCode()).isNull();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> releases.updateMinVersion(
+                new AppReleaseMinVersionRequest(2), 1L)).hasMessageContaining("不能高于");
+        releases.withdraw(1L);
+        assertThat(get("/api/app/v1/app/launch", null).path("data").path("release").isNull()).isTrue();
     }
 
     /**

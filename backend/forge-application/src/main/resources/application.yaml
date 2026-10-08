@@ -68,8 +68,9 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: ${FORGE_UPLOAD_MAX_FILE_SIZE:50MB}
-      max-request-size: ${FORGE_UPLOAD_MAX_REQUEST_SIZE:60MB}
+      # 需要容纳 App 安装包（2026-10-08 用户要求上传 APK），反向代理的请求体上限需同步调整
+      max-file-size: ${FORGE_UPLOAD_MAX_FILE_SIZE:200MB}
+      max-request-size: ${FORGE_UPLOAD_MAX_REQUEST_SIZE:210MB}
 
 # MyBatis-Plus：自增主键与逻辑删除字段约定
 mybatis-plus:
@@ -140,6 +141,8 @@ forge:
       # App 普通用户注册与登录（2026-10-07 恢复普通用户体系，2026-10-08 改为用户名登录）
       - /api/app/v1/member/auth/register
       - /api/app/v1/member/auth/login
+      # 文件公开外链下载（如 App 安装包），只凭随机令牌访问，管理员可随时撤销
+      - /api/public/v1/files/**
     # 仅以下 GET 接口匿名可用：App 启动配置与其引用的开屏/轮播图片。
     # 视频分类、列表、详情与播放线路自 2026-10-07 起必须普通用户登录，不再匿名。
     public-get-paths:
@@ -158,17 +161,21 @@ forge:
       path-prefix: /api/app/
       # 以下三项只在 App 管理模块未装配时使用；装配后以“App 管理 → 功能开关”为准
       default-vip-required: true
-      default-registration-open: true
+      default-registration-open: false
       default-max-devices: 2
     # 注册：用户名注册不经过邮箱验证，同一来源地址每天最多注册的账号数
     register:
       ip-daily-limit: ${FORGE_MEMBER_REGISTER_IP_DAILY_LIMIT:10}
+    # 每个用户保留并展示的最近观看记录条数（手机与电视共用），超出的旧记录在上报进度时删除
+    history-keep: ${FORGE_MEMBER_HISTORY_KEEP:10}
 
   # App 管理：首页推荐行单行最多影片数
   app:
     section-max-items: ${FORGE_APP_SECTION_MAX_ITEMS:30}
     # 同一普通用户每天最多提交的意见反馈与播放报错条数
     feedback-daily-limit: ${FORGE_APP_FEEDBACK_DAILY_LIMIT:20}
+    # 版本更新只接受该包名的 APK（手机与电视共用一个安装包）
+    package-name: ${FORGE_APP_PACKAGE_NAME:cn.orangenode.orange_app}
 
   # 视频采集：单实例队列，所有可调参数集中于此。
   video:

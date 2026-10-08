@@ -129,6 +129,27 @@ public final class AppValues {
     }
 
     /**
+     * 校验外部链接：只接受带主机名的 http 或 https 地址。
+     *
+     * @param value 链接
+     * @param label 字段中文名
+     * @return 去除首尾空白后的链接
+     */
+    public static String httpUrl(String value, String label) {
+        String url = clean(value);
+        try {
+            java.net.URI uri = url == null ? null : new java.net.URI(url);
+            if (uri == null || uri.getHost() == null
+                    || !("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))) {
+                throw new java.net.URISyntaxException(String.valueOf(url), "不是 http 地址");
+            }
+            return url;
+        } catch (java.net.URISyntaxException failure) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, label + "必须是 http:// 或 https:// 开头的完整链接");
+        }
+    }
+
+    /**
      * 去除首尾空白，空文本转为空值。
      *
      * @param value 原始文本

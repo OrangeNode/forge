@@ -44,6 +44,11 @@ public class AppBannerEntity {
     private Long targetId;
 
     /**
+     * 跳转类型为 URL 时的外部链接。
+     */
+    private String targetUrl;
+
+    /**
      * 上线时间，UTC，空表示立即。
      */
     private LocalDateTime startAt;

@@ -332,6 +332,7 @@ public final class RuntimeSchema {
                   size_bytes bigint not null,
                   uploader_id bigint not null,
                   uploader_name varchar(64) null,
+                  public_token varchar(32) null unique,
                   deleted tinyint not null default 0,
                   created_at datetime(3) not null,
                   updated_at datetime(3) not null,

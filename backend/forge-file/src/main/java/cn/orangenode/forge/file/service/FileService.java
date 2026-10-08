@@ -73,4 +73,30 @@ public interface FileService {
      * @param operatorId 操作管理员 ID，允许为 {@code null} 表示系统操作
      */
     void deleteRecord(Long id, Long operatorId);
+
+    /**
+     * 为文件生成公开外链；已公开时保持原令牌不变。
+     *
+     * @param id         文件 ID
+     * @param operatorId 操作管理员 ID，系统内部调用时可为空
+     * @return 带公开下载路径的文件元数据
+     */
+    FileRecordResponse share(Long id, Long operatorId);
+
+    /**
+     * 撤销文件公开外链，原链接立即失效。
+     *
+     * @param id         文件 ID
+     * @param operatorId 操作管理员 ID
+     * @return 文件元数据
+     */
+    FileRecordResponse unshare(Long id, Long operatorId);
+
+    /**
+     * 按公开令牌查询文件元数据，令牌无效、已撤销或文件已删除时返回 body.code=404。
+     *
+     * @param token 公开令牌
+     * @return 文件元数据
+     */
+    FileRecordResponse getPublicRecord(String token);
 }

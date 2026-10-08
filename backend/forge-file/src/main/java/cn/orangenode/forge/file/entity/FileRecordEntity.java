@@ -70,6 +70,11 @@ public class FileRecordEntity {
     private String uploaderName;
 
     /**
+     * 公开外链令牌，为空表示未公开；任何人可凭令牌匿名下载该文件。
+     */
+    private String publicToken;
+
+    /**
      * 逻辑删除标记，0 正常、1 已删除。
      */
     @TableLogic

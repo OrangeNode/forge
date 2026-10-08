@@ -5,6 +5,7 @@ import org.springframework.validation.annotation.Validated;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -30,4 +31,10 @@ public class AppProperties {
     @Min(1)
     @Max(1000)
     private int feedbackDailyLimit = 20;
+
+    /**
+     * 版本更新只接受该包名的 APK。
+     */
+    @NotBlank
+    private String packageName = "cn.orangenode.orange_app";
 }
