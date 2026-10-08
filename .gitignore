@@ -13,6 +13,9 @@
 *.jks
 *.keystore
 
+# 部署时复制进 deploy/ 的构建产物
+deploy/backend/app.jar
+
 # Java / Maven 构建产物
 target/
 *.class
