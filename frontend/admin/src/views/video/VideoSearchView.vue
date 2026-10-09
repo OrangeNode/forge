@@ -115,7 +115,7 @@ function columns(): DataTableColumns<SearchItem> {
     ]) },
     { title: '年份', key: 'year', width: 70, render: row => row.year ?? '—' },
     { title: '类型', key: 'typeName', width: 100, render: row => row.typeName ?? '—' },
-    { title: '集数', key: 'episodeCount', width: 110, render: row => row.lineCount ? `${row.episodeCount} 集 · ${row.lineCount} 条线路` : '无播放地址' },
+    { title: '集数', key: 'episodeCount', width: 140, render: row => row.lineCount ? `${row.episodeCount} 集 · ${row.lineCount} 条线路` : '无播放地址' },
     { title: '更新说明', key: 'remarks', width: 120, ellipsis: { tooltip: true }, render: row => row.remarks ?? '—' },
     { title: '源站更新时间', key: 'sourceUpdatedAt', width: 170, render: row => row.sourceUpdatedAt ? new Date(row.sourceUpdatedAt).toLocaleString() : '—' },
     { title: '本库', key: 'libraryStatus', width: 200, render: row => {
