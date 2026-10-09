@@ -485,10 +485,6 @@ onBeforeUnmount(() => {
  * 折叠侧边栏后悬停目录弹出的子菜单渲染在 body 下，作用域样式无法命中，
  * 这里按传给 NMenu 的类名单独约束，字重、圆角底色与选中竖条和侧边栏菜单项一致。
  */
-.shell-menu-dropdown {
-  padding: 6px 0;
-}
-
 .shell-menu-dropdown .n-dropdown-option-body {
   font-weight: 550;
 }
