@@ -59,7 +59,8 @@ M2 已提供的公共能力与位置（业务模块直接复用，不重复实�
 | Redis | `framework` 的 `redis`（`ForgeRedisTemplate`） | 逻辑键名交给封装拼前缀，写入必须带 TTL，不用通配扫描删除；计数用 `increment(key, ttl)` |
 | 令牌会话 | `framework` 的 `security`（`AdminTokenService`、`BearerTokens`、`AuthenticatedAdmin`） | 业务模块只负责登录用例：校验凭据后调用令牌会话签发；撤销当前令牌用 `revoke`，停用或改密用 `revokeAllForAdmin`。不自行生成或解析令牌 |
 | 账号目录端口 | `framework` 的 `security`（`AdminAccountDirectory`、`AdminAccountView`） | 认证过滤链只依赖端口；由拥有账号表的业务模块实现，基础模块不接触密码编码结果与账号 Mapper |
-| 登录失败限流 | `framework` 的 `security`（`LoginAttemptGuard`） | 登录前 `assertAllowed`、失败 `recordFailure`、成功 `clear`；不要在各业务里另写计数 |
+| 登录失败限流 | `framework` 的 `security`（`LoginAttemptGuard`） | 登录前 `assertAllowed`、失败 `recordFailure`、成功 `clear`；按来源地址再用 `assertSourceAllowed` / `recordSourceFailure`（不清零）；不要在各业务里另写计数 |
+| 登录图形验证码 | `framework` 的 `security`（`CaptchaGuard`） | `issue` 签发，`verify` 校验并作废；目前只用于管理员登录 |
 | 方法级权限 | `Spring Security` 的 `@PreAuthorize` 与 `framework` 的 `GlobalExceptionHandler` | 权限码为 `模块:资源:动作`；方法级拒绝与过滤链拒绝都由统一出口写成 403，不要在业务里 catch 后返回自定义结构 |
 
 M3 已落地的安全装配：`SecurityConfig` 使用无状态过滤链，只放行配置中的匿名路径与 CORS 预检，其余路径（含未知路径）一律要求认证；`PasswordEncoder` 使用 Spring Security 的 BCrypt 实现，业务模块不自建散列。
