@@ -33,6 +33,9 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class IngestServiceImpl implements IngestService {
+    /** 与 video_pending.reason 列长度一致。 */
+    private static final int REASON_LIMIT = 255;
+
     private final VideoStore store;
     private final SettingsService settingsService;
     private final JsonMapper json;
@@ -67,6 +70,7 @@ public class IngestServiceImpl implements IngestService {
 
     /**
      * 页面全部入库成功后才移动断点；重放已提交页面不会重复统计。
+     * 缺少来源编号的影片无法追踪，计为跳过；其他源站数据异常转入待确认，不中断整页。
      */
     @Override
     @Transactional
@@ -81,7 +85,8 @@ public class IngestServiceImpl implements IngestService {
         }
         SettingsResponse rules = json.readValue(run.getSettingsSnapshot(), SettingsResponse.class);
         for (CollectedVideo video : page.videos()) {
-            IngestResult result = ingest(run.getSourceId(), video, rules, runId, null, null);
+            IngestResult result = video.upstreamId() == null ? new IngestResult(0, 0, 0, 1)
+                    : ingest(run.getSourceId(), video, rules, runId, null, null);
             run.setProcessed(run.getProcessed() + 1);
             run.setInserted(run.getInserted() + result.inserted());
             run.setUpdated(run.getUpdated() + result.updated());
@@ -171,6 +176,10 @@ public class IngestServiceImpl implements IngestService {
         boolean newVideo = false;
         Long category = forcedCategory == null ? mappedCategory(sourceId, data.upstreamCategoryId()) : forcedCategory;
         if (forcedVideo == null && forcedCategory == null) {
+            if (!data.problems().isEmpty()) {
+                return pending(sourceId, data, runId, "源站数据格式异常：" + String.join("；", data.problems()),
+                        List.of());
+            }
             IngestResult missing = missingInformation(sourceId, data, rules, runId, category, origin != null);
             if (missing != null) {
                 return missing;
@@ -286,7 +295,7 @@ public class IngestServiceImpl implements IngestService {
         e.setRunId(runId);
         e.setPayload(json.writeValueAsString(data));
         e.setCandidateIds(String.join(",", candidates.stream().map(v -> v.getId().toString()).toList()));
-        e.setReason(reason);
+        e.setReason(reason.length() > REASON_LIMIT ? reason.substring(0, REASON_LIMIT - 1) + "…" : reason);
         e.setStatus("PENDING");
         e.setUpdatedAt(VideoValues.now());
         if (create) {

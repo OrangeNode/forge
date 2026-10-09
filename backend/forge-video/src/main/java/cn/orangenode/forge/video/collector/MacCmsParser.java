@@ -20,10 +20,18 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * MacCMS JSON 协议解析；页数兼容字符串和数字，不推断不可靠的总集数。
+ * 整页结构错误拒绝该页，单条影片的数据异常只记录在快照中，交由入库转入待确认。
  */
 @Component
 @RequiredArgsConstructor
 public class MacCmsParser {
+    /** 与 video 表结构一致的存储长度上限，属于表结构不变式而非可调参数。 */
+    private static final int UPSTREAM_ID_LIMIT = 128;
+    private static final int NAME_LIMIT = 255;
+    private static final int REMARKS_LIMIT = 512;
+    private static final int DIRECTOR_LIMIT = 2048;
+    private static final int LONG_TEXT_LIMIT = 4096;
+
     private final JsonMapper json;
 
     /**
@@ -82,12 +90,14 @@ public class MacCmsParser {
     }
 
     /**
-     * 转换单部影片，缺失匹配字段保持为空供待确认流程判断。
+     * 转换单部影片，缺失匹配字段保持为空供待确认流程判断；源站数据异常记入 problems 而不中断整页。
      */
     private CollectedVideo video(JsonNode n, String zone) {
+        List<String> problems = new ArrayList<>();
         String id = text(n, "vod_id");
-        if (id == null) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "影片缺少来源编号");
+        if (id == null || id.length() > UPSTREAM_ID_LIMIT) {
+            problems.add(id == null ? "影片缺少来源编号" : "影片来源编号过长");
+            id = null;
         }
         Integer year = positiveNumber(n, "vod_year");
         Integer total = positiveNumber(n, "vod_total");
@@ -103,10 +113,27 @@ public class MacCmsParser {
                 updated = null;
             }
         }
-        return new CollectedVideo(id, text(n, "type_id"), text(n, "vod_name"), year,
-                text(n, "vod_area"), text(n, "vod_lang"), text(n, "vod_director"), text(n, "vod_actor"),
-                text(n, "vod_pic"), plain(text(n, "vod_content")), text(n, "vod_remarks"),
-                total, ended, updated, lines(text(n, "vod_play_from"), text(n, "vod_play_url")));
+        List<CollectedLine> lines = lines(text(n, "vod_play_from"), text(n, "vod_play_url"), problems);
+        return new CollectedVideo(id, limit(text(n, "type_id"), UPSTREAM_ID_LIMIT, "源站分类编号", problems),
+                limit(text(n, "vod_name"), NAME_LIMIT, "名称", problems), year,
+                limit(text(n, "vod_area"), NAME_LIMIT, "地区", problems),
+                limit(text(n, "vod_lang"), NAME_LIMIT, "语言", problems),
+                limit(text(n, "vod_director"), DIRECTOR_LIMIT, "导演", problems),
+                limit(text(n, "vod_actor"), LONG_TEXT_LIMIT, "演员", problems),
+                limit(text(n, "vod_pic"), LONG_TEXT_LIMIT, "封面地址", problems), plain(text(n, "vod_content")),
+                limit(text(n, "vod_remarks"), REMARKS_LIMIT, "更新说明", problems),
+                total, ended, updated, lines, problems);
+    }
+
+    /**
+     * 超出存储长度的字段截断保存并记录异常，避免单条数据拖垮整页。
+     */
+    private String limit(String value, int max, String label, List<String> problems) {
+        if (value == null || value.codePointCount(0, value.length()) <= max) {
+            return value;
+        }
+        problems.add(label + "超过 " + max + " 字已截断");
+        return value.substring(0, value.offsetByCodePoints(0, max));
     }
 
     /**
@@ -134,39 +161,54 @@ public class MacCmsParser {
     }
 
     /**
-     * 按协议分隔线路和分集，异常线路拒绝整页写入，空结果不表示删除。
+     * 按协议分隔线路和分集；异常线路或分集跳过并记入 problems，空结果不表示删除。
+     * 只有地址没有名称的分集按位置命名，单集线路命名为“正片”。
      */
-    public List<CollectedLine> lines(String from, String urls) {
+    public List<CollectedLine> lines(String from, String urls, List<String> problems) {
         if (urls == null || urls.isBlank()) {
             return List.of();
         }
         if (from == null) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "播放地址缺少线路标识");
+            problems.add("播放地址缺少线路标识");
+            return List.of();
         }
         String[] codes = from.split("\\$\\$\\$", -1);
         String[] groups = urls.split("\\$\\$\\$", -1);
         if (codes.length != groups.length) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "播放线路与地址组数不一致");
+            problems.add("播放线路与地址组数不一致");
+            return List.of();
         }
         List<CollectedLine> result = new ArrayList<>();
         java.util.Set<String> usedCodes = new java.util.HashSet<>();
         for (int i = 0; i < codes.length; i++) {
-            if (codes[i].isBlank() || !usedCodes.add(codes[i].strip())) {
-                throw new BusinessException(ErrorCode.BAD_REQUEST, "播放线路标识为空或重复");
+            String code = codes[i].strip();
+            if (groups[i].isBlank()) {
+                continue;
             }
+            if (code.isEmpty() || code.length() > NAME_LIMIT || !usedCodes.add(code)) {
+                problems.add(code.isEmpty() ? "第 " + (i + 1) + " 组播放线路标识为空"
+                        : code.length() > NAME_LIMIT ? "播放线路标识过长" : "播放线路 " + code + " 重复");
+                continue;
+            }
+            List<String> items = java.util.Arrays.stream(groups[i].split("#", -1))
+                    .filter(item -> !item.isBlank()).toList();
             List<CollectedEpisode> episodes = new ArrayList<>();
-            if (!groups[i].isBlank()) {
-                for (String item : groups[i].split("#", -1)) {
-                    int separator = item.indexOf('$');
-                    if (separator < 1 || separator == item.length() - 1) {
-                        throw new BusinessException(ErrorCode.BAD_REQUEST, "分集格式必须是名称和地址");
-                    }
-                    String url = item.substring(separator + 1).strip();
-                    episodes.add(new CollectedEpisode(item.substring(0, separator).strip(), url, urlType(url)));
+            for (int j = 0; j < items.size(); j++) {
+                String item = items.get(j).strip();
+                int separator = item.indexOf('$');
+                String name = separator < 0 ? "" : item.substring(0, separator).strip();
+                String url = (separator < 0 ? item : item.substring(separator + 1)).strip();
+                if (url.isEmpty() || (name.isEmpty() && !url.contains("://"))) {
+                    problems.add("线路 " + code + " 第 " + (j + 1) + " 集缺少地址");
+                    continue;
                 }
+                if (name.isEmpty()) {
+                    name = items.size() == 1 ? "正片" : "第" + (j + 1) + "集";
+                }
+                episodes.add(new CollectedEpisode(limit(name, NAME_LIMIT, "分集名称", problems), url, urlType(url)));
             }
             if (!episodes.isEmpty()) {
-                result.add(new CollectedLine(codes[i].strip(), List.copyOf(episodes)));
+                result.add(new CollectedLine(code, List.copyOf(episodes)));
             }
         }
         return List.copyOf(result);

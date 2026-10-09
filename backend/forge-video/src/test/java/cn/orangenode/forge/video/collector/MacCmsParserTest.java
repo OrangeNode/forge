@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -19,14 +20,17 @@ class MacCmsParserTest {
     private final MacCmsParser parser = new MacCmsParser(JsonMapper.builder().build());
 
     /**
-     * 缺少名称交给字段策略处理，缺少来源编号仍拒绝无法追踪的数据。
+     * 缺少名称交给字段策略处理，缺少来源编号记为异常而不拒绝整页。
      */
     @Test
     void retainsMissingNameForConfiguredPolicy() {
         var page = parser.page("{\"code\":1,\"page\":1,\"pagecount\":1,\"list\":[{\"vod_id\":1}]}", "Asia/Shanghai");
         assertThat(page.videos().getFirst().name()).isNull();
-        assertThatThrownBy(() -> parser.page("{\"code\":1,\"page\":1,\"pagecount\":1,\"list\":[{\"vod_name\":\"影片\"}]}",
-                "Asia/Shanghai")).isInstanceOf(BusinessException.class);
+        assertThat(page.videos().getFirst().problems()).isEmpty();
+        var missingId = parser.page("{\"code\":1,\"page\":1,\"pagecount\":1,\"list\":[{\"vod_name\":\"影片\"}]}",
+                "Asia/Shanghai").videos().getFirst();
+        assertThat(missingId.upstreamId()).isNull();
+        assertThat(missingId.problems()).containsExactly("影片缺少来源编号");
     }
 
     /**
@@ -54,20 +58,44 @@ class MacCmsParserTest {
     }
 
     /**
-     * 任何异常线路都拒绝整页，空地址不代表清除已有分集。
+     * 异常线路和分集只跳过并记录，整页结构错误仍拒绝，空地址不代表清除已有分集。
      */
     @Test
-    void rejectsMalformedLineWithoutInventingDeletion() {
-        assertThat(parser.lines("m3u8", null)).isEmpty();
-        assertThat(parser.lines("web$$$m3u8", "$$$第一集$https://example.com/a.m3u8")).hasSize(1);
-        assertThatThrownBy(() -> parser.lines("a$$$b", "第一集$https://example.com/a"))
-                .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> parser.lines("a", "缺少地址"))
-                .isInstanceOf(BusinessException.class);
+    void recordsMalformedLineWithoutInventingDeletion() {
+        List<String> problems = new ArrayList<>();
+        assertThat(parser.lines("m3u8", null, problems)).isEmpty();
+        assertThat(parser.lines("web$$$m3u8", "$$$第一集$https://example.com/a.m3u8", problems)).hasSize(1);
+        assertThat(problems).isEmpty();
+        assertThat(parser.lines("a$$$b", "第一集$https://example.com/a", problems)).isEmpty();
+        assertThat(problems).containsExactly("播放线路与地址组数不一致");
+        problems.clear();
+        List<CollectedLine> partial = parser.lines("a$$$a", "缺少地址#第二集$#第三集$https://example.com/c.m3u8"
+                + "$$$第一集$https://example.com/a", problems);
+        assertThat(partial).hasSize(1);
+        assertThat(partial.getFirst().episodes()).extracting(CollectedEpisode::name).containsExactly("第三集");
+        assertThat(problems).containsExactly("线路 a 第 1 集缺少地址", "线路 a 第 2 集缺少地址", "播放线路 a 重复");
         assertThatThrownBy(() -> parser.page("{\"code\":0,\"list\":[]}", "Asia/Shanghai"))
                 .isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> parser.page("{\"code\":1,\"page\":1,\"pagecount\":0,\"list\":[{}]}", "Asia/Shanghai"))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    /**
+     * 只有地址没有名称的分集按位置命名，末尾多余分隔符不算异常，超长字段截断并记录。
+     */
+    @Test
+    void namesUrlOnlyEpisodesAndTruncatesOverlongFields() {
+        List<String> problems = new ArrayList<>();
+        List<CollectedLine> single = parser.lines("lzm3u8", "https://example.com/share/1#", problems);
+        assertThat(single.getFirst().episodes()).extracting(CollectedEpisode::name).containsExactly("正片");
+        List<CollectedLine> many = parser.lines("lzm3u8", "$https://example.com/1.m3u8#https://example.com/2.m3u8",
+                problems);
+        assertThat(many.getFirst().episodes()).extracting(CollectedEpisode::name).containsExactly("第1集", "第2集");
+        assertThat(problems).isEmpty();
+        CollectedVideo video = parser.page("{\"code\":1,\"page\":1,\"pagecount\":1,\"list\":[{\"vod_id\":1,"
+                + "\"vod_name\":\"" + "长".repeat(300) + "\"}]}", "Asia/Shanghai").videos().getFirst();
+        assertThat(video.name()).hasSize(255);
+        assertThat(video.problems()).containsExactly("名称超过 255 字已截断");
     }
 
     /**

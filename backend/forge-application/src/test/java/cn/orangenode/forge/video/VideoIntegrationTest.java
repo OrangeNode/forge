@@ -615,6 +615,28 @@ class VideoIntegrationTest {
     }
 
     /**
+     * 单条源站数据异常转入待确认，同页其他影片照常入库，缺少来源编号的计为跳过，人工确认可用保留的分集入库。
+     */
+    @Test
+    void movesMalformedSourceDataToPendingWithoutStoppingPage() {
+        Long run = start(1);
+        CollectedVideo base = movie("2", "格式异常", 2026, "资料");
+        CollectedVideo malformed = new CollectedVideo("2", "6", "格式异常", 2026, "中国", "中文", "导演", "演员",
+                null, "资料", null, null, null, null, base.lines(), List.of("线路 m3u8 第 2 集缺少地址"));
+        CollectedVideo untraceable = new CollectedVideo(null, "6", "无编号", 2026, null, null, null, null,
+                null, null, null, null, null, null, base.lines(), List.of("影片缺少来源编号"));
+        ingest.page(run, new CollectedPage(1, 1, List.of(movie("1", "正常", 2026, "资料"), malformed, untraceable)));
+        collections.finish(run, "COMPLETED", null);
+        assertThat(collections.run(run).inserted()).isEqualTo(1);
+        assertThat(collections.run(run).pending()).isEqualTo(1);
+        assertThat(collections.run(run).skipped()).isEqualTo(1);
+        var pending = collections.pending(1, 20, "PENDING", null).records().getFirst();
+        assertThat(pending.reason()).isEqualTo("源站数据格式异常：线路 m3u8 第 2 集缺少地址");
+        ingest.resolve(Long.valueOf(pending.id()), new PendingResolveRequest("CREATE", null, category.toString()));
+        assertThat(count("video")).isEqualTo(2);
+    }
+
+    /**
      * 全部操作覆盖所有分页，最新规则可批量采集旧的待确认快照。
      */
     @Test
