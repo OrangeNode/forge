@@ -71,6 +71,10 @@ export interface RequestOptions {
    * 本次请求的超时毫秒数，覆盖工厂默认值；用于上传安装包等大文件。
    */
   timeoutMs?: number
+  /**
+   * 上传进度回调，参数为 0—100 的整数百分比；只在浏览器能算出总大小时调用。
+   */
+  onUploadProgress?: (percent: number) => void
 }
 
 /**
@@ -187,6 +191,11 @@ export class RequestFactory {
       headers: this.withAuthorization(options.headers),
       data: options.body,
       timeout: options.timeoutMs,
+      onUploadProgress: options.onUploadProgress
+        ? (event) => {
+            if (event.total) options.onUploadProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+          }
+        : undefined,
     }
 
     let response: AxiosResponse<unknown>

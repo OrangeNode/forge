@@ -38,13 +38,14 @@ export async function fetchFiles(query: PageQuery & { originalName?: string }): 
  * 上传文件到当前默认存储方案。
  *
  * @param file 浏览器选择的文件
+ * @param onProgress 上传进度回调（0—100），用于显示进度条
  * @returns 上传后的文件元数据
  */
-export async function uploadFile(file: File): Promise<FileUploadResult> {
+export async function uploadFile(file: File, onProgress?: (percent: number) => void): Promise<FileUploadResult> {
   const formData = new FormData()
   formData.append('file', file)
   // 安装包近百 MB，家用宽带上行往往要一两分钟，默认 15 秒超时会在上传途中中断（2026-10-09 发布 1.0.4 时遇到）。
-  return request.post<FileUploadResult>(FILE_PATH, { body: formData, timeoutMs: Number(import.meta.env.VITE_UPLOAD_TIMEOUT_MILLIS) || undefined })
+  return request.post<FileUploadResult>(FILE_PATH, { body: formData, timeoutMs: Number(import.meta.env.VITE_UPLOAD_TIMEOUT_MILLIS) || undefined, onUploadProgress: onProgress })
 }
 
 /**

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { NAlert, NButton, NCard, NDescriptions, NDescriptionsItem, NForm, NFormItem, NInput, NInputNumber, NPopconfirm, NSpace, NSwitch, NTag, NUpload, type UploadFileInfo } from 'naive-ui'
+import { NAlert, NButton, NCard, NDescriptions, NDescriptionsItem, NForm, NFormItem, NInput, NInputNumber, NPopconfirm, NProgress, NSpace, NSwitch, NTag, NUpload, type UploadFileInfo } from 'naive-ui'
 import { appConfigApi, type Release } from '@/api/app-config'
 import { absoluteLink, uploadFile } from '@/api/files'
 import PageBody from '@/components/PageBody.vue'
@@ -14,6 +14,8 @@ const session = useSessionStore()
 const { busy, errors, act } = useVideoActions()
 const release = ref<Release>()
 const uploading = ref(false)
+/** 安装包上传百分比；上传完成后服务器还要解析安装包，此时停在 100%。 */
+const progress = ref(0)
 const apkFile = ref<File | null>(null)
 const fileList = ref<UploadFileInfo[]>([])
 const form = reactive({ changelog: '', force: true })
@@ -45,9 +47,10 @@ function choose(files: UploadFileInfo[]) {
 async function publish() {
   if (!apkFile.value || busy.value) return
   uploading.value = true
+  progress.value = 0
   try {
     const ok = await act(async () => {
-      const uploaded = await uploadFile(apkFile.value as File)
+      const uploaded = await uploadFile(apkFile.value as File, percent => { progress.value = percent })
       release.value = await appConfigApi.publishRelease({ fileId: uploaded.id ?? '', changelog: form.changelog || undefined, force: form.force })
     }, '新版本已发布')
     if (ok) {
@@ -223,8 +226,16 @@ onMounted(load)
               :disabled="!apkFile"
               @click="publish"
             >
-              {{ uploading ? '正在上传并解析，请勿关闭页面…' : '上传并发布' }}
+              {{ uploading ? (progress < 100 ? `正在上传 ${progress}%，请勿关闭页面…` : '上传完成，正在解析安装包…') : '上传并发布' }}
             </NButton>
+            <NProgress
+              v-if="uploading"
+              type="line"
+              :percentage="progress"
+              :processing="progress >= 100"
+              indicator-placement="inside"
+              style="margin-top: 12px"
+            />
           </NForm>
 
           <template v-if="release?.versionCode">

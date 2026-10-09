@@ -353,7 +353,7 @@ async function handleUpload(options: UploadCustomRequestOptions): Promise<void> 
   uploading.value = true
   uploadingName.value = file.name
   try {
-    await uploadFile(file)
+    await uploadFile(file, percent => options.onProgress({ percent }))
     options.onFinish()
     message.success(`已上传 ${file.name}`)
     pagination.page = 1
