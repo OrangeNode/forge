@@ -30,9 +30,10 @@ public class MemberAuthController {
     private final MemberAuthService service;
 
     /**
-     * 用户名注册并登录当前设备。
+     * 用户名加激活码注册并登录当前设备。
      */
     @Operation(summary = "用户名注册", description = "用户名为 4 到 20 位字母、数字或下划线，不区分大小写唯一；已被注册 409；"
+            + "必须填写激活码：不正确、已使用、已作废或已过期 400，同一来源当天输错过多 429；"
             + "未开放注册 403；同一来源注册过于频繁 429；成功后直接返回令牌")
     @PostMapping("/register")
     public ApiResponse<MemberLoginResponse> register(@Valid @RequestBody MemberRegisterRequest request,

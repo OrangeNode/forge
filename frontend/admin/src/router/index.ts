@@ -6,6 +6,7 @@ import CollectionTaskView from '@/views/video/CollectionTaskView.vue'
 import CollectionRunView from '@/views/video/CollectionRunView.vue'
 import MemberUserView from '@/views/member/MemberUserView.vue'
 import MemberDeviceView from '@/views/member/MemberDeviceView.vue'
+import MemberActivationView from '@/views/member/MemberActivationView.vue'
 import AppSplashView from '@/views/app/AppSplashView.vue'
 import AppBannerView from '@/views/app/AppBannerView.vue'
 import AppSectionView from '@/views/app/AppSectionView.vue'
@@ -77,6 +78,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'video/runs', name: 'video-run', component: CollectionRunView, meta: { title: '采集记录' } },
       { path: 'member/users', name: 'member-user', component: MemberUserView, meta: { title: '用户列表', description: 'App 普通用户、VIP 与登录设备' } },
       { path: 'member/devices', name: 'member-device', component: MemberDeviceView, meta: { title: '登录设备', description: '普通用户登录设备与强制下线' } },
+      { path: 'member/activation-codes', name: 'member-activation', component: MemberActivationView, meta: { title: '激活码', description: '注册激活码的生成、使用记录与作废' } },
       { path: 'app/splash', name: 'app-splash', component: AppSplashView, meta: { title: '开屏设置', description: 'App 开屏广告' } },
       { path: 'app/banners', name: 'app-banner', component: AppBannerView, meta: { title: '首页轮播', description: 'App 首页顶部轮播' } },
       { path: 'app/sections', name: 'app-section', component: AppSectionView, meta: { title: '首页推荐位', description: 'App 首页推荐行' } },

@@ -6,11 +6,13 @@ export type MemberUser = Required<Schemas['MemberUserResponse']>
 export type MemberDevice = Required<Schemas['MemberDeviceResponse']>
 export type MemberVipLog = Required<Schemas['MemberVipLogResponse']>
 export type MemberCreateInput = Schemas['MemberCreateRequest']
+export type MemberActivationCode = Required<Schemas['MemberActivationCodeResponse']>
+export type MemberActivationCreateInput = Schemas['MemberActivationCreateRequest']
 type Query = PageQuery & Record<string, string | number | boolean | undefined>
 const base = `${API_PREFIX}/member`
 
 /**
- * 会员管理接口：普通用户、VIP 与登录设备，类型来自后端 OpenAPI。
+ * 会员管理接口：普通用户、VIP、登录设备与注册激活码，类型来自后端 OpenAPI。
  */
 export const memberApi = {
   users: (query: Query) => request.get<PageResponse<MemberUser>>(`${base}/users`, { query }),
@@ -28,7 +30,14 @@ export const memberApi = {
   devices: (query: Query) => request.get<PageResponse<MemberDevice>>(`${base}/devices`, { query }),
   offlineDevice: (id: string) => request.post<void>(`${base}/devices/${id}/offline`),
   offlineUser: (id: string) => request.post<void>(`${base}/users/${id}/offline`),
+  activationCodes: (query: Query) => request.get<PageResponse<MemberActivationCode>>(`${base}/activation-codes`, { query }),
+  createActivationCodes: (body: MemberActivationCreateInput) =>
+    request.post<MemberActivationCode[]>(`${base}/activation-codes`, { body }),
+  revokeActivationCode: (id: string) => request.post<MemberActivationCode>(`${base}/activation-codes/${id}/revoke`),
 }
+
+/** 激活码状态中文名。 */
+export const activationStatusLabels: Record<string, string> = { UNUSED: '未使用', USED: '已使用', EXPIRED: '已过期', REVOKED: '已作废' }
 
 /** 账号状态中文名。 */
 export const memberStatusLabels: Record<string, string> = { ENABLED: '启用', DISABLED: '停用' }

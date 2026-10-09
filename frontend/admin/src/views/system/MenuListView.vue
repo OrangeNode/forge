@@ -57,6 +57,7 @@ const ICON_OPTIONS = [
   { label: '审计动态', value: 'activity' },
   { label: '操作记录', value: 'clipboard' },
   { label: '登录记录', value: 'login' },
+  { label: '钥匙', value: 'key' },
 ]
 
 /**

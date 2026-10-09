@@ -33,7 +33,9 @@ import cn.orangenode.forge.app.service.AppReleaseService;
 import cn.orangenode.forge.app.service.AppSettingsService;
 import cn.orangenode.forge.framework.storage.StoredFileContent;
 import cn.orangenode.forge.framework.storage.StoredFileReader;
+import cn.orangenode.forge.member.request.MemberActivationCreateRequest;
 import cn.orangenode.forge.member.request.MemberVipExtendRequest;
+import cn.orangenode.forge.member.service.MemberActivationService;
 import cn.orangenode.forge.member.service.MemberManagementService;
 import cn.orangenode.forge.support.RedisTestDouble;
 import cn.orangenode.forge.support.RuntimeSchema;
@@ -63,6 +65,8 @@ class MemberAppIntegrationTest {
     @Autowired
     private MemberManagementService members;
     @Autowired
+    private MemberActivationService activations;
+    @Autowired
     private AppContentService content;
     @Autowired
     private AppSettingsService settings;
@@ -85,7 +89,7 @@ class MemberAppIntegrationTest {
     void prepare() throws Exception {
         new RedisTestDouble(redis);
         RuntimeSchema.recreateSystemAndAuditTables(jdbc);
-        for (String table : List.of("member_vip_log", "member_device", "member_user", "app_splash", "app_banner",
+        for (String table : List.of("member_activation_code", "member_vip_log", "member_device", "member_user", "app_splash", "app_banner",
                 "app_section", "app_settings", "app_release")) {
             jdbc.execute("DROP TABLE IF EXISTS " + table);
         }
@@ -97,6 +101,7 @@ class MemberAppIntegrationTest {
         jdbc.execute("ALTER TABLE video_video ADD COLUMN name_initials VARCHAR(255) NULL");
         migrate("db/migration/member/V20261007120000__member_tables.sql");
         migrate("db/migration/member/V20261008150000__member_username.sql");
+        migrate("db/migration/member/V20261009090000__member_activation_code.sql");
         migrate("db/migration/app/V20261007121000__app_tables.sql");
         migrate("db/migration/app/V20261008170000__app_ads_and_release.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
@@ -153,6 +158,66 @@ class MemberAppIntegrationTest {
         assertThat(register("user_ip_11", "device-r11").path("code").asInt()).isEqualTo(429);
         settings.updateFeatures(new AppFeatureRequest(true, false, 2, null, null));
         assertThat(register("other_user", "device-a4").path("code").asInt()).isEqualTo(403);
+    }
+
+    /**
+     * 注册必须使用激活码：忽略大小写与短横线；一码只能注册一次；不正确、已作废、已过期都拒绝；
+     * 列表可看到使用者，按状态筛选；作废只对未使用的码生效；单次生成数量受限。
+     */
+    @Test
+    void registersOnlyWithValidActivationCode() {
+        var generated = activations.create(new MemberActivationCreateRequest(3, null, "第一批"));
+        assertThat(generated).hasSize(3);
+        String code = generated.get(0).code();
+        assertThat(code).matches("^[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}$");
+        assertThat(post("/api/app/v1/member/auth/register", null, Map.of("username", "no_code_user",
+                "password", "secret1", "deviceCode", "device-k0", "deviceName", "测试电视")).path("code").asInt())
+                .isEqualTo(400);
+        assertThat(registerWithCode("wrong_code", "device-k0", "AAAA-BBBB-CCCC").path("message").asText())
+                .isEqualTo("激活码不正确");
+        JsonNode ok = registerWithCode("code_user", "device-k1", " " + code.toLowerCase().replace("-", "") + " ");
+        assertThat(ok.path("code").asInt()).isZero();
+        assertThat(registerWithCode("code_user2", "device-k2", code).path("message").asText()).isEqualTo("激活码已被使用");
+        var used = activations.page(1, 10, "code_user", "USED", null);
+        assertThat(used.total()).isEqualTo(1);
+        assertThat(used.records().get(0).code()).isEqualTo(code);
+        assertThat(used.records().get(0).usedUsername()).isEqualTo("code_user");
+        assertThat(used.records().get(0).remark()).isEqualTo("第一批");
+        assertThat(activations.page(1, 10, null, "UNUSED", "第一").total()).isEqualTo(2);
+        Long usedId = Long.valueOf(used.records().get(0).id());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.revoke(usedId))
+                .hasMessageContaining("已被使用");
+        String revoked = generated.get(1).code();
+        Long revokedId = Long.valueOf(generated.get(1).id());
+        assertThat(activations.revoke(revokedId).status()).isEqualTo("REVOKED");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.revoke(revokedId))
+                .hasMessageContaining("已作废");
+        assertThat(registerWithCode("revoked_user", "device-k3", revoked).path("message").asText()).isEqualTo("激活码已作废");
+        jdbc.update("UPDATE member_activation_code SET expire_at=DATEADD('DAY', -1, CURRENT_TIMESTAMP) WHERE id=?",
+                Long.valueOf(generated.get(2).id()));
+        assertThat(activations.page(1, 10, null, "EXPIRED", null).total()).isEqualTo(1);
+        assertThat(registerWithCode("expired_user", "device-k4", generated.get(2).code()).path("message").asText())
+                .isEqualTo("激活码已过期");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM member_user", Integer.class)).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.create(
+                new MemberActivationCreateRequest(501, null, null))).hasMessageContaining("一次最多生成 500 个");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.create(
+                new MemberActivationCreateRequest(1, java.time.Instant.now().minusSeconds(60), null)))
+                .hasMessageContaining("有效期必须晚于当前时间");
+    }
+
+    /**
+     * 同一来源当天输错激活码达到上限后，即使输入正确的码也返回 429。
+     */
+    @Test
+    void limitsWrongActivationCodesPerAddress() {
+        for (int i = 0; i < 20; i++) {
+            assertThat(registerWithCode("guess_user", "device-g0", "ZZZZ-ZZZZ-ZZ" + (char) ('A' + i % 20))
+                    .path("code").asInt()).isEqualTo(400);
+        }
+        JsonNode blocked = register("guess_user", "device-g0");
+        assertThat(blocked.path("code").asInt()).isEqualTo(429);
+        assertThat(blocked.path("message").asText()).isEqualTo("激活码输错次数过多，请明天再试");
     }
 
     /**
@@ -367,8 +432,23 @@ class MemberAppIntegrationTest {
      * 提交注册请求。
      */
     private JsonNode register(String username, String deviceCode) {
+        return registerWithCode(username, deviceCode, freshCode());
+    }
+
+    /**
+     * 使用指定激活码提交注册请求。
+     */
+    private JsonNode registerWithCode(String username, String deviceCode, String activationCode) {
         return post("/api/app/v1/member/auth/register", null, Map.of("username", username,
-                "password", "secret1", "deviceCode", deviceCode, "deviceName", "测试电视"));
+                "password", "secret1", "activationCode", activationCode, "deviceCode", deviceCode,
+                "deviceName", "测试电视"));
+    }
+
+    /**
+     * 生成一个长期有效的激活码。
+     */
+    private String freshCode() {
+        return activations.create(new MemberActivationCreateRequest(1, null, null)).get(0).code();
     }
 
     /**

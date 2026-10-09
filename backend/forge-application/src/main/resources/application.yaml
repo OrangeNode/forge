@@ -166,6 +166,14 @@ forge:
     # 注册：用户名注册不经过邮箱验证，同一来源地址每天最多注册的账号数
     register:
       ip-daily-limit: ${FORGE_MEMBER_REGISTER_IP_DAILY_LIMIT:10}
+    # 注册激活码：开放注册时每个新账号必须使用一个未使用、未作废、未过期的激活码，一码只能注册一次
+    activation:
+      # 激活码长度（字符集去掉易混淆的 0/O/1/I/L），展示时每 4 位用短横线分隔
+      code-length: ${FORGE_MEMBER_ACTIVATION_CODE_LENGTH:12}
+      # 后台一次最多生成的激活码数量
+      batch-max: ${FORGE_MEMBER_ACTIVATION_BATCH_MAX:500}
+      # 同一来源地址每天最多输错激活码的次数，超过后当天不能再注册，防止穷举
+      ip-daily-fail-limit: ${FORGE_MEMBER_ACTIVATION_IP_DAILY_FAIL_LIMIT:20}
     # 每个用户保留并展示的最近观看记录条数（手机与电视共用），超出的旧记录在上报进度时删除
     history-keep: ${FORGE_MEMBER_HISTORY_KEEP:10}
 

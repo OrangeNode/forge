@@ -5,11 +5,13 @@ import java.time.Instant;
 import org.springframework.stereotype.Component;
 
 import cn.orangenode.forge.framework.catalog.VideoCard;
+import cn.orangenode.forge.member.entity.MemberActivationCodeEntity;
 import cn.orangenode.forge.member.entity.MemberDeviceEntity;
 import cn.orangenode.forge.member.entity.MemberFavoriteEntity;
 import cn.orangenode.forge.member.entity.MemberWatchHistoryEntity;
 import cn.orangenode.forge.member.entity.MemberUserEntity;
 import cn.orangenode.forge.member.entity.MemberVipLogEntity;
+import cn.orangenode.forge.member.response.MemberActivationCodeResponse;
 import cn.orangenode.forge.member.response.MemberDeviceResponse;
 import cn.orangenode.forge.member.response.MemberFavoriteResponse;
 import cn.orangenode.forge.member.response.MemberHistoryResponse;
@@ -17,6 +19,7 @@ import cn.orangenode.forge.member.response.MemberOwnDeviceResponse;
 import cn.orangenode.forge.member.response.MemberProfileResponse;
 import cn.orangenode.forge.member.response.MemberUserResponse;
 import cn.orangenode.forge.member.response.MemberVipLogResponse;
+import cn.orangenode.forge.member.support.MemberActivationStatus;
 import cn.orangenode.forge.member.support.MemberValues;
 
 /**
@@ -87,6 +90,35 @@ public class MemberConverter {
         return new MemberVipLogResponse(MemberValues.textId(log.getId()), log.getChangeType(), log.getDays(),
                 MemberValues.time(log.getBeforeExpireAt()), MemberValues.time(log.getAfterExpireAt()), log.getRemark(),
                 MemberValues.textId(log.getOperatorId()), MemberValues.time(log.getCreatedAt()));
+    }
+
+    /**
+     * 转换后台激活码列表项：激活码每 4 位加短横线，未使用且已过有效期显示为 EXPIRED。
+     */
+    public MemberActivationCodeResponse activation(MemberActivationCodeEntity entity) {
+        String status = entity.getStatus();
+        Instant expireAt = MemberValues.instant(entity.getExpireAt());
+        if (MemberActivationStatus.UNUSED.name().equals(status) && expireAt != null && !expireAt.isAfter(Instant.now())) {
+            status = MemberActivationStatus.EXPIRED.name();
+        }
+        return new MemberActivationCodeResponse(MemberValues.textId(entity.getId()), formatCode(entity.getCode()), status,
+                MemberValues.time(entity.getExpireAt()), entity.getRemark(), MemberValues.textId(entity.getUsedMemberId()),
+                entity.getUsedUsername(), MemberValues.time(entity.getUsedAt()), entity.getUsedIp(),
+                MemberValues.time(entity.getRevokedAt()), MemberValues.time(entity.getCreatedAt()));
+    }
+
+    /**
+     * 激活码每 4 位插入短横线，便于抄写。
+     */
+    private String formatCode(String code) {
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < code.length(); i++) {
+            if (i > 0 && i % 4 == 0) {
+                text.append('-');
+            }
+            text.append(code.charAt(i));
+        }
+        return text.toString();
     }
 
     /**

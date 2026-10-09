@@ -27,6 +27,7 @@ import cn.orangenode.forge.member.mapper.MemberUserMapper;
 import cn.orangenode.forge.member.request.MemberLoginRequest;
 import cn.orangenode.forge.member.request.MemberRegisterRequest;
 import cn.orangenode.forge.member.response.MemberLoginResponse;
+import cn.orangenode.forge.member.service.MemberActivationService;
 import cn.orangenode.forge.member.service.MemberAuthService;
 import cn.orangenode.forge.member.service.MemberSessionService;
 import cn.orangenode.forge.member.support.MemberStatus;
@@ -58,14 +59,17 @@ public class MemberAuthServiceImpl implements MemberAuthService {
     private final MemberConverter converter;
     private final ForgeRedisTemplate redis;
     private final MemberProperties properties;
+    private final MemberActivationService activations;
 
     /**
-     * 检查注册开关、用户名占用与来源地址每日次数后创建账号并登录当前设备；并发重复注册由唯一键兜底返回 409。
+     * 检查注册开关、激活码、用户名占用与来源地址每日次数后创建账号、核销激活码并登录当前设备；
+     * 并发重复注册由唯一键兜底返回 409，激活码被并发抢用时核销失败返回 409 并回滚账号。
      */
     @Override
     @Transactional
     public MemberLoginResponse register(MemberRegisterRequest request, String clientIp) {
         assertRegistrationOpen();
+        Long codeId = activations.check(request.activationCode(), clientIp);
         String username = MemberValues.username(request.username());
         if (findByUsername(username) != null) {
             throw new BusinessException(ErrorCode.CONFLICT, "该用户名已被注册");
@@ -93,7 +97,8 @@ public class MemberAuthServiceImpl implements MemberAuthService {
         } catch (DuplicateKeyException duplicate) {
             throw new BusinessException(ErrorCode.CONFLICT, "该用户名已被注册");
         }
-        log.info("普通用户注册成功，用户 ID={}，用户名={}", user.getId(), username);
+        activations.consume(codeId, user.getId(), username, clientIp);
+        log.info("普通用户注册成功，用户 ID={}，用户名={}，激活码 ID={}", user.getId(), username, codeId);
         MemberToken token = sessions.open(user.getId(), request.deviceCode(), request.deviceName().strip(), clientIp);
         return response(token, users.selectById(user.getId()));
     }

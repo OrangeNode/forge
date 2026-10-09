@@ -20,6 +20,7 @@ const MENU_ROUTE_WHITELIST: Record<string, string> = {
   'video-run': 'video-run',
   'member-user': 'member-user',
   'member-device': 'member-device',
+  'member-activation': 'member-activation',
   'app-splash': 'app-splash',
   'app-banner': 'app-banner',
   'app-section': 'app-section',

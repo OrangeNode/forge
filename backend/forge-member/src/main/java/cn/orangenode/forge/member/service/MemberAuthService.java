@@ -10,7 +10,7 @@ import cn.orangenode.forge.member.response.MemberLoginResponse;
 public interface MemberAuthService {
 
     /**
-     * 用户名注册并在当前设备登录；要求开放注册，同一来源地址每日注册数受限。
+     * 用户名加激活码注册并在当前设备登录；要求开放注册，一码只能注册一次，同一来源地址每日注册数与输错激活码次数受限。
      *
      * @param request  注册信息
      * @param clientIp 来源地址

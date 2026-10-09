@@ -905,6 +905,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/member/activation-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 分页查询激活码
+         * @description keyword 匹配激活码或使用者用户名；status 为 UNUSED/USED/REVOKED/EXPIRED；按生成时间倒序
+         */
+        get: operations["page_3"];
+        put?: never;
+        /**
+         * 批量生成激活码
+         * @description 数量超过上限或有效期早于当前时间 400；返回新生成的激活码
+         */
+        post: operations["create_8"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/member/activation-codes/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 作废激活码
+         * @description 激活码不存在 404；已使用或已作废 409；作废后不能再用于注册
+         */
+        post: operations["revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/files": {
         parameters: {
             query?: never;
@@ -916,7 +960,7 @@ export interface paths {
          * 分页查询文件
          * @description 按文件名包含匹配与存储配置精确匹配筛选，按创建时间倒序；每页条数上限来自 forge.page.max-size
          */
-        get: operations["page_3"];
+        get: operations["page_4"];
         put?: never;
         /**
          * 上传文件
@@ -1522,7 +1566,7 @@ export interface paths {
          * 分页查询反馈
          * @description 可按状态 PENDING/RESOLVED 与类型 PLAYBACK/GENERAL 筛选，待处理在前
          */
-        get: operations["page_4"];
+        get: operations["page_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2254,6 +2298,40 @@ export interface components {
             days: number;
             remark?: string;
         };
+        MemberActivationCreateRequest: {
+            /** Format: int32 */
+            count: number;
+            /** Format: date-time */
+            expireAt?: string;
+            remark?: string;
+        };
+        ApiResponseListMemberActivationCodeResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberActivationCodeResponse"][];
+            traceId?: string;
+        };
+        MemberActivationCodeResponse: {
+            id?: string;
+            code?: string;
+            status?: string;
+            expireAt?: string;
+            remark?: string;
+            usedMemberId?: string;
+            usedUsername?: string;
+            usedAt?: string;
+            usedIp?: string;
+            revokedAt?: string;
+            createdAt?: string;
+        };
+        ApiResponseMemberActivationCodeResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberActivationCodeResponse"];
+            traceId?: string;
+        };
         ApiResponseFileUploadResponse: {
             /** Format: int32 */
             code?: number;
@@ -2609,6 +2687,22 @@ export interface components {
         };
         PageResponseMemberDeviceResponse: {
             records?: components["schemas"]["MemberDeviceResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            pageNum?: number;
+            /** Format: int32 */
+            pageSize?: number;
+        };
+        ApiResponsePageResponseMemberActivationCodeResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["PageResponseMemberActivationCodeResponse"];
+            traceId?: string;
+        };
+        PageResponseMemberActivationCodeResponse: {
+            records?: components["schemas"]["MemberActivationCodeResponse"][];
             /** Format: int64 */
             total?: number;
             /** Format: int32 */
@@ -4497,6 +4591,78 @@ export interface operations {
     };
     page_3: {
         parameters: {
+            query?: {
+                pageNum?: number;
+                pageSize?: number;
+                keyword?: string;
+                status?: string;
+                remark?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseMemberActivationCodeResponse"];
+                };
+            };
+        };
+    };
+    create_8: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberActivationCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMemberActivationCodeResponse"];
+                };
+            };
+        };
+    };
+    revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberActivationCodeResponse"];
+                };
+            };
+        };
+    };
+    page_4: {
+        parameters: {
             query: {
                 request: components["schemas"]["FileRecordPageRequest"];
             };
@@ -5365,7 +5531,7 @@ export interface operations {
             };
         };
     };
-    page_4: {
+    page_5: {
         parameters: {
             query?: {
                 pageNum?: number;

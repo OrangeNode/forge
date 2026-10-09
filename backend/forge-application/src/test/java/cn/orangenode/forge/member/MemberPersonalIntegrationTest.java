@@ -20,6 +20,8 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 
 import cn.orangenode.forge.app.request.AppFeedbackHandleRequest;
 import cn.orangenode.forge.app.service.AppFeedbackService;
+import cn.orangenode.forge.member.request.MemberActivationCreateRequest;
+import cn.orangenode.forge.member.service.MemberActivationService;
 import cn.orangenode.forge.core.exception.BusinessException;
 import cn.orangenode.forge.support.RedisTestDouble;
 import cn.orangenode.forge.support.RuntimeSchema;
@@ -48,6 +50,8 @@ class MemberPersonalIntegrationTest {
     private JsonMapper json;
     @Autowired
     private AppFeedbackService feedbacks;
+    @Autowired
+    private MemberActivationService activations;
     @MockitoBean
     private StringRedisTemplate redis;
     @LocalServerPort
@@ -61,7 +65,8 @@ class MemberPersonalIntegrationTest {
     void prepare() throws Exception {
         new RedisTestDouble(redis);
         RuntimeSchema.recreateSystemAndAuditTables(jdbc);
-        for (String table : List.of("member_watch_history", "member_favorite", "member_vip_log", "member_device",
+        for (String table : List.of("member_activation_code", "member_watch_history", "member_favorite",
+                "member_vip_log", "member_device",
                 "member_user", "app_feedback", "app_splash", "app_banner", "app_section", "app_settings", "app_release")) {
             jdbc.execute("DROP TABLE IF EXISTS " + table);
         }
@@ -74,6 +79,7 @@ class MemberPersonalIntegrationTest {
         migrate("db/migration/member/V20261007120000__member_tables.sql");
         migrate("db/migration/member/V20261008120000__member_personal_data.sql");
         migrate("db/migration/member/V20261008150000__member_username.sql");
+        migrate("db/migration/member/V20261009090000__member_activation_code.sql");
         migrate("db/migration/app/V20261007121000__app_tables.sql");
         migrate("db/migration/app/V20261008120100__app_feedback.sql");
         migrate("db/migration/app/V20261008150100__app_feedback_username.sql");
@@ -257,7 +263,8 @@ class MemberPersonalIntegrationTest {
      */
     private String newMember(String username, String deviceCode) {
         JsonNode body = post("/api/app/v1/member/auth/register", null, Map.of("username", username,
-                "password", "secret1", "deviceCode", deviceCode, "deviceName", "测试手机"));
+                "password", "secret1", "activationCode", activations.create(new MemberActivationCreateRequest(1, null, null))
+                .get(0).code(), "deviceCode", deviceCode, "deviceName", "测试手机"));
         assertThat(body.path("code").asInt()).isZero();
         return body.path("data").path("accessToken").asText();
     }
