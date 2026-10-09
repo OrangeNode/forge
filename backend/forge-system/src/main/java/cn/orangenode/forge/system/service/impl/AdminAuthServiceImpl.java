@@ -2,6 +2,7 @@ package cn.orangenode.forge.system.service.impl;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -16,6 +17,8 @@ import cn.orangenode.forge.framework.audit.LoginLogRecord;
 import cn.orangenode.forge.framework.audit.LoginLogRecorder;
 import cn.orangenode.forge.framework.security.AdminToken;
 import cn.orangenode.forge.framework.security.AdminTokenService;
+import cn.orangenode.forge.framework.security.CaptchaChallenge;
+import cn.orangenode.forge.framework.security.CaptchaGuard;
 import cn.orangenode.forge.framework.security.LoginAttemptGuard;
 import cn.orangenode.forge.system.converter.AdminAuthConverter;
 import cn.orangenode.forge.system.credential.AdminCredentialPolicy;
@@ -24,6 +27,7 @@ import cn.orangenode.forge.system.enums.AdminAccountStatus;
 import cn.orangenode.forge.system.mapper.SysAdminMapper;
 import cn.orangenode.forge.system.mapper.SysMenuMapper;
 import cn.orangenode.forge.system.request.AdminLoginRequest;
+import cn.orangenode.forge.system.response.AdminCaptchaResponse;
 import cn.orangenode.forge.system.response.AdminLoginResponse;
 import cn.orangenode.forge.system.response.AdminMenuResponse;
 import cn.orangenode.forge.system.response.AdminProfileResponse;
@@ -79,6 +83,16 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     private static final String REASON_CREDENTIALS = "credentials";
 
     /**
+     * 来源地址登录失败计数的范围。
+     */
+    private static final String SOURCE_SCOPE = "admin";
+
+    /**
+     * 验证码图片 data URL 前缀。
+     */
+    private static final String PNG_DATA_URL_PREFIX = "data:image/png;base64,";
+
+    /**
      * 管理员账号数据访问。
      */
     private final SysAdminMapper adminMapper;
@@ -102,6 +116,11 @@ public class AdminAuthServiceImpl implements AdminAuthService {
      * 登录失败限流。
      */
     private final LoginAttemptGuard loginAttemptGuard;
+
+    /**
+     * 登录图形验证码。
+     */
+    private final CaptchaGuard captchaGuard;
 
     /**
      * 权限与角色解析。
@@ -130,12 +149,13 @@ public class AdminAuthServiceImpl implements AdminAuthService {
      * @param passwordEncoder    密码编码器
      * @param tokenService       令牌会话
      * @param loginAttemptGuard  登录失败限流
+     * @param captchaGuard       登录图形验证码
      * @param authorityService   权限与角色解析
      * @param converter          认证相关转换器
      * @param loginLogRecorderProvider 登录日志记录端口提供者
      */
     public AdminAuthServiceImpl(SysAdminMapper adminMapper, SysMenuMapper menuMapper, PasswordEncoder passwordEncoder,
-            AdminTokenService tokenService, LoginAttemptGuard loginAttemptGuard,
+            AdminTokenService tokenService, LoginAttemptGuard loginAttemptGuard, CaptchaGuard captchaGuard,
             AdminAuthorityService authorityService, AdminAuthConverter converter,
             ObjectProvider<LoginLogRecorder> loginLogRecorderProvider) {
         this.adminMapper = adminMapper;
@@ -143,9 +163,25 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.loginAttemptGuard = loginAttemptGuard;
+        this.captchaGuard = captchaGuard;
         this.authorityService = authorityService;
         this.converter = converter;
         this.loginLogRecorderProvider = loginLogRecorderProvider;
+    }
+
+    /**
+     * 签发管理员登录图形验证码。
+     *
+     * @return 验证码编号与 PNG data URL；关闭验证码时只返回 enabled=false
+     */
+    @Override
+    public AdminCaptchaResponse captcha() {
+        if (!captchaGuard.isEnabled()) {
+            return new AdminCaptchaResponse(false, null, null, null);
+        }
+        CaptchaChallenge challenge = captchaGuard.issue();
+        String image = PNG_DATA_URL_PREFIX + Base64.getEncoder().encodeToString(challenge.image());
+        return new AdminCaptchaResponse(true, challenge.captchaId(), image, challenge.expiresIn());
     }
 
     /**
@@ -155,14 +191,33 @@ public class AdminAuthServiceImpl implements AdminAuthService {
      * 账号已停用（disabled）、凭据有效（success）。来源地址与追踪编号从当前请求上下文读取，
      * 与响应体和操作审计使用同一个追踪编号，便于按 traceId 串联一次登录尝试。</p>
      *
+     * <p>校验顺序：来源地址限流、图形验证码（无论对错都作废）、账号限流、凭据。
+     * 验证码错误记为 captcha 并计入来源地址失败次数，但不计入账号失败次数，
+     * 避免他人只靠乱填验证码就把管理员账号锁住。</p>
+     *
      * @param request 登录入参
      * @return 令牌与当前管理员基础信息
-     * @throws BusinessException 凭据无效或账号不可用时抛出 401，触发限流时抛出 429
+     * @throws BusinessException 验证码错误时抛出 400，凭据无效或账号不可用时抛出 401，触发限流时抛出 429
      */
     @Override
     public AdminLoginResponse login(AdminLoginRequest request) {
+        String clientIp = ClientIpResolver.resolve();
         String username = AdminCredentialPolicy.normalizeUsername(request.username());
+        try {
+            loginAttemptGuard.assertSourceAllowed(SOURCE_SCOPE, clientIp);
+        } catch (BusinessException failure) {
+            writeLoginLog(username, LOGIN_RESULT_FAILURE, "rate_limited");
+            throw failure;
+        }
+        try {
+            captchaGuard.verify(request.captchaId(), request.captchaCode());
+        } catch (BusinessException failure) {
+            loginAttemptGuard.recordSourceFailure(SOURCE_SCOPE, clientIp);
+            writeLoginLog(username, LOGIN_RESULT_FAILURE, "captcha");
+            throw failure;
+        }
         if (username == null) {
+            loginAttemptGuard.recordSourceFailure(SOURCE_SCOPE, clientIp);
             writeLoginLog(null, LOGIN_RESULT_FAILURE, REASON_CREDENTIALS);
             throw new BusinessException(ErrorCode.UNAUTHORIZED, LOGIN_FAILURE_MESSAGE);
         }
@@ -176,6 +231,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         SysAdminEntity admin = findByUsername(username);
         String failureReason = resolveFailureReason(admin, request.password());
         if (failureReason != null) {
+            loginAttemptGuard.recordSourceFailure(SOURCE_SCOPE, clientIp);
             loginAttemptGuard.recordFailure(username);
             writeLoginLog(username, LOGIN_RESULT_FAILURE, failureReason);
             throw new BusinessException(ErrorCode.UNAUTHORIZED, LOGIN_FAILURE_MESSAGE);

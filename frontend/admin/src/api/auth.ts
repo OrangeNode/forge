@@ -18,20 +18,43 @@ export type AdminProfilePayload = adminComponents['schemas']['AdminProfileRespon
 export type AdminMenuPayload = adminComponents['schemas']['AdminMenuResponse']
 
 /**
+ * 登录验证码载荷；enabled=false 表示服务端关闭了验证码。
+ */
+export type AdminCaptchaPayload = adminComponents['schemas']['AdminCaptchaResponse']
+
+/**
+ * 登录表单提交的凭据。
+ */
+export interface LoginCredentials {
+  username: string
+  password: string
+  captchaId?: string
+  captchaCode?: string
+}
+
+/**
  * 认证接口路径前缀。
  */
 const AUTH_PATH = `${API_PREFIX}/auth`
 
 /**
- * 使用用户名与密码登录。
+ * 获取登录图形验证码，每次登录失败后需要重新获取。
  *
- * @param username 登录用户名
- * @param password 登录密码
+ * @returns 验证码编号与图片
+ */
+export async function loadCaptcha(): Promise<AdminCaptchaPayload> {
+  return anonymousRequest.get<AdminCaptchaPayload>(`${AUTH_PATH}/captcha`)
+}
+
+/**
+ * 使用用户名、密码与图形验证码登录。
+ *
+ * @param credentials 登录凭据
  * @returns 令牌与当前管理员基础信息
  */
-export async function login(username: string, password: string): Promise<AdminLoginPayload> {
+export async function login(credentials: LoginCredentials): Promise<AdminLoginPayload> {
   const payload = await anonymousRequest.post<AdminLoginPayload>(`${AUTH_PATH}/login`, {
-    body: { username, password },
+    body: credentials,
   })
   return payload
 }

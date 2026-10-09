@@ -9,6 +9,7 @@ import {
   logout as logoutRequest,
   type AdminMenuPayload,
   type AdminProfilePayload,
+  type LoginCredentials,
 } from '@/api/auth'
 import { clearSessionToken, readSessionToken, writeSessionToken } from '@/utils/session'
 
@@ -42,11 +43,10 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * 登录并读取身份与菜单。
    *
-   * @param username 登录用户名
-   * @param password 登录密码
+   * @param credentials 用户名、密码与图形验证码
    */
-  async function login(username: string, password: string): Promise<void> {
-    const payload = await loginRequest(username, password)
+  async function login(credentials: LoginCredentials): Promise<void> {
+    const payload = await loginRequest(credentials)
     const accessToken = payload.accessToken
     if (!accessToken) {
       // 成功的登录响应必须带令牌，缺失时按协议异常处理，不保存半截会话

@@ -1044,7 +1044,7 @@ export interface paths {
         put?: never;
         /**
          * 管理员登录
-         * @description 校验用户名与密码并签发不透明令牌；凭据错误返回 body.code=401，同一用户名失败次数超过配置上限返回 body.code=429，两者 HTTP 状态都是 200
+         * @description 校验图形验证码、用户名与密码并签发不透明令牌；验证码错误返回 body.code=400，凭据错误返回 body.code=401，同一用户名或来源地址失败次数超过配置上限返回 body.code=429，HTTP 状态都是 200
          */
         post: operations["login"];
         delete?: never;
@@ -1507,6 +1507,26 @@ export interface paths {
          * @description 返回当前管理员的 ID、用户名、显示名称与实时解析的权限代码
          */
         get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/captcha": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 登录验证码
+         * @description 匿名接口，返回验证码编号与 PNG data URL；验证码一次有效，登录失败后需重新获取。enabled=false 表示服务端关闭了验证码
+         */
+        get: operations["captcha"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2399,6 +2419,8 @@ export interface components {
         AdminLoginRequest: {
             username: string;
             password: string;
+            captchaId?: string;
+            captchaCode?: string;
         };
         AdminLoginResponse: {
             accessToken?: string;
@@ -2781,6 +2803,20 @@ export interface components {
             code?: number;
             message?: string;
             data?: components["schemas"]["AdminProfileResponse"];
+            traceId?: string;
+        };
+        AdminCaptchaResponse: {
+            enabled?: boolean;
+            captchaId?: string;
+            image?: string;
+            /** Format: int64 */
+            expiresIn?: number;
+        };
+        ApiResponseAdminCaptchaResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AdminCaptchaResponse"];
             traceId?: string;
         };
         OperationLogQueryRequest: {
@@ -5485,6 +5521,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseAdminProfileResponse"];
+                };
+            };
+        };
+    };
+    captcha: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminCaptchaResponse"];
                 };
             };
         };

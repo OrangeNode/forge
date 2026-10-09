@@ -50,6 +50,7 @@ const LOGIN_REASON_TEXT: Record<string, string> = {
   credentials: '凭据错误',
   disabled: '账号已停用',
   rate_limited: '触发限流',
+  captcha: '验证码错误',
 }
 
 /**

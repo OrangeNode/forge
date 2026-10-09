@@ -1,0 +1,7 @@
+# 测试专用的补充配置：classpath:/config/ 下的文件优先于主配置，只在测试类路径中存在，不进入部署包。
+# 绝大多数用例只关心登录之后的行为，因此关闭管理员登录图形验证码；
+# 验证码本身由 AdminCaptchaIntegrationTest 在类级属性中重新开启后覆盖。
+forge:
+  security:
+    captcha:
+      enabled: false

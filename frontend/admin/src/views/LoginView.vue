@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { loadCaptcha } from '@/api/auth'
 import { useSessionStore } from '@/stores/session'
 import { resolveErrorMessage } from '@/utils/error-message'
 
@@ -10,10 +11,16 @@ import { resolveErrorMessage } from '@/utils/error-message'
  * 登录页（克制科技 · Calm Tech）。
  *
  * 登录失败只提示一次，且不区分账号是否存在，与后端提示口径一致；
- * 提交期间按钮进入加载态，避免重复提交。
+ * 提交期间按钮进入加载态，避免重复提交。图形验证码一次有效，
+ * 每次登录失败后自动换一张；服务端关闭验证码时不显示输入框。
  */
 const username = ref('')
 const password = ref('')
+const captchaCode = ref('')
+const captchaId = ref<string>()
+const captchaImage = ref<string>()
+const captchaEnabled = ref(true)
+const captchaLoading = ref(false)
 const submitting = ref(false)
 
 const session = useSessionStore()
@@ -22,23 +29,56 @@ const route = useRoute()
 const message = useMessage()
 
 /**
- * 提交登录表单，成功后回到原地址或工作台。
+ * 获取一张新的验证码，并清空已输入的验证码。
+ */
+async function refreshCaptcha(): Promise<void> {
+  if (captchaLoading.value) {
+    return
+  }
+  captchaLoading.value = true
+  captchaCode.value = ''
+  try {
+    const captcha = await loadCaptcha()
+    captchaEnabled.value = captcha.enabled ?? true
+    captchaId.value = captcha.captchaId
+    captchaImage.value = captcha.image
+  } catch (error) {
+    message.error(resolveErrorMessage(error))
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
+/**
+ * 提交登录表单，成功后回到原地址或工作台；失败时换一张验证码。
  */
 async function submit(): Promise<void> {
   if (submitting.value) {
     return
   }
+  if (captchaEnabled.value && !captchaCode.value.trim()) {
+    message.warning('请输入验证码')
+    return
+  }
   submitting.value = true
   try {
-    await session.login(username.value, password.value)
+    await session.login({
+      username: username.value,
+      password: password.value,
+      captchaId: captchaEnabled.value ? captchaId.value : undefined,
+      captchaCode: captchaEnabled.value ? captchaCode.value.trim() : undefined,
+    })
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirect)
   } catch (error) {
     message.error(resolveErrorMessage(error))
+    await refreshCaptcha()
   } finally {
     submitting.value = false
   }
 }
+
+onMounted(refreshCaptcha)
 </script>
 
 <template>
@@ -114,6 +154,35 @@ async function submit(): Promise<void> {
               :input-props="{ autocomplete: 'current-password' }"
               @keyup.enter="submit"
             />
+          </NFormItem>
+          <NFormItem
+            v-if="captchaEnabled"
+            label="验证码"
+          >
+            <div class="login__captcha">
+              <NInput
+                v-model:value="captchaCode"
+                size="large"
+                placeholder="请输入右侧字符"
+                :maxlength="8"
+                :input-props="{ autocomplete: 'off', autocapitalize: 'characters', spellcheck: false }"
+                @keyup.enter="submit"
+              />
+              <button
+                class="login__captcha-image"
+                type="button"
+                title="看不清？点击换一张"
+                :disabled="captchaLoading"
+                @click="refreshCaptcha"
+              >
+                <img
+                  v-if="captchaImage"
+                  :src="captchaImage"
+                  alt="验证码，点击换一张"
+                >
+                <span v-else>点击获取</span>
+              </button>
+            </div>
           </NFormItem>
           <NButton
             class="login__submit"
@@ -328,6 +397,39 @@ async function submit(): Promise<void> {
 
 .login__form {
   margin-top: 0;
+}
+
+.login__captcha {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+}
+
+.login__captcha-image {
+  display: grid;
+  flex: none;
+  width: 120px;
+  height: 40px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #e0e6f0;
+  border-radius: 6px;
+  padding: 0;
+  background: #f4f7fc;
+  color: #8993a7;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.login__captcha-image:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.login__captcha-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .login__submit {

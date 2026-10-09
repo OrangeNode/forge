@@ -3,6 +3,7 @@ package cn.orangenode.forge.system.service;
 import java.util.List;
 
 import cn.orangenode.forge.system.request.AdminLoginRequest;
+import cn.orangenode.forge.system.response.AdminCaptchaResponse;
 import cn.orangenode.forge.system.response.AdminLoginResponse;
 import cn.orangenode.forge.system.response.AdminMenuResponse;
 import cn.orangenode.forge.system.response.AdminProfileResponse;
@@ -14,6 +15,13 @@ import cn.orangenode.forge.system.response.AdminProfileResponse;
  * 接口层不直接处理密码与令牌。</p>
  */
 public interface AdminAuthService {
+
+    /**
+     * 签发管理员登录图形验证码。
+     *
+     * @return 验证码编号与图片；关闭验证码时只返回 enabled=false
+     */
+    AdminCaptchaResponse captcha();
 
     /**
      * 校验凭据并签发令牌。

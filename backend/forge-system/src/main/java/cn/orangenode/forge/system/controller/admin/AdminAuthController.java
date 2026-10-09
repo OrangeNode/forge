@@ -16,6 +16,7 @@ import cn.orangenode.forge.framework.security.AuthenticatedAdmin;
 import cn.orangenode.forge.framework.security.BearerTokens;
 import cn.orangenode.forge.framework.web.TraceIdFilter;
 import cn.orangenode.forge.system.request.AdminLoginRequest;
+import cn.orangenode.forge.system.response.AdminCaptchaResponse;
 import cn.orangenode.forge.system.response.AdminLoginResponse;
 import cn.orangenode.forge.system.response.AdminMenuResponse;
 import cn.orangenode.forge.system.response.AdminProfileResponse;
@@ -53,6 +54,20 @@ public class AdminAuthController {
     }
 
     /**
+     * 签发登录图形验证码。
+     *
+     * @param httpRequest 当前 HTTP 请求，用于读取追踪编号
+     * @return 验证码编号与图片
+     */
+    @Operation(summary = "登录验证码",
+            description = "匿名接口，返回验证码编号与 PNG data URL；验证码一次有效，登录失败后需重新获取。"
+                    + "enabled=false 表示服务端关闭了验证码")
+    @GetMapping("/captcha")
+    public ApiResponse<AdminCaptchaResponse> captcha(HttpServletRequest httpRequest) {
+        return ApiResponse.successWithTrace(authService.captcha(), TraceIdFilter.currentTraceId(httpRequest));
+    }
+
+    /**
      * 使用用户名与密码登录并签发令牌。
      *
      * @param request     登录入参
@@ -60,8 +75,8 @@ public class AdminAuthController {
      * @return 令牌与当前管理员基础信息
      */
     @Operation(summary = "管理员登录",
-            description = "校验用户名与密码并签发不透明令牌；凭据错误返回 body.code=401，"
-                    + "同一用户名失败次数超过配置上限返回 body.code=429，两者 HTTP 状态都是 200")
+            description = "校验图形验证码、用户名与密码并签发不透明令牌；验证码错误返回 body.code=400，凭据错误返回 body.code=401，"
+                    + "同一用户名或来源地址失败次数超过配置上限返回 body.code=429，HTTP 状态都是 200")
     @PostMapping("/login")
     public ApiResponse<AdminLoginResponse> login(@Valid @RequestBody AdminLoginRequest request,
             HttpServletRequest httpRequest) {

@@ -22,8 +22,8 @@ import lombok.extern.slf4j.Slf4j;
  * <p>按规范化后的用户名摘要计数，达到配置上限后拒绝继续尝试并返回 429，
  * 登录成功时清零。计数键使用摘要而不是用户名明文，避免把账号名写进 Redis 键。</p>
  *
- * <p>只做按账号的限流，不按来源 IP 统计：同一账号的暴力尝试会被阻断，
- * 同时不会因为共享出口地址影响其他管理员。需要按来源限流时按新的验收条目补充。</p>
+ * <p>同时按来源地址计数（2026-10-09 安全加固）：按账号的限流挡不住换着用户名尝试，
+ * 来源地址的上限设得比账号宽，尽量不影响共享出口地址的正常用户。</p>
  */
 @Slf4j
 @Component
@@ -33,6 +33,11 @@ public class LoginAttemptGuard {
      * 登录失败计数键的逻辑前缀。
      */
     private static final String FAILURE_KEY_PREFIX = "auth:login-fail:";
+
+    /**
+     * 来源地址登录失败计数键的逻辑前缀。
+     */
+    private static final String SOURCE_KEY_PREFIX = "auth:login-fail-ip:";
 
     /**
      * Redis 操作入口。
@@ -87,6 +92,52 @@ public class LoginAttemptGuard {
      */
     public void clear(String normalizedUsername) {
         redis.delete(failureKey(normalizedUsername));
+    }
+
+    /**
+     * 在尝试登录前检查来源地址是否已被限流。
+     *
+     * <p>{@code scope} 区分管理员与普通用户登录，两者分别计数；来源地址为空时不做限制
+     * （无请求上下文的内部调用），按账号的限流仍然生效。</p>
+     *
+     * @param scope    计数范围，如 {@code admin}、{@code member}
+     * @param clientIp 来源地址
+     * @throws BusinessException 失败次数达到上限时抛出 429
+     */
+    public void assertSourceAllowed(String scope, String clientIp) {
+        if (clientIp == null || clientIp.isBlank()) {
+            return;
+        }
+        long failures = parseCount(redis.get(sourceKey(scope, clientIp)));
+        if (failures >= properties.getLoginIpMaxAttempts()) {
+            log.warn("来源地址登录尝试触发限流，scope={}，失败次数={}，上限={}", scope, failures,
+                    properties.getLoginIpMaxAttempts());
+            throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS, "登录尝试过于频繁，请稍后再试");
+        }
+    }
+
+    /**
+     * 记录来源地址的一次登录失败，并重新开始统计窗口计时；登录成功不清零。
+     *
+     * @param scope    计数范围，如 {@code admin}、{@code member}
+     * @param clientIp 来源地址，为空时忽略
+     */
+    public void recordSourceFailure(String scope, String clientIp) {
+        if (clientIp == null || clientIp.isBlank()) {
+            return;
+        }
+        redis.increment(sourceKey(scope, clientIp), Duration.ofSeconds(properties.getLoginIpWindowSeconds()));
+    }
+
+    /**
+     * 拼接来源地址失败计数的逻辑键名，地址用摘要表示。
+     *
+     * @param scope    计数范围
+     * @param clientIp 来源地址
+     * @return 逻辑键名
+     */
+    private String sourceKey(String scope, String clientIp) {
+        return SOURCE_KEY_PREFIX + scope + ":" + sha256(clientIp.strip());
     }
 
     /**

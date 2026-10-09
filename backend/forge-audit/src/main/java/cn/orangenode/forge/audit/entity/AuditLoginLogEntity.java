@@ -40,7 +40,7 @@ public class AuditLoginLogEntity {
     private String result;
 
     /**
-     * 失败原因分类：{@code credentials} 凭据错误，{@code disabled} 账号停用，{@code rate_limited} 触发限流。
+     * 失败原因分类：{@code credentials} 凭据错误，{@code disabled} 账号停用，{@code rate_limited} 触发限流，{@code captcha} 验证码错误（2026-10-09 起）。
      */
     private String reason;
 

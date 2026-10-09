@@ -1,5 +1,6 @@
 # 测试服务器部署：MySQL、Redis、后端、管理端（nginx）一套 Compose。
-# 只有 web 服务的端口对外开放；App 与管理端都经 nginx 访问，/api 由 nginx 反向代理到后端。
+# 只有 web 服务的端口对外开放：后台入口、App 入口与过渡用的旧 80 端口，/api 由 nginx 反向代理到后端。
+# 注意 Docker 发布的端口不受 ufw 控制，要关闭某个入口必须改这里的端口绑定。
 # 凭据全部来自同目录 .env（模板 .env.example，服务器上 chmod 600，不进入版本库）。
 # 部署步骤见 docs/部署指南.md。
 name: ${COMPOSE_PROJECT_NAME:-orange-forge}
@@ -20,6 +21,8 @@ services:
       - --default-time-zone=+00:00
     volumes:
       - mysql-data:/var/lib/mysql
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test:
         - CMD-SHELL
@@ -50,6 +53,8 @@ services:
       - everysec
     volumes:
       - redis-data:/data
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test:
         - CMD-SHELL
@@ -90,6 +95,10 @@ services:
       FORGE_INIT_ADMIN_PASSWORD: ${FORGE_INIT_ADMIN_PASSWORD:?请在 .env 中设置 FORGE_INIT_ADMIN_PASSWORD}
     volumes:
       - forge-files:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     logging:
       driver: json-file
       options:
@@ -103,7 +112,14 @@ services:
     depends_on:
       - backend
     ports:
-      - "${HTTP_PORT:-80}:80"
+      # 后台入口与 App 入口使用高位端口，端口号只在服务器 .env 中设置。
+      - "${ADMIN_PORT:?请在 .env 中设置 ADMIN_PORT}:8081"
+      - "${APP_PORT:?请在 .env 中设置 APP_PORT}:8082"
+      # 旧 80 端口只为 1.0.2 及更早的 App 过渡（只有 App 接口与安装包下载）。
+      # 确认用户都已升级后在 .env 设 LEGACY_HTTP_BIND=127.0.0.1 即对外关闭。
+      - "${LEGACY_HTTP_BIND:-0.0.0.0}:${LEGACY_HTTP_PORT:-80}:80"
+    security_opt:
+      - no-new-privileges:true
     logging:
       driver: json-file
       options:
