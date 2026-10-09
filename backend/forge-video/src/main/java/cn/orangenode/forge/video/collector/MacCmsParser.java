@@ -90,6 +90,20 @@ public class MacCmsParser {
     }
 
     /**
+     * 解析关键词搜索结果；单条影片的数据异常只随结果展示，不影响其他条目。
+     */
+    public SearchedPage search(String content, String zone) {
+        JsonNode root = root(content);
+        int current = Math.max(root.path("page").asInt(1), 1);
+        int count = Math.max(root.path("pagecount").asInt(0), 0);
+        List<SearchedVideo> videos = new ArrayList<>();
+        for (JsonNode n : root.path("list")) {
+            videos.add(new SearchedVideo(video(n, zone), limit(text(n, "type_name"), NAME_LIMIT, "分类名称", new ArrayList<>())));
+        }
+        return new SearchedPage(current, count, Math.max(root.path("total").asInt(videos.size()), 0), List.copyOf(videos));
+    }
+
+    /**
      * 转换单部影片，缺失匹配字段保持为空供待确认流程判断；源站数据异常记入 problems 而不中断整页。
      */
     private CollectedVideo video(JsonNode n, String zone) {

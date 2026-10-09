@@ -33,6 +33,11 @@ public interface CollectionService {
     RunResponse collect(CollectRequest request);
 
     /**
+     * 提交勾选采集：按源站影片编号请求详情，入库规则与范围采集一致，立即返回运行编号。
+     */
+    RunResponse collectSelected(Long sourceId, List<String> upstreamIds);
+
+    /**
      * 预览完整源站采集URL。
      */
     String preview(CollectRequest request);

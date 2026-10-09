@@ -78,6 +78,10 @@ class VideoIntegrationTest {
     private cn.orangenode.forge.video.service.CollectionBatchService batches;
     @Autowired
     private org.springframework.transaction.PlatformTransactionManager transactionManager;
+    @Autowired
+    private cn.orangenode.forge.video.service.impl.VideoStore store;
+    @Autowired
+    private cn.orangenode.forge.video.collector.MacCmsParser parser;
     private Long category;
     private RestTestClient http;
 
@@ -104,6 +108,7 @@ class VideoIntegrationTest {
         }
         jdbc.execute("ALTER TABLE video_settings ADD COLUMN missing_policies TEXT NULL");
         jdbc.execute("ALTER TABLE video_settings ADD COLUMN max_concurrency INT NOT NULL DEFAULT 3");
+        jdbc.execute("ALTER TABLE video_run ADD COLUMN upstream_ids VARCHAR(2048) NULL");
         jdbc.execute("ALTER TABLE video_video ADD COLUMN name_initials VARCHAR(255) NULL");
         jdbc.execute("ALTER TABLE video_task ADD COLUMN cron_expression VARCHAR(128) NOT NULL");
         for (String column : List.of("frequency", "interval_hours", "weekday", "time_of_day", "zone_id")) {
@@ -776,6 +781,74 @@ class VideoIntegrationTest {
      */
     private Long videoId() {
         return jdbc.queryForObject("SELECT MIN(id) FROM video_video WHERE deleted=0", Long.class);
+    }
+
+    /**
+     * 全站搜索：一个资源站失败只在该站结果中标出，其他站正常返回，并标出该站已入库与库中同名影片。
+     */
+    @Test
+    void searchesAllSourcesIsolatingFailuresAndMarksLibrary() {
+        collect(1, movie("1", "交锋", 2026, "已入库"), 1, 1);
+        jdbc.update("UPDATE video_source SET api_url='https://example.org/api.php' WHERE id=2");
+        cn.orangenode.forge.video.collector.MacCmsClient client =
+                org.mockito.Mockito.mock(cn.orangenode.forge.video.collector.MacCmsClient.class);
+        org.mockito.Mockito.when(client.searchUrl(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("交锋"), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(call -> call.getArgument(0));
+        org.mockito.Mockito.when(client.get("https://example.com/api.php")).thenReturn("""
+                {"code":1,"page":1,"pagecount":1,"total":3,"list":[
+                {"vod_id":1,"vod_name":"交锋","vod_year":"2026","type_name":"动作片","vod_remarks":"HD",
+                 "vod_time":"2026-10-01 12:00:00","vod_play_from":"m3u8","vod_play_url":"第1集$https://example.com/1.m3u8#第2集$https://example.com/2.m3u8"},
+                {"vod_id":2,"vod_name":"交锋 ","vod_year":"2020","type_name":"剧情片"},
+                {"vod_id":3,"vod_name":"生死交锋","vod_year":"2023"}]}
+                """);
+        org.mockito.Mockito.when(client.get("https://example.org/api.php"))
+                .thenThrow(new cn.orangenode.forge.core.exception.BusinessException(
+                        cn.orangenode.forge.core.response.ErrorCode.SERVICE_UNAVAILABLE, "资源站请求失败：连接或读取超时"));
+        var search = new cn.orangenode.forge.video.service.impl.SearchServiceImpl(store, client, parser, collections,
+                settings, properties);
+        var results = search.searchAll(" 交锋 ");
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).error()).isNull();
+        assertThat(results.get(0).total()).isEqualTo(3);
+        assertThat(results.get(0).items()).extracting(i -> i.libraryStatus())
+                .containsExactly("COLLECTED", "SAME_NAME", "NONE");
+        assertThat(results.get(0).items().getFirst().episodeCount()).isEqualTo(2);
+        assertThat(results.get(0).items().getFirst().typeName()).isEqualTo("动作片");
+        assertThat(results.get(1).error()).isEqualTo("资源站请求失败：连接或读取超时");
+        assertThat(results.get(1).items()).isEmpty();
+        assertThatThrownBy(() -> search.searchAll("  ")).isInstanceOf(cn.orangenode.forge.core.exception.BusinessException.class);
+    }
+
+    /**
+     * 勾选采集按资源站分组各建一条运行，保存源站编号；同站已有活动采集时只记该站失败，重新采集沿用勾选编号。
+     */
+    @Test
+    void collectsSelectedSearchResultsPerSource() {
+        var search = new cn.orangenode.forge.video.service.impl.SearchServiceImpl(store,
+                org.mockito.Mockito.mock(cn.orangenode.forge.video.collector.MacCmsClient.class), parser, collections,
+                settings, properties);
+        collections.collect(new CollectRequest("2", "DAY", null));
+        var result = search.collect(new cn.orangenode.forge.video.request.SearchCollectRequest(List.of(
+                new cn.orangenode.forge.video.request.SearchCollectItem("1", "155981"),
+                new cn.orangenode.forge.video.request.SearchCollectItem("1", "78730"),
+                new cn.orangenode.forge.video.request.SearchCollectItem("1", "155981"),
+                new cn.orangenode.forge.video.request.SearchCollectItem("2", "9"))));
+        assertThat(result.total()).isEqualTo(2);
+        assertThat(result.succeeded()).isEqualTo(1);
+        assertThat(result.failures()).singleElement().satisfies(f -> {
+            assertThat(f.id()).isEqualTo("2");
+            assertThat(f.message()).startsWith("测试来源2：");
+        });
+        var run = collections.runs(1, 20, "QUEUED").records().stream()
+                .filter(r -> "1".equals(r.sourceId())).findFirst().orElseThrow();
+        assertThat(run.upstreamIds()).isEqualTo("155981,78730");
+        assertThat(run.rangeCode()).isEqualTo("ALL");
+        collections.stop(Long.valueOf(run.id()));
+        batches.runs(new cn.orangenode.forge.video.request.CollectionBatchRequest("SELECTED", List.of(run.id()),
+                null, null, "COLLECT"));
+        assertThat(collections.runs(1, 20, "QUEUED").records().stream()
+                .filter(r -> "1".equals(r.sourceId())).findFirst().orElseThrow().upstreamIds()).isEqualTo("155981,78730");
     }
 
     /**

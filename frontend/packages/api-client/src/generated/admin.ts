@@ -2356,12 +2356,12 @@ export interface components {
             preserved?: number;
             unresolved?: string[];
         };
-        Item: {
+        SearchCollectItem: {
             sourceId: string;
             upstreamId: string;
         };
         SearchCollectRequest: {
-            items: components["schemas"]["Item"][];
+            items: components["schemas"]["SearchCollectItem"][];
         };
         ApiResponseCollectionBatchResponse: {
             /** Format: int32 */

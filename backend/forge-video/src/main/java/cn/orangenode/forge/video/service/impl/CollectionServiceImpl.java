@@ -41,6 +41,9 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class CollectionServiceImpl implements CollectionService {
+    /** 与 video_run.upstream_ids 列长度一致，属于表结构不变式。 */
+    private static final int UPSTREAM_IDS_LIMIT = 2048;
+
     private final VideoStore store;
     private final VideoConverter converter;
     private final VideoPaging paging;
@@ -131,13 +134,30 @@ public class CollectionServiceImpl implements CollectionService {
     @Override
     @Transactional
     public synchronized RunResponse collect(CollectRequest r) {
-        return converter.run(enqueue(VideoValues.id(r.sourceId()), r.rangeCode(), r.upstreamCategoryId(), null));
+        return converter.run(enqueue(VideoValues.id(r.sourceId()), r.rangeCode(), r.upstreamCategoryId(), null, null));
+    }
+
+    /**
+     * 勾选采集同样受来源启用与同来源不重叠约束，编号去重后以逗号保存为运行快照。
+     */
+    @Override
+    @Transactional
+    public synchronized RunResponse collectSelected(Long sourceId, List<String> upstreamIds) {
+        List<String> ids = upstreamIds.stream().map(VideoValues::clean).filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "请先勾选要采集的影片");
+        }
+        String joined = String.join(",", ids);
+        if (joined.length() > UPSTREAM_IDS_LIMIT) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "勾选的影片过多，请分批采集");
+        }
+        return converter.run(enqueue(sourceId, "ALL", null, null, joined));
     }
 
     /**
      * 校验来源可用并防止同来源的重叠运行。
      */
-    private RunEntity enqueue(Long sourceId, String range, String category, Long taskId) {
+    private RunEntity enqueue(Long sourceId, String range, String category, Long taskId, String upstreamIds) {
         SourceEntity source = store.sources.lock(sourceId);
         if (source == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "资源站不存在");
@@ -155,6 +175,7 @@ public class CollectionServiceImpl implements CollectionService {
         e.setTaskId(taskId);
         e.setRangeCode(range);
         e.setUpstreamCategoryId(VideoValues.clean(category));
+        e.setUpstreamIds(upstreamIds);
         e.setStatus("QUEUED");
         e.setNextPage(1);
         e.setPageCount(0);
@@ -282,7 +303,7 @@ public class CollectionServiceImpl implements CollectionService {
         for (TaskEntity task : store.tasks.selectList(Wrappers.<TaskEntity>lambdaQuery()
                 .eq(TaskEntity::getEnabled, true).le(TaskEntity::getNextRunAt, now).orderByAsc(TaskEntity::getId))) {
             try {
-                RunEntity run = enqueue(task.getSourceId(), task.getRangeCode(), task.getUpstreamCategoryId(), task.getId());
+                RunEntity run = enqueue(task.getSourceId(), task.getRangeCode(), task.getUpstreamCategoryId(), task.getId(), null);
                 int hours = "DAY".equals(task.getRangeCode()) ? 24 : "WEEK".equals(task.getRangeCode()) ? 168 : 0;
                 if (hours > 0 && task.getNextRunAt().isBefore(now.minusHours(hours))) {
                     run.setWarning("停机时间超过采集窗口，请使用周或全量补采");

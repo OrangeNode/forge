@@ -42,6 +42,11 @@ public class RunEntity {
     private String upstreamCategoryId;
 
     /**
+     * 勾选采集的源站影片编号，逗号分隔；为空表示按范围与分类采集。
+     */
+    private String upstreamIds;
+
+    /**
      * 业务处理状态。
      */
     private String status;

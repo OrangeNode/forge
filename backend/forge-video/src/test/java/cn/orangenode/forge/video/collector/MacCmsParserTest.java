@@ -113,6 +113,34 @@ class MacCmsParserTest {
     }
 
     /**
+     * 搜索与勾选采集链接替换站点自带的保留参数，关键词编码、编号保留逗号。
+     */
+    @Test
+    void buildsSearchAndSelectedDetailUrls() {
+        MacCmsClient client = new MacCmsClient(new VideoProperties());
+        String base = "https://example.com/api.php?key=A%2FB&wd=old&ids=9";
+        assertThat(client.searchUrl(base, "交锋 2026", 2)).endsWith("key=A%2FB&ac=detail&pg=2&wd=%E4%BA%A4%E9%94%8B+2026");
+        assertThat(client.detailUrl(base, "155981,78730", 1)).endsWith("key=A%2FB&ac=detail&pg=1&ids=155981,78730");
+    }
+
+    /**
+     * 搜索结果兼容字符串页码，带出分类名称与命中总数，单条异常不影响其他条目。
+     */
+    @Test
+    void parsesSearchResultsWithTypeName() {
+        SearchedPage page = parser.search("""
+                {"code":1,"page":"1","pagecount":2,"total":"25","list":[
+                {"vod_id":155981,"vod_name":"交锋2026","vod_year":"2026","type_name":"国产剧","vod_remarks":"已完结"},
+                {"vod_name":"缺编号"}]}
+                """, "Asia/Shanghai");
+        assertThat(page.pageCount()).isEqualTo(2);
+        assertThat(page.total()).isEqualTo(25);
+        assertThat(page.videos().getFirst().typeName()).isEqualTo("国产剧");
+        assertThat(page.videos().getFirst().video().year()).isEqualTo(2026);
+        assertThat(page.videos().get(1).video().upstreamId()).isNull();
+    }
+
+    /**
      * 代取海报与采集共用地址校验，内网、本机与非 HTTP 地址在发起请求前即被拒绝。
      */
     @Test

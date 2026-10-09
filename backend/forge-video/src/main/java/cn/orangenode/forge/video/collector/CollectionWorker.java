@@ -133,7 +133,9 @@ public class CollectionWorker {
                     collections.finish(id, "FAILED", "资源站已停用");
                     return;
                 }
-                String url = client.url(source.apiUrl(), "detail", run.rangeCode(), run.upstreamCategoryId(), run.nextPage());
+                String url = run.upstreamIds() != null
+                        ? client.detailUrl(source.apiUrl(), run.upstreamIds(), run.nextPage())
+                        : client.url(source.apiUrl(), "detail", run.rangeCode(), run.upstreamCategoryId(), run.nextPage());
                 CollectedPage page = parser.page(client.get(url), source.sourceZone());
                 if (page.page() != run.nextPage()) {
                     throw new IllegalStateException("资源站返回页码与请求不一致");

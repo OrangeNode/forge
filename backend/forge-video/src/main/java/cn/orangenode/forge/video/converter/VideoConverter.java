@@ -75,6 +75,7 @@ public class VideoConverter {
                 VideoValues.textId(e.getSourceId()), e.getRangeCode(), e.getUpstreamCategoryId(), e.getStatus(),
                 e.getNextPage(), e.getPageCount(), e.getProcessed(), e.getInserted(), e.getUpdated(),
                 e.getPending(), e.getSkipped(), e.getErrorMessage(), e.getWarning(),
-                VideoValues.time(e.getCreatedAt()), VideoValues.time(e.getStartedAt()), VideoValues.time(e.getFinishedAt()));
+                VideoValues.time(e.getCreatedAt()), VideoValues.time(e.getStartedAt()), VideoValues.time(e.getFinishedAt()),
+                e.getUpstreamIds());
     }
 }

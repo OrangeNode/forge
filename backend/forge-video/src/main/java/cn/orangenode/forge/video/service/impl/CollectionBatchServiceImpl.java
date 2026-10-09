@@ -41,8 +41,14 @@ public class CollectionBatchServiceImpl implements CollectionBatchService {
         return execute(ids, id -> {
             RunEntity run = store.requireRun(id);
             switch (request.action()) {
-                case "COLLECT" -> collections.collect(new CollectRequest(run.getSourceId().toString(),
-                        run.getRangeCode(), run.getUpstreamCategoryId()));
+                case "COLLECT" -> {
+                    if (run.getUpstreamIds() != null) {
+                        collections.collectSelected(run.getSourceId(), VideoValues.fields(run.getUpstreamIds()));
+                    } else {
+                        collections.collect(new CollectRequest(run.getSourceId().toString(),
+                                run.getRangeCode(), run.getUpstreamCategoryId()));
+                    }
+                }
                 case "STOP" -> collections.stop(id);
                 case "DELETE" -> {
                     RunEntity locked = store.runs.selectOne(Wrappers.<RunEntity>lambdaQuery()

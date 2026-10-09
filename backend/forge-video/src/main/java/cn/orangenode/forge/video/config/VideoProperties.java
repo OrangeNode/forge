@@ -37,6 +37,16 @@ public class VideoProperties {
     private int maxConcurrencyLimit;
     @Min(1)
     private int logRetentionDays;
+    /**
+     * 全站搜索等待全部资源站返回的最长秒数，超时的资源站在结果中标出。
+     */
+    @Min(1)
+    private int searchTimeoutSeconds;
+    /**
+     * 一次勾选采集最多提交的影片条数。
+     */
+    @Min(1)
+    private int searchCollectMaxItems;
     @Min(1)
     private int appRateLimit;
     @Min(1)

@@ -134,7 +134,8 @@ const columns: DataTableColumns<Source> = [
       default: () => `确认全量采集「${row.name}」？全量可能需要较长时间。`,
     }),
   ]) : '—' },
-  { title: '操作', key: 'actions', width: 230, render: row => h(NSpace, {}, () => [
+  { title: '操作', key: 'actions', width: 290, render: row => h(NSpace, {}, () => [
+    session.hasPermission('video:search:view') ? h(NButton, { size: 'small', disabled: !row.enabled, onClick: () => router.push({ name: 'video-search', query: { sourceId: row.id } }) }, () => '搜索') : null,
     h(NButton, { size: 'small', onClick: () => openMapping(row) }, () => '分类映射'),
     session.hasPermission('video:source:edit') ? h(NButton, { size: 'small', onClick: () => edit(row) }, () => '编辑') : null,
     session.hasPermission('video:source:delete') ? h(NPopconfirm, { onPositiveClick: () => remove(row.id) }, { trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, () => '删除'), default: () => '确认删除未引用的资源站？' }) : null,
@@ -209,7 +210,7 @@ onMounted(load)
           :data="rows"
           :loading="busy"
           :row-key="row => row.id"
-          :scroll-x="980"
+          :scroll-x="1040"
         />
       </div>
     </NCard>

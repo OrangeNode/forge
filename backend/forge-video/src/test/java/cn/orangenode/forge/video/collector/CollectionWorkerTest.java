@@ -134,7 +134,7 @@ class CollectionWorkerTest {
      */
     private RunResponse run(String id, int next, int total, String sourceId) {
         return new RunResponse(id, null, sourceId, "DAY", null, "RUNNING", next, total,
-                0, 0, 0, 0, 0, null, null, null, null, null);
+                0, 0, 0, 0, 0, null, null, null, null, null, null);
     }
 
     /**
@@ -142,6 +142,6 @@ class CollectionWorkerTest {
      */
     private RunResponse run(String id, int next, int total) {
         return new RunResponse(id, null, "1", "DAY", null, "RUNNING", next, total,
-                0, 0, 0, 0, 0, null, null, null, null, null);
+                0, 0, 0, 0, 0, null, null, null, null, null, null);
     }
 }

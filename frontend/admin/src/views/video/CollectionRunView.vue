@@ -183,7 +183,9 @@ const columns: DataTableColumns<Run> = [
   { type: 'selection', disabled: () => !session.hasPermission('video:run:operate') },
   { title: '运行编号', key: 'id', width: 100 },
   { title: '来源编号', key: 'sourceId', width: 100 },
-  { title: '范围', key: 'rangeCode', width: 130, render: row => ranges.find(r => r.value === row.rangeCode)?.label ?? row.rangeCode },
+  { title: '范围', key: 'rangeCode', width: 130, render: row => row.upstreamIds
+    ? `搜索勾选 ${row.upstreamIds.split(',').length} 部`
+    : ranges.find(r => r.value === row.rangeCode)?.label ?? row.rangeCode },
   { title: '状态', key: 'status', width: 110, render: row => statusLabels[row.status] ?? row.status },
   { title: '页进度', key: 'nextPage', width: 110, render: row => Math.max(0, row.nextPage - 1) + ' / ' + row.pageCount },
   { title: '处理 / 新增 / 更新 / 存疑 / 跳过', key: 'processed', minWidth: 250, render: row => [row.processed, row.inserted, row.updated, row.pending, row.skipped].join(' / ') },

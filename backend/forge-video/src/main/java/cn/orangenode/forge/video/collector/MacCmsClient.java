@@ -61,16 +61,7 @@ public class MacCmsClient {
      * 构造规范 URL，替换采集保留参数而保留站点其他查询参数。
      */
     public String url(String base, String action, String range, String category, int page) {
-        URI uri = URI.create(base);
-        List<String> params = new ArrayList<>();
-        if (uri.getRawQuery() != null) {
-            for (String part : uri.getRawQuery().split("&")) {
-                String key = java.net.URLDecoder.decode(part.split("=", 2)[0], StandardCharsets.UTF_8);
-                if (!List.of("ac", "h", "t", "pg", "ids", "at").contains(key)) {
-                    params.add(part);
-                }
-            }
-        }
+        List<String> params = siteParams(base);
         params.add("ac=" + action);
         params.add("pg=" + page);
         if ("DAY".equals(range)) {
@@ -83,8 +74,53 @@ public class MacCmsClient {
         if (category != null && !category.isBlank()) {
             params.add("t=" + URLEncoder.encode(category, StandardCharsets.UTF_8));
         }
-        String prefix = base.split("[?#]", 2)[0];
-        return prefix + "?" + String.join("&", params);
+        return join(base, params);
+    }
+
+    /**
+     * 构造按源站影片编号请求详情的 URL，用于勾选采集；编号以逗号分隔，按页返回。
+     */
+    public String detailUrl(String base, String upstreamIds, int page) {
+        List<String> params = siteParams(base);
+        params.add("ac=detail");
+        params.add("pg=" + page);
+        params.add("ids=" + URLEncoder.encode(upstreamIds, StandardCharsets.UTF_8).replace("%2C", ","));
+        return join(base, params);
+    }
+
+    /**
+     * 构造按关键词搜索详情的 URL，详情接口才带年份、分类名与播放地址。
+     */
+    public String searchUrl(String base, String keyword, int page) {
+        List<String> params = siteParams(base);
+        params.add("ac=detail");
+        params.add("pg=" + page);
+        params.add("wd=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8));
+        return join(base, params);
+    }
+
+    /**
+     * 保留站点地址自带的查询参数，去掉本程序会重新设置的采集参数。
+     */
+    private List<String> siteParams(String base) {
+        URI uri = URI.create(base);
+        List<String> params = new ArrayList<>();
+        if (uri.getRawQuery() != null) {
+            for (String part : uri.getRawQuery().split("&")) {
+                String key = java.net.URLDecoder.decode(part.split("=", 2)[0], StandardCharsets.UTF_8);
+                if (!List.of("ac", "h", "t", "pg", "ids", "at", "wd").contains(key)) {
+                    params.add(part);
+                }
+            }
+        }
+        return params;
+    }
+
+    /**
+     * 把参数拼回去掉查询与锚点的站点地址。
+     */
+    private String join(String base, List<String> params) {
+        return base.split("[?#]", 2)[0] + "?" + String.join("&", params);
     }
 
     /**

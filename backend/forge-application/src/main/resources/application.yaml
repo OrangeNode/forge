@@ -213,6 +213,9 @@ forge:
     scan-interval-seconds: ${FORGE_VIDEO_SCAN_INTERVAL:5}
     # 后台“最大并发采集数”可设置的上限（不同资源站同时采集；同一资源站始终按页顺序采）。
     max-concurrency-limit: ${FORGE_VIDEO_MAX_CONCURRENCY_LIMIT:8}
+    # 资源搜索：等待资源站返回的最长秒数（须短于后台默认请求超时 15 秒，超时的站只在结果中标出），一次勾选采集的最大条数。
+    search-timeout-seconds: ${FORGE_VIDEO_SEARCH_TIMEOUT:12}
+    search-collect-max-items: ${FORGE_VIDEO_SEARCH_COLLECT_MAX_ITEMS:100}
     cleanup-interval-hours: ${FORGE_VIDEO_CLEANUP_INTERVAL:24}
     log-retention-days: ${FORGE_VIDEO_LOG_RETENTION:30}
     # 每个连接地址的公开接口窗口秒数与最大请求数。
