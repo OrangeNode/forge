@@ -93,7 +93,7 @@ public class MemberConverter {
     }
 
     /**
-     * 转换后台激活码列表项：激活码每 4 位加短横线，未使用且已过有效期显示为 EXPIRED。
+     * 转换后台激活码列表项：激活码每 4 位加短横线，旧数据未使用且已过截止时间显示为 EXPIRED。
      */
     public MemberActivationCodeResponse activation(MemberActivationCodeEntity entity) {
         String status = entity.getStatus();
@@ -102,9 +102,9 @@ public class MemberConverter {
             status = MemberActivationStatus.EXPIRED.name();
         }
         return new MemberActivationCodeResponse(MemberValues.textId(entity.getId()), formatCode(entity.getCode()), status,
-                MemberValues.time(entity.getExpireAt()), entity.getRemark(), MemberValues.textId(entity.getUsedMemberId()),
-                entity.getUsedUsername(), MemberValues.time(entity.getUsedAt()), entity.getUsedIp(),
-                MemberValues.time(entity.getRevokedAt()), MemberValues.time(entity.getCreatedAt()));
+                entity.getVipDays(), MemberValues.time(entity.getExpireAt()), entity.getRemark(),
+                MemberValues.textId(entity.getUsedMemberId()), entity.getUsedUsername(), MemberValues.time(entity.getUsedAt()),
+                entity.getUsedIp(), MemberValues.time(entity.getRevokedAt()), MemberValues.time(entity.getCreatedAt()));
     }
 
     /**

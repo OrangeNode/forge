@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue'
-import { NAlert, NButton, NCard, NDataTable, NDatePicker, NForm, NFormItem, NInput, NInputNumber, NModal, NPopconfirm, NSelect, NSpace, NTag, type DataTableColumns } from 'naive-ui'
-import { activationStatusLabels, formatTime, memberApi, type MemberActivationCode } from '@/api/member'
+import { NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NInputNumber, NModal, NPopconfirm, NRadioButton, NRadioGroup, NSelect, NSpace, NTag, type DataTableColumns } from 'naive-ui'
+import { activationDurationOptions, activationStatusLabels, formatDuration, formatTime, memberApi, type MemberActivationCode } from '@/api/member'
 import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
@@ -18,7 +18,7 @@ const pagination = reactive({ page: 1, pageSize: videoPageSize, itemCount: 0, sh
 const statusOptions = Object.entries(activationStatusLabels).map(([value, label]) => ({ label, value }))
 const statusTags: Record<string, 'success' | 'info' | 'warning' | 'default'> = { UNUSED: 'success', USED: 'info', EXPIRED: 'warning', REVOKED: 'default' }
 const createShow = ref(false)
-const createForm = reactive<{ count: number | null; expireAt: number | null; remark: string }>({ count: 10, expireAt: null, remark: '' })
+const createForm = reactive<{ count: number | null; preset: number | 'custom'; customDays: number | null; remark: string }>({ count: 10, preset: 30, customDays: 30, remark: '' })
 const created = ref<MemberActivationCode[]>([])
 
 /**
@@ -45,10 +45,18 @@ function search() {
  */
 function openCreate() {
   createForm.count = 10
-  createForm.expireAt = null
+  createForm.preset = 30
+  createForm.customDays = 30
   createForm.remark = ''
   created.value = []
   createShow.value = true
+}
+
+/**
+ * 当前选择的会员天数：预设时长或自定义天数。
+ */
+function createVipDays(): number | null {
+  return createForm.preset === 'custom' ? createForm.customDays : createForm.preset
 }
 
 /**
@@ -57,7 +65,7 @@ function openCreate() {
 async function create() {
   let result: MemberActivationCode[] = []
   const ok = await act(async () => {
-    result = await memberApi.createActivationCodes({ count: createForm.count ?? 0, expireAt: createForm.expireAt ? new Date(createForm.expireAt).toISOString() : undefined, remark: createForm.remark || undefined })
+    result = await memberApi.createActivationCodes({ count: createForm.count ?? 0, vipDays: createVipDays() ?? 0, remark: createForm.remark || undefined })
   }, '激活码已生成')
   if (ok) {
     created.value = result
@@ -85,7 +93,7 @@ const columns: DataTableColumns<MemberActivationCode> = [
   { title: '状态', key: 'status', width: 90, render: row => h(NTag, { type: statusTags[row.status] ?? 'default', bordered: false, size: 'small' }, () => activationStatusLabels[row.status] ?? row.status) },
   { title: '使用账号', key: 'usedUsername', minWidth: 140, render: row => row.usedUsername || '—' },
   { title: '使用时间', key: 'usedAt', width: 170, render: row => formatTime(row.usedAt) },
-  { title: '有效期至', key: 'expireAt', width: 170, render: row => row.expireAt ? formatTime(row.expireAt) : '长期有效' },
+  { title: '会员时长', key: 'vipDays', width: 110, render: row => formatDuration(row.vipDays) },
   { title: '备注', key: 'remark', minWidth: 160, ellipsis: { tooltip: true }, render: row => row.remark || '—' },
   { title: '生成时间', key: 'createdAt', width: 170, render: row => formatTime(row.createdAt) },
   { title: '操作', key: 'actions', width: 130, fixed: 'right', render: row => h(NSpace, { size: 4, wrap: false }, () => [
@@ -106,7 +114,7 @@ onMounted(load)
     >
       <PageHeader
         title="激活码"
-        description="开放注册时，新用户必须填写一个激活码才能注册；每个码只能注册一次，与 VIP 无关"
+        description="开放注册时，新用户必须填写激活码才能注册；每个码只能注册一次，注册成功后从当天起开通该码的会员时长"
         icon="key"
       >
         <template #actions>
@@ -195,12 +203,35 @@ onMounted(load)
             :max="500"
           />
         </NFormItem>
-        <NFormItem label="有效期至（清空表示长期有效）">
-          <NDatePicker
-            v-model:value="createForm.expireAt"
-            type="datetime"
-            clearable
-          />
+        <NFormItem
+          label="会员时长（从用户注册成功时开始计算）"
+          :feedback="errors.vipDays"
+          :validation-status="errors.vipDays ? 'error' : undefined"
+        >
+          <NSpace vertical>
+            <NRadioGroup v-model:value="createForm.preset">
+              <NRadioButton
+                v-for="option in activationDurationOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </NRadioButton>
+              <NRadioButton value="custom">
+                自定义
+              </NRadioButton>
+            </NRadioGroup>
+            <NInputNumber
+              v-if="createForm.preset === 'custom'"
+              v-model:value="createForm.customDays"
+              :min="1"
+              :max="3650"
+            >
+              <template #suffix>
+                天
+              </template>
+            </NInputNumber>
+          </NSpace>
         </NFormItem>
         <NFormItem label="备注">
           <NInput
@@ -215,7 +246,7 @@ onMounted(load)
           type="success"
           :bordered="false"
         >
-          已生成 {{ created.length }} 个激活码，可以复制后发给用户。之后也能在列表里按备注查到。
+          已生成 {{ created.length }} 个{{ formatDuration(created[0]?.vipDays) }}激活码，可以复制后发给用户。会员时长从用户注册成功时开始计算，之后也能在列表里按备注查到。
         </NAlert>
         <pre class="activation-created">{{ created.map(item => item.code).join('\n') }}</pre>
       </template>
@@ -228,7 +259,7 @@ onMounted(load)
             <NButton
               type="primary"
               :loading="busy"
-              :disabled="!createForm.count"
+              :disabled="!createForm.count || !createVipDays()"
               @click="create"
             >
               生成

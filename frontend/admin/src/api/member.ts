@@ -36,6 +36,25 @@ export const memberApi = {
   revokeActivationCode: (id: string) => request.post<MemberActivationCode>(`${base}/activation-codes/${id}/revoke`),
 }
 
+/** 激活码常用会员时长（天），会员时间从用户注册成功时开始计算。 */
+export const activationDurationOptions = [
+  { label: '1 个月', value: 30 },
+  { label: '3 个月', value: 90 },
+  { label: '半年', value: 180 },
+  { label: '一年', value: 365 },
+]
+
+/**
+ * 把激活码会员天数显示为常用时长名称，其他天数显示为“N 天”。
+ *
+ * @param days 会员天数
+ * @returns 时长文本，空值显示为“不含会员”
+ */
+export function formatDuration(days?: number | null): string {
+  if (!days) return '不含会员'
+  return activationDurationOptions.find(option => option.value === days)?.label ?? `${days} 天`
+}
+
 /** 激活码状态中文名。 */
 export const activationStatusLabels: Record<string, string> = { UNUSED: '未使用', USED: '已使用', EXPIRED: '已过期', REVOKED: '已作废' }
 

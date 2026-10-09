@@ -2301,8 +2301,8 @@ export interface components {
         MemberActivationCreateRequest: {
             /** Format: int32 */
             count: number;
-            /** Format: date-time */
-            expireAt?: string;
+            /** Format: int32 */
+            vipDays: number;
             remark?: string;
         };
         ApiResponseListMemberActivationCodeResponse: {
@@ -2316,6 +2316,8 @@ export interface components {
             id?: string;
             code?: string;
             status?: string;
+            /** Format: int32 */
+            vipDays?: number;
             expireAt?: string;
             remark?: string;
             usedMemberId?: string;

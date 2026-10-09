@@ -94,7 +94,7 @@ public class MemberActivationServiceImpl implements MemberActivationService {
     }
 
     /**
-     * 批量生成：数量不超过配置上限，有效期必须晚于当前时间；随机码偶遇重复时换一个重试。
+     * 批量生成：数量不超过配置上限，每个码带会员天数，从注册时刻起算；随机码偶遇重复时换一个重试。
      */
     @Override
     @Transactional
@@ -104,17 +104,13 @@ public class MemberActivationServiceImpl implements MemberActivationService {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "一次最多生成 " + max + " 个激活码");
         }
         LocalDateTime now = MemberValues.now();
-        LocalDateTime expireAt = MemberValues.utc(request.expireAt());
-        if (expireAt != null && !expireAt.isAfter(now)) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "有效期必须晚于当前时间");
-        }
         String remark = MemberValues.clean(request.remark());
         Long operator = currentAdminId();
         List<MemberActivationCodeResponse> created = new ArrayList<>(request.count());
         for (int i = 0; i < request.count(); i++) {
             MemberActivationCodeEntity entity = new MemberActivationCodeEntity();
             entity.setStatus(MemberActivationStatus.UNUSED.name());
-            entity.setExpireAt(expireAt);
+            entity.setVipDays(request.vipDays());
             entity.setRemark(remark);
             entity.setCreatedBy(operator);
             entity.setCreatedAt(now);
@@ -122,7 +118,7 @@ public class MemberActivationServiceImpl implements MemberActivationService {
             insertWithFreshCode(entity);
             created.add(converter.activation(entity));
         }
-        log.info("生成注册激活码 {} 个，管理员 ID={}，备注={}", request.count(), operator, remark);
+        log.info("生成注册激活码 {} 个，会员 {} 天，管理员 ID={}，备注={}", request.count(), request.vipDays(), operator, remark);
         return created;
     }
 
@@ -185,10 +181,10 @@ public class MemberActivationServiceImpl implements MemberActivationService {
     }
 
     /**
-     * 条件更新核销；没有更新到行说明刚被他人使用、作废或到期，返回 409 让注册事务回滚。
+     * 条件更新核销并返回该码的会员天数；没有更新到行说明刚被他人使用、作废或到期，返回 409 让注册事务回滚。
      */
     @Override
-    public void consume(Long codeId, Long memberId, String username, String clientIp) {
+    public Integer consume(Long codeId, Long memberId, String username, String clientIp) {
         LocalDateTime now = MemberValues.now();
         int changed = codes.update(null, Wrappers.<MemberActivationCodeEntity>lambdaUpdate()
                 .set(MemberActivationCodeEntity::getStatus, MemberActivationStatus.USED.name())
@@ -204,6 +200,7 @@ public class MemberActivationServiceImpl implements MemberActivationService {
         if (changed == 0) {
             throw new BusinessException(ErrorCode.CONFLICT, "激活码已被使用");
         }
+        return codes.selectById(codeId).getVipDays();
     }
 
     /**

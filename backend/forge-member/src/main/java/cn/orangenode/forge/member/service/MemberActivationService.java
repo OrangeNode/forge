@@ -50,12 +50,13 @@ public interface MemberActivationService {
     Long check(String code, String clientIp);
 
     /**
-     * 在注册事务内核销激活码；并发下已被他人使用时抛出 409，调用方事务随之回滚。
+     * 在注册事务内核销激活码并返回会员天数；并发下已被他人使用时抛出 409，调用方事务随之回滚。
      *
      * @param codeId   激活码记录 ID
      * @param memberId 新注册的用户 ID
      * @param username 新注册的用户名
      * @param clientIp 来源地址
+     * @return 该码的 VIP 天数，空表示注册后不开通
      */
-    void consume(Long codeId, Long memberId, String username, String clientIp);
+    Integer consume(Long codeId, Long memberId, String username, String clientIp);
 }

@@ -26,9 +26,11 @@ import cn.orangenode.forge.member.entity.MemberUserEntity;
 import cn.orangenode.forge.member.mapper.MemberUserMapper;
 import cn.orangenode.forge.member.request.MemberLoginRequest;
 import cn.orangenode.forge.member.request.MemberRegisterRequest;
+import cn.orangenode.forge.member.request.MemberVipExtendRequest;
 import cn.orangenode.forge.member.response.MemberLoginResponse;
 import cn.orangenode.forge.member.service.MemberActivationService;
 import cn.orangenode.forge.member.service.MemberAuthService;
+import cn.orangenode.forge.member.service.MemberManagementService;
 import cn.orangenode.forge.member.service.MemberSessionService;
 import cn.orangenode.forge.member.support.MemberStatus;
 import cn.orangenode.forge.member.support.MemberValues;
@@ -47,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class MemberAuthServiceImpl implements MemberAuthService {
     private static final String ATTEMPT_PREFIX = "member:";
+    private static final String SOURCE_SCOPE = "member";
     private static final String REGISTER_IP_KEY = "member:register-ip:";
     private static final String TOKEN_TYPE = "Bearer";
     private static final String BAD_CREDENTIALS = "用户名或密码错误";
@@ -60,9 +63,10 @@ public class MemberAuthServiceImpl implements MemberAuthService {
     private final ForgeRedisTemplate redis;
     private final MemberProperties properties;
     private final MemberActivationService activations;
+    private final MemberManagementService members;
 
     /**
-     * 检查注册开关、激活码、用户名占用与来源地址每日次数后创建账号、核销激活码并登录当前设备；
+     * 检查注册开关、激活码、用户名占用与来源地址每日次数后创建账号、核销激活码、按激活码的会员天数从现在起开通 VIP 并登录当前设备；
      * 并发重复注册由唯一键兜底返回 409，激活码被并发抢用时核销失败返回 409 并回滚账号。
      */
     @Override
@@ -97,7 +101,10 @@ public class MemberAuthServiceImpl implements MemberAuthService {
         } catch (DuplicateKeyException duplicate) {
             throw new BusinessException(ErrorCode.CONFLICT, "该用户名已被注册");
         }
-        activations.consume(codeId, user.getId(), username, clientIp);
+        Integer vipDays = activations.consume(codeId, user.getId(), username, clientIp);
+        if (vipDays != null) {
+            members.extendVip(user.getId(), new MemberVipExtendRequest(vipDays, "激活码注册开通 " + vipDays + " 天"));
+        }
         log.info("普通用户注册成功，用户 ID={}，用户名={}，激活码 ID={}", user.getId(), username, codeId);
         MemberToken token = sessions.open(user.getId(), request.deviceCode(), request.deviceName().strip(), clientIp);
         return response(token, users.selectById(user.getId()));
@@ -111,9 +118,11 @@ public class MemberAuthServiceImpl implements MemberAuthService {
     public MemberLoginResponse login(MemberLoginRequest request, String clientIp) {
         String username = MemberValues.username(request.username());
         String attemptKey = ATTEMPT_PREFIX + (username == null ? "" : username.toLowerCase(Locale.ROOT));
+        attemptGuard.assertSourceAllowed(SOURCE_SCOPE, clientIp);
         attemptGuard.assertAllowed(attemptKey);
         MemberUserEntity user = findByUsername(username);
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            attemptGuard.recordSourceFailure(SOURCE_SCOPE, clientIp);
             attemptGuard.recordFailure(attemptKey);
             throw new BusinessException(ErrorCode.UNAUTHORIZED, BAD_CREDENTIALS);
         }

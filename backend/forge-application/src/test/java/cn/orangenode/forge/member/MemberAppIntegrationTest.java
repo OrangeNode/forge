@@ -102,6 +102,7 @@ class MemberAppIntegrationTest {
         migrate("db/migration/member/V20261007120000__member_tables.sql");
         migrate("db/migration/member/V20261008150000__member_username.sql");
         migrate("db/migration/member/V20261009090000__member_activation_code.sql");
+        migrate("db/migration/member/V20261009100000__member_activation_vip_days.sql");
         migrate("db/migration/app/V20261007121000__app_tables.sql");
         migrate("db/migration/app/V20261008170000__app_ads_and_release.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
@@ -161,12 +162,12 @@ class MemberAppIntegrationTest {
     }
 
     /**
-     * 注册必须使用激活码：忽略大小写与短横线；一码只能注册一次；不正确、已作废、已过期都拒绝；
+     * 注册必须使用激活码：忽略大小写与短横线；一码只能注册一次；注册成功从现在起开通该码的会员天数；不正确、已作废、已过期都拒绝；
      * 列表可看到使用者，按状态筛选；作废只对未使用的码生效；单次生成数量受限。
      */
     @Test
     void registersOnlyWithValidActivationCode() {
-        var generated = activations.create(new MemberActivationCreateRequest(3, null, "第一批"));
+        var generated = activations.create(new MemberActivationCreateRequest(3, 30, "第一批"));
         assertThat(generated).hasSize(3);
         String code = generated.get(0).code();
         assertThat(code).matches("^[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}$");
@@ -177,12 +178,17 @@ class MemberAppIntegrationTest {
                 .isEqualTo("激活码不正确");
         JsonNode ok = registerWithCode("code_user", "device-k1", " " + code.toLowerCase().replace("-", "") + " ");
         assertThat(ok.path("code").asInt()).isZero();
+        assertThat(ok.path("data").path("profile").path("vipActive").asBoolean()).isTrue();
+        java.time.Instant vipUntil = java.time.Instant.parse(ok.path("data").path("profile").path("vipExpireAt").asText());
+        assertThat(vipUntil).isBetween(java.time.Instant.now().plus(java.time.Duration.ofDays(30)).minusSeconds(120),
+                java.time.Instant.now().plus(java.time.Duration.ofDays(30)));
         assertThat(registerWithCode("code_user2", "device-k2", code).path("message").asText()).isEqualTo("激活码已被使用");
         var used = activations.page(1, 10, "code_user", "USED", null);
         assertThat(used.total()).isEqualTo(1);
         assertThat(used.records().get(0).code()).isEqualTo(code);
         assertThat(used.records().get(0).usedUsername()).isEqualTo("code_user");
         assertThat(used.records().get(0).remark()).isEqualTo("第一批");
+        assertThat(used.records().get(0).vipDays()).isEqualTo(30);
         assertThat(activations.page(1, 10, null, "UNUSED", "第一").total()).isEqualTo(2);
         Long usedId = Long.valueOf(used.records().get(0).id());
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.revoke(usedId))
@@ -200,10 +206,7 @@ class MemberAppIntegrationTest {
                 .isEqualTo("激活码已过期");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM member_user", Integer.class)).isEqualTo(1);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.create(
-                new MemberActivationCreateRequest(501, null, null))).hasMessageContaining("一次最多生成 500 个");
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.create(
-                new MemberActivationCreateRequest(1, java.time.Instant.now().minusSeconds(60), null)))
-                .hasMessageContaining("有效期必须晚于当前时间");
+                new MemberActivationCreateRequest(501, 30, null))).hasMessageContaining("一次最多生成 500 个");
     }
 
     /**
@@ -445,7 +448,7 @@ class MemberAppIntegrationTest {
     }
 
     /**
-     * 生成一个长期有效的激活码。
+     * 生成一个不带会员时长的激活码（注册后不开通 VIP，便于验证 VIP 相关规则）。
      */
     private String freshCode() {
         return activations.create(new MemberActivationCreateRequest(1, null, null)).get(0).code();

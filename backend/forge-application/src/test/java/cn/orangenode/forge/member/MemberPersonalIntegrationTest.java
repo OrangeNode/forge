@@ -80,6 +80,7 @@ class MemberPersonalIntegrationTest {
         migrate("db/migration/member/V20261008120000__member_personal_data.sql");
         migrate("db/migration/member/V20261008150000__member_username.sql");
         migrate("db/migration/member/V20261009090000__member_activation_code.sql");
+        migrate("db/migration/member/V20261009100000__member_activation_vip_days.sql");
         migrate("db/migration/app/V20261007121000__app_tables.sql");
         migrate("db/migration/app/V20261008120100__app_feedback.sql");
         migrate("db/migration/app/V20261008150100__app_feedback_username.sql");

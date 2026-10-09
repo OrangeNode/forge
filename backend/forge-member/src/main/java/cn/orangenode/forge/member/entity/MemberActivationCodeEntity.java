@@ -33,7 +33,12 @@ public class MemberActivationCodeEntity {
     private String status;
 
     /**
-     * 有效期截止时间，UTC，空表示长期有效。
+     * 注册成功后开通的 VIP 天数，从注册时刻起算；空表示不开通。
+     */
+    private Integer vipDays;
+
+    /**
+     * 旧数据的使用截止时间，UTC，空表示长期有效；新生成的码不再设置。
      */
     private LocalDateTime expireAt;
 
