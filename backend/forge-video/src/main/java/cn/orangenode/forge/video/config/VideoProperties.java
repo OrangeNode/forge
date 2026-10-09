@@ -30,6 +30,11 @@ public class VideoProperties {
     private int maxPosterBytes;
     @Min(1)
     private int scanIntervalSeconds;
+    /**
+     * 后台“最大并发采集数”允许设置的上限，防止压垮数据库与本机网络。
+     */
+    @Min(1)
+    private int maxConcurrencyLimit;
     @Min(1)
     private int logRetentionDays;
     @Min(1)

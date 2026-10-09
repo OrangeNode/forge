@@ -101,6 +101,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/app/v1/member/profile/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 激活码续费
+         * @description 时长接在当前 VIP 到期时间之后，已过期从现在起算；激活码不正确、已使用、已作废或不含会员时长 400；同一来源地址当天输错过多 429；并发抢用同一码时后到者 409
+         */
+        post: operations["redeem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/app/v1/member/devices/{id}/offline": {
         parameters: {
             query?: never;
@@ -457,6 +477,9 @@ export interface components {
             positionSeconds: number;
             /** Format: int32 */
             durationSeconds: number;
+        };
+        MemberActivationRedeemRequest: {
+            activationCode: string;
         };
         MemberRegisterRequest: {
             username: string;
@@ -961,6 +984,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    redeem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberActivationRedeemRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberProfileResponse"];
                 };
             };
         };

@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * 注册激活码，对应 {@code member_activation_code}；一码只能注册一次，与 VIP 无关。
+ * 激活码，对应 {@code member_activation_code}；一码只能使用一次，用于注册或已登录用户续费 VIP。
  */
 @Getter
 @Setter
@@ -66,6 +66,11 @@ public class MemberActivationCodeEntity {
      * 注册来源地址。
      */
     private String usedIp;
+
+    /**
+     * 用途 REGISTER/RENEW，未使用为空。
+     */
+    private String usedFor;
 
     /**
      * 作废时间，UTC。

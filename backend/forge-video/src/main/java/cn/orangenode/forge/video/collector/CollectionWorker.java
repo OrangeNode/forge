@@ -2,7 +2,7 @@ package cn.orangenode.forge.video.collector;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -15,12 +15,15 @@ import cn.orangenode.forge.video.response.RunResponse;
 import cn.orangenode.forge.video.response.SourceResponse;
 import cn.orangenode.forge.video.service.CollectionService;
 import cn.orangenode.forge.video.service.IngestService;
+import cn.orangenode.forge.video.service.SettingsService;
 import cn.orangenode.forge.video.service.SourceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 独立单线程采集执行器，调度线程只负责排队与唤醒。
+ * 采集执行器：不同资源站的运行并发执行，同时运行数不超过后台“最大并发采集数”；同一资源站同一时刻只有一个活动运行
+ * （排队时已保证），按页顺序采集，断点照常保存。网络请求与解析并发进行，入库在全局锁内逐页提交，
+ * 避免两个资源站同时写入同名影片时互相看不到对方未提交的数据而重复建片。
  */
 @Slf4j
 @Component
@@ -33,8 +36,11 @@ public class CollectionWorker {
     private final MacCmsClient client;
     private final MacCmsParser parser;
     private final VideoProperties properties;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final AtomicBoolean busy = new AtomicBoolean();
+    private final SettingsService settings;
+    private final ExecutorService executor = Executors.newCachedThreadPool(Thread.ofPlatform()
+            .name("video-collect-", 1).factory());
+    private final AtomicInteger active = new AtomicInteger();
+    private final Object ingestLock = new Object();
     private volatile boolean ready;
 
     /**
@@ -56,27 +62,53 @@ public class CollectionWorker {
         }
         try {
             collections.dispatchDue();
-            if (busy.compareAndSet(false, true)) {
-                executor.submit(this::drain);
-            }
         } catch (RuntimeException failure) {
             log.error("采集调度失败，将在下次扫描重试", failure);
+        }
+        fill();
+    }
+
+    /**
+     * 按最大并发数从持久化队列领取运行并交给执行器；调低并发数时已在运行的不中断，只是暂不领取新的。
+     */
+    private synchronized void fill() {
+        if (!ready) {
+            return;
+        }
+        try {
+            int limit = Math.min(maxConcurrency(), properties.getMaxConcurrencyLimit());
+            while (active.get() < limit) {
+                Long id = collections.claim();
+                if (id == null) {
+                    return;
+                }
+                active.incrementAndGet();
+                executor.submit(() -> runAndRefill(id));
+            }
+        } catch (RuntimeException failure) {
+            log.error("采集队列读取失败，保留数据库断点", failure);
         }
     }
 
     /**
-     * 按顺序运行持久化队列，来源失败不阻塞后续来源。
+     * 读取后台设置的最大并发采集数，缺失时按 1 处理。
      */
-    private void drain() {
+    private int maxConcurrency() {
+        Integer value = settings.get().maxConcurrency();
+        return value == null || value < 1 ? 1 : value;
+    }
+
+    /**
+     * 执行一个运行，结束后立即补位领取下一个排队运行，不必等到下次扫描。
+     */
+    private void runAndRefill(Long id) {
         try {
-            Long id;
-            while (!Thread.currentThread().isInterrupted() && (id = collections.claim()) != null) {
-                execute(id);
-            }
-        } catch (RuntimeException failure) {
-            log.error("采集队列读取失败，保留数据库断点", failure);
+            execute(id);
         } finally {
-            busy.set(false);
+            active.decrementAndGet();
+        }
+        if (!Thread.currentThread().isInterrupted()) {
+            fill();
         }
     }
 
@@ -106,7 +138,9 @@ public class CollectionWorker {
                 if (page.page() != run.nextPage()) {
                     throw new IllegalStateException("资源站返回页码与请求不一致");
                 }
-                ingest.page(id, page);
+                synchronized (ingestLock) {
+                    ingest.page(id, page);
+                }
                 if (page.pageCount() == 0 || page.page() >= page.pageCount()) {
                     collections.finish(id, "COMPLETED", null);
                     return;

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import cn.orangenode.forge.core.exception.BusinessException;
 import cn.orangenode.forge.core.response.ErrorCode;
+import cn.orangenode.forge.video.config.VideoProperties;
 import cn.orangenode.forge.video.entity.SettingsEntity;
 import cn.orangenode.forge.video.request.SettingsRequest;
 import cn.orangenode.forge.video.response.SettingsResponse;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class SettingsServiceImpl implements SettingsService {
     private final VideoStore store;
     private final tools.jackson.databind.json.JsonMapper json;
+    private final VideoProperties properties;
     private static final Set<String> MATCH = Set.of("name", "year", "category", "director", "area", "language", "actors");
     private static final Set<String> UPDATE = Set.of("name", "category", "year", "area", "language", "director",
             "actors", "posterUrl", "description", "remarks", "declaredTotal", "ended");
@@ -36,7 +38,8 @@ public class SettingsServiceImpl implements SettingsService {
         }
         return new SettingsResponse(VideoValues.fields(e.getMatchFields()), VideoValues.fields(e.getUpdateFields()),
                 Boolean.TRUE.equals(e.getAutoPublish()), e.getMissingPolicies() == null ? java.util.Map.of()
-                        : json.readValue(e.getMissingPolicies(), new tools.jackson.core.type.TypeReference<java.util.Map<String, String>>() { }));
+                        : json.readValue(e.getMissingPolicies(), new tools.jackson.core.type.TypeReference<java.util.Map<String, String>>() { }),
+                e.getMaxConcurrency(), properties.getMaxConcurrencyLimit());
     }
 
     /**
@@ -55,6 +58,13 @@ public class SettingsServiceImpl implements SettingsService {
         if (!fields.containsAll(policies.keySet()) || !Set.of("PENDING", "SKIP", "ALLOW").containsAll(policies.values())
                 || Set.of("name", "category", "playUrls").stream().anyMatch(f -> "ALLOW".equals(policies.get(f)))) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "缺失信息策略不合法，名称、分类和播放地址不可允许为空");
+        }
+        Integer concurrency = request.maxConcurrency();
+        if (concurrency != null && concurrency > properties.getMaxConcurrencyLimit()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "最大并发采集数不能超过 " + properties.getMaxConcurrencyLimit());
+        }
+        if (concurrency != null) {
+            e.setMaxConcurrency(concurrency);
         }
         e.setMissingPolicies(json.writeValueAsString(policies));
         e.setMatchFields(String.join(",", request.matchFields().stream().distinct().toList()));

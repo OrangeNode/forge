@@ -1295,6 +1295,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/video/videos/{id}/poster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 影片海报
+         * @description 服务端代取影片海报图片；影片不存在 404，没有海报 400，海报站不可用 503
+         */
+        get: operations["poster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/video/sources/{id}/categories": {
         parameters: {
             query?: never;
@@ -1797,6 +1817,8 @@ export interface components {
             missingPolicies?: {
                 [key: string]: string;
             };
+            /** Format: int32 */
+            maxConcurrency?: number;
         };
         ApiResponseSettingsResponse: {
             /** Format: int32 */
@@ -1812,6 +1834,10 @@ export interface components {
             missingPolicies?: {
                 [key: string]: string;
             };
+            /** Format: int32 */
+            maxConcurrency?: number;
+            /** Format: int32 */
+            maxConcurrencyLimit?: number;
         };
         CategoryRequest: {
             parentId?: string;
@@ -2404,6 +2430,7 @@ export interface components {
             usedUsername?: string;
             usedAt?: string;
             usedIp?: string;
+            usedFor?: string;
             revokedAt?: string;
             createdAt?: string;
         };
@@ -5338,6 +5365,26 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageResponseVideoResponse"];
                 };
+            };
+        };
+    };
+    poster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

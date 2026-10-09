@@ -103,6 +103,7 @@ class VideoIntegrationTest {
             }
         }
         jdbc.execute("ALTER TABLE video_settings ADD COLUMN missing_policies TEXT NULL");
+        jdbc.execute("ALTER TABLE video_settings ADD COLUMN max_concurrency INT NOT NULL DEFAULT 3");
         jdbc.execute("ALTER TABLE video_video ADD COLUMN name_initials VARCHAR(255) NULL");
         jdbc.execute("ALTER TABLE video_task ADD COLUMN cron_expression VARCHAR(128) NOT NULL");
         for (String column : List.of("frequency", "interval_hours", "weekday", "time_of_day", "zone_id")) {
@@ -585,6 +586,22 @@ class VideoIntegrationTest {
         assertThat(count("pending")).isZero();
         collect(2, movie("2", "同名影片", 2026, "后续补齐"), 1, 1);
         assertThat(count("video")).isEqualTo(2);
+    }
+
+    /**
+     * 最大并发采集数默认 3，可在上限内修改，留空保持原值，超过配置上限 400。
+     */
+    @Test
+    void savesMaxConcurrencyWithinLimit() {
+        assertThat(settings.get().maxConcurrency()).isEqualTo(3);
+        assertThat(settings.get().maxConcurrencyLimit()).isEqualTo(properties.getMaxConcurrencyLimit());
+        List<String> match = List.of("name", "year", "category");
+        assertThat(settings.save(new cn.orangenode.forge.video.request.SettingsRequest(match, List.of(), true, null, 5))
+                .maxConcurrency()).isEqualTo(5);
+        assertThat(settings.save(new cn.orangenode.forge.video.request.SettingsRequest(match, List.of(), true))
+                .maxConcurrency()).isEqualTo(5);
+        assertThatThrownBy(() -> settings.save(new cn.orangenode.forge.video.request.SettingsRequest(match, List.of(),
+                true, null, properties.getMaxConcurrencyLimit() + 1))).hasMessageContaining("最大并发采集数不能超过");
     }
 
     /**

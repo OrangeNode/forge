@@ -13,19 +13,26 @@ import cn.orangenode.forge.framework.member.CurrentMember;
 import cn.orangenode.forge.member.converter.MemberConverter;
 import cn.orangenode.forge.member.entity.MemberUserEntity;
 import cn.orangenode.forge.member.mapper.MemberUserMapper;
+import cn.orangenode.forge.member.request.MemberActivationRedeemRequest;
 import cn.orangenode.forge.member.request.MemberPasswordChangeRequest;
 import cn.orangenode.forge.member.request.MemberProfileUpdateRequest;
+import cn.orangenode.forge.member.request.MemberVipExtendRequest;
 import cn.orangenode.forge.member.response.MemberProfileResponse;
+import cn.orangenode.forge.member.service.MemberActivationService;
+import cn.orangenode.forge.member.service.MemberManagementService;
 import cn.orangenode.forge.member.service.MemberProfileService;
 import cn.orangenode.forge.member.service.MemberSessionService;
+import cn.orangenode.forge.member.support.MemberActivationUsage;
 import cn.orangenode.forge.member.support.MemberOfflineReason;
 import cn.orangenode.forge.member.support.MemberValues;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 当前普通用户资料实现。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MemberProfileServiceImpl implements MemberProfileService {
@@ -34,6 +41,8 @@ public class MemberProfileServiceImpl implements MemberProfileService {
     private final PasswordEncoder passwordEncoder;
     private final AppFeatureResolver features;
     private final MemberConverter converter;
+    private final MemberActivationService activations;
+    private final MemberManagementService members;
 
     /**
      * 读取当前用户资料。
@@ -73,6 +82,24 @@ public class MemberProfileServiceImpl implements MemberProfileService {
                 .set(MemberUserEntity::getUpdatedAt, MemberValues.now())
                 .eq(MemberUserEntity::getId, user.getId()));
         sessions.revokeAll(user.getId(), MemberOfflineReason.REVOKED);
+    }
+
+    /**
+     * 校验并核销激活码后按其会员天数顺延 VIP；不含会员时长的旧码返回 400 且不核销（事务回滚）。
+     */
+    @Override
+    @Transactional
+    public MemberProfileResponse redeem(MemberActivationRedeemRequest request, String clientIp) {
+        MemberUserEntity user = currentUser();
+        Long codeId = activations.check(request.activationCode(), clientIp);
+        Integer vipDays = activations.consume(codeId, user.getId(), user.getUsername(), clientIp,
+                MemberActivationUsage.RENEW);
+        if (vipDays == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "该激活码不含会员时长，不能用于续费");
+        }
+        members.extendVip(user.getId(), new MemberVipExtendRequest(vipDays, "激活码续费 " + vipDays + " 天"));
+        log.info("激活码续费成功，用户 ID={}，激活码 ID={}，会员 {} 天", user.getId(), codeId, vipDays);
+        return current();
     }
 
     /**

@@ -104,7 +104,7 @@ public class MemberConverter {
         return new MemberActivationCodeResponse(MemberValues.textId(entity.getId()), formatCode(entity.getCode()), status,
                 entity.getVipDays(), MemberValues.time(entity.getExpireAt()), entity.getRemark(),
                 MemberValues.textId(entity.getUsedMemberId()), entity.getUsedUsername(), MemberValues.time(entity.getUsedAt()),
-                entity.getUsedIp(), MemberValues.time(entity.getRevokedAt()), MemberValues.time(entity.getCreatedAt()));
+                entity.getUsedIp(), entity.getUsedFor(), MemberValues.time(entity.getRevokedAt()), MemberValues.time(entity.getCreatedAt()));
     }
 
     /**

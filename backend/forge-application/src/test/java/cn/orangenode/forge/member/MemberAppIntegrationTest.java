@@ -104,6 +104,7 @@ class MemberAppIntegrationTest {
         migrate("db/migration/member/V20261008150000__member_username.sql");
         migrate("db/migration/member/V20261009090000__member_activation_code.sql");
         migrate("db/migration/member/V20261009100000__member_activation_vip_days.sql");
+        migrate("db/migration/member/V20261009120000__member_activation_used_for.sql");
         migrate("db/migration/app/V20261007121000__app_tables.sql");
         migrate("db/migration/app/V20261008170000__app_ads_and_release.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
@@ -208,6 +209,47 @@ class MemberAppIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM member_user", Integer.class)).isEqualTo(1);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.create(
                 new MemberActivationCreateRequest(501, 30, null))).hasMessageContaining("一次最多生成 500 个");
+    }
+
+    /**
+     * 已登录用户用激活码续费：未过期时接在原到期时间之后，已过期从现在算；与注册共用激活码、一码一次；
+     * 列表记录用途（注册/续费）；不含会员时长的码不核销；未登录 401。
+     */
+    @Test
+    void renewsVipWithActivationCode() {
+        var batch = activations.create(new MemberActivationCreateRequest(3, 30, "续费"));
+        JsonNode registered = registerWithCode("renew_user", "device-n1", batch.get(0).code());
+        String token = registered.path("data").path("accessToken").asText();
+        java.time.Instant before = java.time.Instant.parse(
+                registered.path("data").path("profile").path("vipExpireAt").asText());
+        JsonNode renewed = post("/api/app/v1/member/profile/activation", token,
+                Map.of("activationCode", batch.get(1).code().toLowerCase()));
+        assertThat(renewed.path("code").asInt()).isZero();
+        assertThat(renewed.path("data").path("vipActive").asBoolean()).isTrue();
+        assertThat(java.time.Instant.parse(renewed.path("data").path("vipExpireAt").asText()))
+                .isEqualTo(before.plus(java.time.Duration.ofDays(30)));
+        assertThat(post("/api/app/v1/member/profile/activation", token, Map.of("activationCode", batch.get(1).code()))
+                .path("message").asText()).isEqualTo("激活码已被使用");
+        assertThat(registerWithCode("renew_user2", "device-n2", batch.get(1).code()).path("message").asText())
+                .isEqualTo("激活码已被使用");
+        var usages = activations.export(null, "USED", "续费");
+        assertThat(usages).extracting(item -> item.usedFor()).containsExactlyInAnyOrder("REGISTER", "RENEW");
+        assertThat(usages).extracting(item -> item.usedUsername()).containsOnly("renew_user");
+
+        jdbc.update("UPDATE member_user SET vip_expire_at=DATEADD('DAY', -5, CURRENT_TIMESTAMP) WHERE username=?",
+                "renew_user");
+        JsonNode fromNow = post("/api/app/v1/member/profile/activation", token,
+                Map.of("activationCode", batch.get(2).code()));
+        java.time.Instant expected = java.time.Instant.now().plus(java.time.Duration.ofDays(30));
+        assertThat(java.time.Instant.parse(fromNow.path("data").path("vipExpireAt").asText()))
+                .isBetween(expected.minusSeconds(120), expected.plusSeconds(1));
+
+        String noDays = freshCode();
+        assertThat(post("/api/app/v1/member/profile/activation", token, Map.of("activationCode", noDays))
+                .path("message").asText()).isEqualTo("该激活码不含会员时长，不能用于续费");
+        assertThat(activations.page(1, 10, noDays, "UNUSED", null).total()).isEqualTo(1);
+        assertThat(post("/api/app/v1/member/profile/activation", null, Map.of("activationCode", noDays))
+                .path("code").asInt()).isEqualTo(401);
     }
 
     /**

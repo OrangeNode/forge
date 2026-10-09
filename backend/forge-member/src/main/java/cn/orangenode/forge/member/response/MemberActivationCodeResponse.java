@@ -9,14 +9,15 @@ package cn.orangenode.forge.member.response;
  * @param vipDays      注册成功后开通的 VIP 天数，空表示不开通
  * @param expireAt     旧数据的使用截止时间，新生成的码为空
  * @param remark       备注
- * @param usedMemberId 使用该码注册的用户 ID
- * @param usedUsername 使用该码注册的用户名
+ * @param usedMemberId 使用该码的用户 ID
+ * @param usedUsername 使用该码的用户名
  * @param usedAt       使用时间
- * @param usedIp       注册来源地址
+ * @param usedIp       使用来源地址
+ * @param usedFor      用途 REGISTER 注册/RENEW 续费，未使用为空
  * @param revokedAt    作废时间
  * @param createdAt    生成时间
  */
 public record MemberActivationCodeResponse(String id, String code, String status, Integer vipDays, String expireAt,
-        String remark, String usedMemberId, String usedUsername, String usedAt, String usedIp, String revokedAt,
+        String remark, String usedMemberId, String usedUsername, String usedAt, String usedIp, String usedFor, String revokedAt,
         String createdAt) {
 }

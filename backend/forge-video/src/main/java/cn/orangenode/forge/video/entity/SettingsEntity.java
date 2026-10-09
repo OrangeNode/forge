@@ -42,6 +42,11 @@ public class SettingsEntity {
     private String missingPolicies;
 
     /**
+     * 同时运行的最大采集数，不同资源站之间并发。
+     */
+    private Integer maxConcurrency;
+
+    /**
      * 创建时间，UTC。
      */
     private LocalDateTime createdAt;

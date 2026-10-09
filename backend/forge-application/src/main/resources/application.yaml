@@ -211,6 +211,8 @@ forge:
     max-poster-bytes: ${FORGE_VIDEO_MAX_POSTER_BYTES:5242880}
     # 调度扫描秒数、清理间隔小时、终态日志保留天数。
     scan-interval-seconds: ${FORGE_VIDEO_SCAN_INTERVAL:5}
+    # 后台“最大并发采集数”可设置的上限（不同资源站同时采集；同一资源站始终按页顺序采）。
+    max-concurrency-limit: ${FORGE_VIDEO_MAX_CONCURRENCY_LIMIT:8}
     cleanup-interval-hours: ${FORGE_VIDEO_CLEANUP_INTERVAL:24}
     log-retention-days: ${FORGE_VIDEO_LOG_RETENTION:30}
     # 每个连接地址的公开接口窗口秒数与最大请求数。

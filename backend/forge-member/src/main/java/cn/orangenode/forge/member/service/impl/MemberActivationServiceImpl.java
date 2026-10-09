@@ -34,6 +34,7 @@ import cn.orangenode.forge.member.response.MemberActivationBatchResponse;
 import cn.orangenode.forge.member.response.MemberActivationCodeResponse;
 import cn.orangenode.forge.member.service.MemberActivationService;
 import cn.orangenode.forge.member.support.MemberActivationStatus;
+import cn.orangenode.forge.member.support.MemberActivationUsage;
 import cn.orangenode.forge.member.support.MemberPaging;
 import cn.orangenode.forge.member.support.MemberValues;
 
@@ -247,10 +248,10 @@ public class MemberActivationServiceImpl implements MemberActivationService {
     }
 
     /**
-     * 条件更新核销并返回该码的会员天数；没有更新到行说明刚被他人使用、作废或到期，返回 409 让注册事务回滚。
+     * 条件更新核销并记录用途，返回该码的会员天数；没有更新到行说明刚被他人使用、作废或到期，返回 409 让调用方事务回滚。
      */
     @Override
-    public Integer consume(Long codeId, Long memberId, String username, String clientIp) {
+    public Integer consume(Long codeId, Long memberId, String username, String clientIp, MemberActivationUsage usage) {
         LocalDateTime now = MemberValues.now();
         int changed = codes.update(null, Wrappers.<MemberActivationCodeEntity>lambdaUpdate()
                 .set(MemberActivationCodeEntity::getStatus, MemberActivationStatus.USED.name())
@@ -258,6 +259,7 @@ public class MemberActivationServiceImpl implements MemberActivationService {
                 .set(MemberActivationCodeEntity::getUsedUsername, username)
                 .set(MemberActivationCodeEntity::getUsedAt, now)
                 .set(MemberActivationCodeEntity::getUsedIp, clientIp)
+                .set(MemberActivationCodeEntity::getUsedFor, usage.name())
                 .set(MemberActivationCodeEntity::getUpdatedAt, now)
                 .eq(MemberActivationCodeEntity::getId, codeId)
                 .eq(MemberActivationCodeEntity::getStatus, MemberActivationStatus.UNUSED.name())

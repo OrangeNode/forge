@@ -1,13 +1,16 @@
 package cn.orangenode.forge.member.controller.app;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import cn.orangenode.forge.core.response.ApiResponse;
+import cn.orangenode.forge.framework.web.ClientAddresses;
 import cn.orangenode.forge.framework.web.TraceIdFilter;
+import cn.orangenode.forge.member.request.MemberActivationRedeemRequest;
 import cn.orangenode.forge.member.request.MemberPasswordChangeRequest;
 import cn.orangenode.forge.member.request.MemberProfileUpdateRequest;
 import cn.orangenode.forge.member.response.MemberProfileResponse;
@@ -46,6 +49,18 @@ public class MemberProfileController {
     public ApiResponse<MemberProfileResponse> update(@Valid @RequestBody MemberProfileUpdateRequest request,
             HttpServletRequest http) {
         return ApiResponse.successWithTrace(service.update(request), TraceIdFilter.currentTraceId(http));
+    }
+
+    /**
+     * 用激活码续费 VIP。
+     */
+    @Operation(summary = "激活码续费", description = "时长接在当前 VIP 到期时间之后，已过期从现在起算；激活码不正确、已使用、"
+            + "已作废或不含会员时长 400；同一来源地址当天输错过多 429；并发抢用同一码时后到者 409")
+    @PostMapping("/activation")
+    public ApiResponse<MemberProfileResponse> redeem(@Valid @RequestBody MemberActivationRedeemRequest request,
+            HttpServletRequest http) {
+        return ApiResponse.successWithTrace(service.redeem(request, ClientAddresses.resolve(http)),
+                TraceIdFilter.currentTraceId(http));
     }
 
     /**

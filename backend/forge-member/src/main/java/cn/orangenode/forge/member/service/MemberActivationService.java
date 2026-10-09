@@ -7,9 +7,10 @@ import cn.orangenode.forge.member.request.MemberActivationBatchRequest;
 import cn.orangenode.forge.member.request.MemberActivationCreateRequest;
 import cn.orangenode.forge.member.response.MemberActivationBatchResponse;
 import cn.orangenode.forge.member.response.MemberActivationCodeResponse;
+import cn.orangenode.forge.member.support.MemberActivationUsage;
 
 /**
- * 注册激活码用例：后台生成、查询、作废、删除与导出，注册时核销。
+ * 激活码用例：后台生成、查询、作废、删除与导出，注册或已登录用户续费时核销。
  */
 public interface MemberActivationService {
 
@@ -69,7 +70,7 @@ public interface MemberActivationService {
     List<MemberActivationCodeResponse> export(String keyword, String status, String remark);
 
     /**
-     * 注册前校验激活码可用，不可用时抛出 400 并计入来源地址的失败次数。
+     * 注册或续费前校验激活码可用，不可用时抛出 400 并计入来源地址的失败次数。
      *
      * @param code     用户输入的激活码，允许小写、空格与短横线
      * @param clientIp 来源地址
@@ -78,13 +79,14 @@ public interface MemberActivationService {
     Long check(String code, String clientIp);
 
     /**
-     * 在注册事务内核销激活码并返回会员天数；并发下已被他人使用时抛出 409，调用方事务随之回滚。
+     * 在调用方事务内核销激活码并返回会员天数；并发下已被他人使用时抛出 409，调用方事务随之回滚。
      *
      * @param codeId   激活码记录 ID
-     * @param memberId 新注册的用户 ID
-     * @param username 新注册的用户名
+     * @param memberId 使用该码的用户 ID
+     * @param username 使用该码的用户名
      * @param clientIp 来源地址
-     * @return 该码的 VIP 天数，空表示注册后不开通
+     * @param usage    用途：注册或续费
+     * @return 该码的 VIP 天数，空表示不含会员时长
      */
-    Integer consume(Long codeId, Long memberId, String username, String clientIp);
+    Integer consume(Long codeId, Long memberId, String username, String clientIp, MemberActivationUsage usage);
 }

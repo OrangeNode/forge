@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue'
 import { NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NInputNumber, NModal, NPopconfirm, NRadioButton, NRadioGroup, NSelect, NSpace, NTag, type DataTableColumns } from 'naive-ui'
-import { activationDurationOptions, activationStatusLabels, formatDuration, formatTime, memberApi, type MemberActivationCode } from '@/api/member'
+import { activationDurationOptions, activationStatusLabels, activationUsageLabels, formatDuration, formatTime, memberApi, type MemberActivationCode } from '@/api/member'
 import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
@@ -139,12 +139,19 @@ async function exportCodes(source?: MemberActivationCode[]) {
     message.warning('没有可导出的激活码')
     return
   }
-  const header = ['激活码', '会员时长', '状态', '使用账号', '使用时间', '备注', '生成时间']
-  const lines = list.map(row => [row.code, formatDuration(row.vipDays), activationStatusLabels[row.status] ?? row.status, row.usedUsername ?? '', row.usedAt ? formatTime(row.usedAt) : '', row.remark ?? '', formatTime(row.createdAt)])
+  const header = ['激活码', '会员时长', '状态', '用途', '使用账号', '使用时间', '备注', '生成时间']
+  const lines = list.map(row => [row.code, formatDuration(row.vipDays), activationStatusLabels[row.status] ?? row.status, usageLabel(row.usedFor), row.usedUsername ?? '', row.usedAt ? formatTime(row.usedAt) : '', row.remark ?? '', formatTime(row.createdAt)])
   const csv = [header, ...lines].map(cells => cells.map(csvCell).join(',')).join('\r\n')
   const stamp = new Date().toISOString().slice(0, 10)
   saveBlob(new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' }), `激活码-${stamp}.csv`)
   message.success(`已导出 ${list.length} 个激活码`)
+}
+
+/**
+ * 用途显示文字，未使用为空。
+ */
+function usageLabel(usedFor?: string | null): string {
+  return usedFor ? activationUsageLabels[usedFor] ?? usedFor : ''
 }
 
 /**
@@ -159,6 +166,7 @@ const columns: DataTableColumns<MemberActivationCode> = [
   { type: 'selection', fixed: 'left' },
   { title: '激活码', key: 'code', width: 190, render: row => h('span', { class: 'activation-code' }, row.code) },
   { title: '状态', key: 'status', width: 90, render: row => h(NTag, { type: statusTags[row.status] ?? 'default', bordered: false, size: 'small' }, () => activationStatusLabels[row.status] ?? row.status) },
+  { title: '用途', key: 'usedFor', width: 80, render: row => usageLabel(row.usedFor) || '—' },
   { title: '使用账号', key: 'usedUsername', minWidth: 140, render: row => row.usedUsername || '—' },
   { title: '使用时间', key: 'usedAt', width: 170, render: row => formatTime(row.usedAt) },
   { title: '会员时长', key: 'vipDays', width: 110, render: row => formatDuration(row.vipDays) },

@@ -64,6 +64,9 @@ export function formatDuration(days?: number | null): string {
 /** 激活码状态中文名。 */
 export const activationStatusLabels: Record<string, string> = { UNUSED: '未使用', USED: '已使用', EXPIRED: '已过期', REVOKED: '已作废' }
 
+/** 激活码用途：注册新账号或已登录用户续费。 */
+export const activationUsageLabels: Record<string, string> = { REGISTER: '注册', RENEW: '续费' }
+
 /** 账号状态中文名。 */
 export const memberStatusLabels: Record<string, string> = { ENABLED: '启用', DISABLED: '停用' }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive } from 'vue'
-import { NAlert, NButton, NCard, NCheckbox, NCheckboxGroup, NForm, NFormItem, NSelect, NSpace, NSwitch } from 'naive-ui'
+import { NAlert, NButton, NCard, NCheckbox, NCheckboxGroup, NForm, NFormItem, NInputNumber, NSelect, NSpace, NSwitch } from 'naive-ui'
 import { videoApi, type SettingsInput } from '@/api/video'
 import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -11,7 +11,7 @@ import './video.css'
 
 const session = useSessionStore()
 const { busy, act } = useVideoActions()
-const form = reactive<SettingsInput & { missingPolicies: Record<string, string> }>({ matchFields: [], updateFields: [], autoPublish: true, missingPolicies: {} })
+const form = reactive<SettingsInput & { missingPolicies: Record<string, string>; maxConcurrencyLimit?: number }>({ matchFields: [], updateFields: [], autoPublish: true, missingPolicies: {}, maxConcurrency: 3 })
 const matchKeys = ['name', 'year', 'category', 'director', 'area', 'language', 'actors']
 const missingFields = [
   { key: 'name', label: '名称', required: true }, { key: 'category', label: '分类未映射或停用', required: true },
@@ -56,7 +56,7 @@ onMounted(load)
     >
       <PageHeader
         title="视频采集设置"
-        description="去重条件与主要来源更新规则"
+        description="去重条件、主要来源更新规则与并发采集数"
         icon="settings"
       >
         <template #actions>
@@ -115,6 +115,21 @@ onMounted(load)
                 </NCheckbox>
               </NSpace>
             </NCheckboxGroup>
+          </NFormItem>
+          <NFormItem label="最大并发采集数">
+            <NSpace
+              vertical
+              :size="4"
+            >
+              <NInputNumber
+                v-model:value="form.maxConcurrency"
+                :min="1"
+                :max="form.maxConcurrencyLimit"
+                :precision="0"
+                style="width: 160px"
+              />
+              <span class="video-muted">不同资源站同时采集的最多个数（上限 {{ form.maxConcurrencyLimit }}）；同一资源站始终按页顺序采集，断点续采不受影响。保存后下一次领取任务时生效。</span>
+            </NSpace>
           </NFormItem>
           <NFormItem label="新影片自动上架">
             <NSwitch v-model:value="form.autoPublish" />

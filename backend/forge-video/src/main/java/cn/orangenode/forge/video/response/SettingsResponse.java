@@ -4,14 +4,17 @@ import java.util.List;
 
 /**
  * SettingsResponse对外业务响应，主键使用字符串。
+ *
+ * @param maxConcurrency      同时运行的最大采集数；历史规则快照中为空
+ * @param maxConcurrencyLimit 最大采集数允许设置的上限，来自配置；历史规则快照中为空
  */
 public record SettingsResponse(List<String> matchFields, List<String> updateFields, boolean autoPublish,
-        java.util.Map<String, String> missingPolicies) {
+        java.util.Map<String, String> missingPolicies, Integer maxConcurrency, Integer maxConcurrencyLimit) {
     /**
      * 构造原有规则，未配置字段按既有行为处理。
      */
     public SettingsResponse(List<String> matchFields, List<String> updateFields, boolean autoPublish) {
-        this(matchFields, updateFields, autoPublish, java.util.Map.of());
+        this(matchFields, updateFields, autoPublish, java.util.Map.of(), null, null);
     }
     /**
      * 兼容未包含缺失策略的历史规则快照。

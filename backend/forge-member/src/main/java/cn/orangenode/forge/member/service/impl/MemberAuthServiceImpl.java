@@ -32,6 +32,7 @@ import cn.orangenode.forge.member.service.MemberActivationService;
 import cn.orangenode.forge.member.service.MemberAuthService;
 import cn.orangenode.forge.member.service.MemberManagementService;
 import cn.orangenode.forge.member.service.MemberSessionService;
+import cn.orangenode.forge.member.support.MemberActivationUsage;
 import cn.orangenode.forge.member.support.MemberStatus;
 import cn.orangenode.forge.member.support.MemberValues;
 
@@ -101,7 +102,8 @@ public class MemberAuthServiceImpl implements MemberAuthService {
         } catch (DuplicateKeyException duplicate) {
             throw new BusinessException(ErrorCode.CONFLICT, "该用户名已被注册");
         }
-        Integer vipDays = activations.consume(codeId, user.getId(), username, clientIp);
+        Integer vipDays = activations.consume(codeId, user.getId(), username, clientIp,
+                MemberActivationUsage.REGISTER);
         if (vipDays != null) {
             members.extendVip(user.getId(), new MemberVipExtendRequest(vipDays, "激活码注册开通 " + vipDays + " 天"));
         }
