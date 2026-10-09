@@ -66,6 +66,8 @@ export const calmTechTheme: GlobalThemeOverrides = {
     itemColorHover: '#ffffff',
     itemColorActive: '#dbeafe',
     itemColorActiveHover: '#dbeafe',
+    // 侧边栏折叠为图标轨道时，选中底色与展开时一致，不使用组件默认的半透明主色
+    itemColorActiveCollapsed: '#dbeafe',
     itemTextColorActive: '#1d4ed8',
     itemTextColorActiveHover: '#1d4ed8',
     itemTextColor: '#49617f',
@@ -75,6 +77,18 @@ export const calmTechTheme: GlobalThemeOverrides = {
     itemIconColorActive: '#2563eb',
     itemHeight: '40px',
     borderRadius: '8px',
+    // 折叠后悬停目录弹出的子菜单是下拉组件，配色与侧边栏菜单项保持一致
+    peers: {
+      Dropdown: {
+        optionColorHover: '#f1f6ff',
+        optionColorActive: '#dbeafe',
+        optionTextColor: '#49617f',
+        optionTextColorHover: '#1d4ed8',
+        optionTextColorActive: '#1d4ed8',
+        optionTextColorChildActive: '#1d4ed8',
+        prefixColor: '#7188a8',
+      },
+    },
   },
   Layout: {
     color: '#f4f8ff',

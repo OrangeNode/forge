@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { NButton, NDropdown, NLayout, NLayoutHeader, NLayoutSider, NMenu, useMessage } from 'naive-ui'
+import {
+  NButton,
+  NDropdown,
+  NLayout,
+  NLayoutHeader,
+  NLayoutSider,
+  NMenu,
+  useMessage,
+  type DropdownProps,
+} from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -68,6 +77,13 @@ const avatarText = computed(() => {
   const name = session.profile?.displayName ?? session.profile?.username ?? 'OF'
   return name.slice(0, 2).toUpperCase()
 })
+
+/**
+ * 侧边栏折叠后目录弹出层的属性：给弹出菜单加上类名，供下方非作用域样式统一外观。
+ */
+const menuDropdownProps: DropdownProps = {
+  menuProps: () => ({ class: 'shell-menu-dropdown' }),
+}
 
 /**
  * 账号下拉菜单项。
@@ -212,6 +228,7 @@ onBeforeUnmount(() => {
         :collapsed="collapsed"
         :collapsed-width="collapsedWidth"
         :collapsed-icon-size="18"
+        :dropdown-props="menuDropdownProps"
         @update:value="handleMenuSelect"
       />
     </NLayoutSider>
@@ -332,12 +349,40 @@ onBeforeUnmount(() => {
   font-weight: 550;
 }
 
-.shell__menu :deep(.n-menu-item-content:hover) {
+/* 悬停阴影与选中竖条画在底色伪元素上，保证与圆角底色重合，展开、折叠两种状态一致 */
+.shell__menu :deep(.n-menu-item-content:hover::before) {
   box-shadow: 0 5px 15px rgba(60, 108, 171, 0.08);
 }
 
-.shell__menu :deep(.n-menu-item-content--selected) {
-  box-shadow: inset 3px 0 #2563eb;
+.shell__menu :deep(.n-menu-item-content--selected::before),
+.shell__menu.n-menu--collapsed :deep(.n-menu-item-content--child-active::before) {
+  box-shadow: inset 3px 0 var(--n-item-text-color-active);
+}
+
+/* 折叠后子页面被选中的目录与选中项同样显示底色，而不是只把图标变蓝 */
+.shell__menu.n-menu--collapsed :deep(.n-menu-item-content--child-active::before) {
+  background-color: var(--n-item-color-active-collapsed);
+}
+
+/* 折叠后菜单项占满轨道宽度，图标居中，底色方块包住图标 */
+.shell__menu.n-menu--collapsed :deep(.n-menu-item-content) {
+  grid-template-columns: auto;
+  justify-content: center;
+  padding: 0 !important;
+}
+
+.shell__menu.n-menu--collapsed :deep(.n-menu-item-content::before) {
+  left: 0;
+  right: 0;
+}
+
+.shell__menu.n-menu--collapsed :deep(.n-menu-item-content__icon) {
+  margin-right: 0 !important;
+}
+
+.shell__menu.n-menu--collapsed :deep(.n-menu-item-content-header),
+.shell__menu.n-menu--collapsed :deep(.n-menu-item-content__arrow) {
+  display: none;
 }
 
 .shell__main {
@@ -432,5 +477,37 @@ onBeforeUnmount(() => {
   .account__name {
     display: none;
   }
+}
+</style>
+
+<style>
+/*
+ * 折叠侧边栏后悬停目录弹出的子菜单渲染在 body 下，作用域样式无法命中，
+ * 这里按传给 NMenu 的类名单独约束，字重、圆角底色与选中竖条和侧边栏菜单项一致。
+ */
+.shell-menu-dropdown {
+  padding: 6px 0;
+}
+
+.shell-menu-dropdown .n-dropdown-option-body {
+  font-weight: 550;
+}
+
+.shell-menu-dropdown .n-dropdown-option-body::before {
+  left: 6px;
+  right: 6px;
+  border-radius: 8px;
+}
+
+.shell-menu-dropdown .n-dropdown-option-body--active::before {
+  box-shadow: inset 3px 0 var(--n-option-text-color-active);
+}
+
+.shell-menu-dropdown .n-dropdown-option-body--pending .n-dropdown-option-body__prefix {
+  color: var(--n-option-text-color-hover);
+}
+
+.shell-menu-dropdown .n-dropdown-option-body--active .n-dropdown-option-body__prefix {
+  color: var(--n-option-text-color-active);
 }
 </style>

@@ -605,6 +605,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/video/search/collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 采集勾选的搜索结果 */
+        post: operations["collect_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/video/runs/{id}/stop": {
         parameters: {
             query?: never;
@@ -1324,6 +1341,40 @@ export interface paths {
         };
         /** 资源站管理：categories */
         get: operations["categories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/video/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 全站搜索 */
+        get: operations["searchAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/video/search/sources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 单站搜索 */
+        get: operations["search"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2271,6 +2322,7 @@ export interface components {
             createdAt?: string;
             startedAt?: string;
             finishedAt?: string;
+            upstreamIds?: string;
         };
         ApiResponseListSourceCategoryResponse: {
             /** Format: int32 */
@@ -2304,12 +2356,12 @@ export interface components {
             preserved?: number;
             unresolved?: string[];
         };
-        CollectionBatchRequest: {
-            scope: string;
-            ids?: string[];
-            status?: string;
-            runId?: string;
-            action: string;
+        Item: {
+            sourceId: string;
+            upstreamId: string;
+        };
+        SearchCollectRequest: {
+            items: components["schemas"]["Item"][];
         };
         ApiResponseCollectionBatchResponse: {
             /** Format: int32 */
@@ -2328,6 +2380,13 @@ export interface components {
         Failure: {
             id?: string;
             message?: string;
+        };
+        CollectionBatchRequest: {
+            scope: string;
+            ids?: string[];
+            status?: string;
+            runId?: string;
+            action: string;
         };
         PendingResolveRequest: {
             action: string;
@@ -2633,6 +2692,49 @@ export interface components {
             code?: number;
             message?: string;
             data?: components["schemas"]["SourceResponse"][];
+            traceId?: string;
+        };
+        ApiResponseListSourceSearchResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["SourceSearchResponse"][];
+            traceId?: string;
+        };
+        SearchItemResponse: {
+            upstreamId?: string;
+            name?: string;
+            /** Format: int32 */
+            year?: number;
+            typeName?: string;
+            remarks?: string;
+            /** Format: int32 */
+            lineCount?: number;
+            /** Format: int32 */
+            episodeCount?: number;
+            sourceUpdatedAt?: string;
+            libraryStatus?: string;
+            videoId?: string;
+            videoName?: string;
+            problems?: string[];
+        };
+        SourceSearchResponse: {
+            sourceId?: string;
+            sourceName?: string;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            pageCount?: number;
+            /** Format: int32 */
+            total?: number;
+            items?: components["schemas"]["SearchItemResponse"][];
+            error?: string;
+        };
+        ApiResponseSourceSearchResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["SourceSearchResponse"];
             traceId?: string;
         };
         ApiResponsePageResponseRunResponse: {
@@ -4243,6 +4345,30 @@ export interface operations {
             };
         };
     };
+    collect_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchCollectRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCollectionBatchResponse"];
+                };
+            };
+        };
+    };
     stop: {
         parameters: {
             query?: never;
@@ -5406,6 +5532,53 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListSourceCategoryResponse"];
+                };
+            };
+        };
+    };
+    searchAll: {
+        parameters: {
+            query: {
+                keyword: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListSourceSearchResponse"];
+                };
+            };
+        };
+    };
+    search: {
+        parameters: {
+            query: {
+                keyword: string;
+                page?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSourceSearchResponse"];
                 };
             };
         };

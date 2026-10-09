@@ -14,6 +14,8 @@ interface ImportMetaEnv {
   readonly VITE_DEV_PORT: string
   readonly VITE_API_PROXY_PREFIX: string
   readonly VITE_API_PROXY_TARGET: string
+  /** 文件上传（含 App 安装包）的超时毫秒数。 */
+  readonly VITE_UPLOAD_TIMEOUT_MILLIS: string
 }
 
 interface ImportMeta {

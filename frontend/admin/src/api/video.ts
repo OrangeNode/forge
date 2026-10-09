@@ -22,6 +22,9 @@ export type CollectInput = Schemas['CollectRequest']
 export type SettingsInput = Schemas['SettingsRequest']
 export type ResolveInput = Schemas['PendingResolveRequest']
 export type BatchInput = Schemas['CollectionBatchRequest']
+export type SearchItem = Required<Schemas['SearchItemResponse']>
+export type SourceSearch = Omit<Required<Schemas['SourceSearchResponse']>, 'items' | 'error'> & { items: SearchItem[]; error?: string | null }
+export type SearchCollectItem = Schemas['SearchCollectItem']
 export type BatchResult = Omit<Required<Schemas['CollectionBatchResponse']>, 'failures'> & { failures: { id: string; message: string }[] }
 type Query = PageQuery & Record<string, string | number | boolean | undefined>
 const base = `${API_PREFIX}/video`
@@ -74,4 +77,8 @@ export const videoApi = {
   resolve: (id: string, body: ResolveInput) => request.post<void>(`${base}/pending/${id}/resolve`, { body }),
   batchRuns: (body: BatchInput) => request.post<BatchResult>(`${base}/runs/batch`, { body }),
   batchPending: (body: BatchInput) => request.post<BatchResult>(`${base}/pending/batch`, { body }),
+  searchAll: (keyword: string) => request.get<SourceSearch[]>(`${base}/search`, { query: { keyword } }),
+  searchSource: (id: string, keyword: string, page: number) =>
+    request.get<SourceSearch>(`${base}/search/sources/${id}`, { query: { keyword, page } }),
+  collectSearch: (items: SearchCollectItem[]) => request.post<BatchResult>(`${base}/search/collect`, { body: { items } }),
 }

@@ -18,6 +18,7 @@ const MENU_ROUTE_WHITELIST: Record<string, string> = {
   'video-settings': 'video-settings',
   'video-task': 'video-task',
   'video-run': 'video-run',
+  'video-search': 'video-search',
   'member-user': 'member-user',
   'member-device': 'member-device',
   'member-activation': 'member-activation',

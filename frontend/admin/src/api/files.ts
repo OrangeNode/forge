@@ -43,7 +43,8 @@ export async function fetchFiles(query: PageQuery & { originalName?: string }): 
 export async function uploadFile(file: File): Promise<FileUploadResult> {
   const formData = new FormData()
   formData.append('file', file)
-  return request.post<FileUploadResult>(FILE_PATH, { body: formData })
+  // 安装包近百 MB，家用宽带上行往往要一两分钟，默认 15 秒超时会在上传途中中断（2026-10-09 发布 1.0.4 时遇到）。
+  return request.post<FileUploadResult>(FILE_PATH, { body: formData, timeoutMs: Number(import.meta.env.VITE_UPLOAD_TIMEOUT_MILLIS) || undefined })
 }
 
 /**

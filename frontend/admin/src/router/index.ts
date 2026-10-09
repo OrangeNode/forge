@@ -4,6 +4,7 @@ import VideoListView from '@/views/video/VideoListView.vue'
 import CollectionSettingsView from '@/views/video/CollectionSettingsView.vue'
 import CollectionTaskView from '@/views/video/CollectionTaskView.vue'
 import CollectionRunView from '@/views/video/CollectionRunView.vue'
+import VideoSearchView from '@/views/video/VideoSearchView.vue'
 import MemberUserView from '@/views/member/MemberUserView.vue'
 import MemberDeviceView from '@/views/member/MemberDeviceView.vue'
 import MemberActivationView from '@/views/member/MemberActivationView.vue'
@@ -76,6 +77,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'video/settings', name: 'video-settings', component: CollectionSettingsView, meta: { title: '视频采集设置' } },
       { path: 'video/tasks', name: 'video-task', component: CollectionTaskView, meta: { title: '采集任务' } },
       { path: 'video/runs', name: 'video-run', component: CollectionRunView, meta: { title: '采集记录' } },
+      { path: 'video/search', name: 'video-search', component: VideoSearchView, meta: { title: '资源搜索' } },
       { path: 'member/users', name: 'member-user', component: MemberUserView, meta: { title: '用户列表', description: 'App 普通用户、VIP 与登录设备' } },
       { path: 'member/devices', name: 'member-device', component: MemberDeviceView, meta: { title: '登录设备', description: '普通用户登录设备与强制下线' } },
       { path: 'member/activation-codes', name: 'member-activation', component: MemberActivationView, meta: { title: '激活码', description: '注册激活码的生成、使用记录与作废' } },

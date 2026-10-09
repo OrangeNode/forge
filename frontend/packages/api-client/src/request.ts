@@ -67,6 +67,10 @@ export interface RequestOptions {
    * 额外请求头。
    */
   headers?: Record<string, string>
+  /**
+   * 本次请求的超时毫秒数，覆盖工厂默认值；用于上传安装包等大文件。
+   */
+  timeoutMs?: number
 }
 
 /**
@@ -182,6 +186,7 @@ export class RequestFactory {
       params: compactQuery(options.query),
       headers: this.withAuthorization(options.headers),
       data: options.body,
+      timeout: options.timeoutMs,
     }
 
     let response: AxiosResponse<unknown>
