@@ -949,6 +949,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/member/activation-codes/batch-revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 批量作废激活码
+         * @description 只作废未使用的码，已使用或已作废的跳过；超过单次上限 400
+         */
+        post: operations["revokeBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/member/activation-codes/batch-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 批量删除激活码
+         * @description 物理删除未使用、已作废或已过期的码；已使用的码保留注册记录并跳过；超过单次上限 400
+         */
+        post: operations["deleteBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/files": {
         parameters: {
             query?: never;
@@ -1415,6 +1455,26 @@ export interface paths {
          * @description 可按用户 ID、用户名关键字与在线状态筛选，在线设备在前
          */
         get: operations["devices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/member/activation-codes/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 导出激活码
+         * @description 筛选条件同列表，返回全部匹配项；超过导出上限 400
+         */
+        get: operations["export"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2353,6 +2413,22 @@ export interface components {
             message?: string;
             data?: components["schemas"]["MemberActivationCodeResponse"];
             traceId?: string;
+        };
+        MemberActivationBatchRequest: {
+            ids: string[];
+        };
+        ApiResponseMemberActivationBatchResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["MemberActivationBatchResponse"];
+            traceId?: string;
+        };
+        MemberActivationBatchResponse: {
+            /** Format: int32 */
+            succeeded?: number;
+            /** Format: int32 */
+            skipped?: number;
         };
         ApiResponseFileUploadResponse: {
             /** Format: int32 */
@@ -4699,6 +4775,54 @@ export interface operations {
             };
         };
     };
+    revokeBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberActivationBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberActivationBatchResponse"];
+                };
+            };
+        };
+    };
+    deleteBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberActivationBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberActivationBatchResponse"];
+                };
+            };
+        };
+    };
     page_4: {
         parameters: {
             query: {
@@ -5416,6 +5540,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageResponseMemberDeviceResponse"];
+                };
+            };
+        };
+    };
+    export: {
+        parameters: {
+            query?: {
+                keyword?: string;
+                status?: string;
+                remark?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMemberActivationCodeResponse"];
                 };
             };
         };

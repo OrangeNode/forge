@@ -83,7 +83,7 @@ export function resolveFileName(contentDisposition: string | null, fallbackName:
  * @param blob 文件内容
  * @param fileName 保存使用的文件名
  */
-function saveBlob(blob: Blob, fileName: string): void {
+export function saveBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url

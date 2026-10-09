@@ -7,6 +7,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
 import { useVideoActions } from '@/composables/use-video-actions'
 import { copyText } from '@/utils/clipboard'
+import { saveBlob } from '@/utils/download'
 import { videoPageSize, videoPageSizeOptions } from '@/views/video/video-options'
 import '@/views/video/video.css'
 
@@ -20,6 +21,8 @@ const statusTags: Record<string, 'success' | 'info' | 'warning' | 'default'> = {
 const createShow = ref(false)
 const createForm = reactive<{ count: number | null; preset: number | 'custom'; customDays: number | null; remark: string }>({ count: 10, preset: 30, customDays: 30, remark: '' })
 const created = ref<MemberActivationCode[]>([])
+const checkedKeys = ref<string[]>([])
+const selectedRows = new Map<string, MemberActivationCode>()
 
 /**
  * 按筛选条件读取当前页。
@@ -88,7 +91,72 @@ async function revoke(row: MemberActivationCode) {
   if (await act(() => memberApi.revokeActivationCode(row.id), '激活码已作废')) await load()
 }
 
+/**
+ * 勾选变化：记住各页勾选的行，跨页勾选后导出所选时仍有完整数据。
+ */
+function onChecked(keys: Array<string | number>, checkedRows: Array<object | undefined>) {
+  checkedKeys.value = keys.map(String)
+  for (const row of checkedRows as Array<MemberActivationCode | undefined>) if (row) selectedRows.set(row.id, row)
+  for (const id of [...selectedRows.keys()]) if (!checkedKeys.value.includes(id)) selectedRows.delete(id)
+}
+
+/**
+ * 清空勾选。
+ */
+function clearChecked() {
+  checkedKeys.value = []
+  selectedRows.clear()
+}
+
+/**
+ * 批量作废或删除所选激活码，提示实际处理与跳过的数量。
+ */
+async function runBatch(kind: 'revoke' | 'delete') {
+  const ids = [...checkedKeys.value]
+  let summary = ''
+  const ok = await act(async () => {
+    const result = kind === 'revoke' ? await memberApi.revokeActivationCodes(ids) : await memberApi.deleteActivationCodes(ids)
+    const verb = kind === 'revoke' ? '作废' : '删除'
+    const reason = kind === 'revoke' ? '（已使用或已作废）' : '（已使用的码保留注册记录）'
+    summary = `已${verb} ${result.succeeded} 个${result.skipped ? `，跳过 ${result.skipped} 个${reason}` : ''}`
+  })
+  if (!ok) return
+  message.success(summary)
+  clearChecked()
+  await load()
+}
+
+/**
+ * 导出激活码为 CSV（带 BOM，Excel 直接打开不乱码）；不传数据时按当前筛选条件从后端读取全部匹配项。
+ */
+async function exportCodes(source?: MemberActivationCode[]) {
+  let list: MemberActivationCode[] = source ?? []
+  const ok = await act(async () => {
+    if (!source) list = await memberApi.exportActivationCodes({ keyword: filters.keyword || undefined, status: filters.status ?? undefined, remark: filters.remark || undefined })
+  })
+  if (!ok) return
+  if (list.length === 0) {
+    message.warning('没有可导出的激活码')
+    return
+  }
+  const header = ['激活码', '会员时长', '状态', '使用账号', '使用时间', '备注', '生成时间']
+  const lines = list.map(row => [row.code, formatDuration(row.vipDays), activationStatusLabels[row.status] ?? row.status, row.usedUsername ?? '', row.usedAt ? formatTime(row.usedAt) : '', row.remark ?? '', formatTime(row.createdAt)])
+  const csv = [header, ...lines].map(cells => cells.map(csvCell).join(',')).join('\r\n')
+  const stamp = new Date().toISOString().slice(0, 10)
+  saveBlob(new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' }), `激活码-${stamp}.csv`)
+  message.success(`已导出 ${list.length} 个激活码`)
+}
+
+/**
+ * CSV 单元格转义；以 = + - @ 开头的文本加前导单引号，避免表格软件当成公式执行。
+ */
+function csvCell(value: string): string {
+  const text = /^[=+\-@]/.test(value) ? `'${value}` : value
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
 const columns: DataTableColumns<MemberActivationCode> = [
+  { type: 'selection', fixed: 'left' },
   { title: '激活码', key: 'code', width: 190, render: row => h('span', { class: 'activation-code' }, row.code) },
   { title: '状态', key: 'status', width: 90, render: row => h(NTag, { type: statusTags[row.status] ?? 'default', bordered: false, size: 'small' }, () => activationStatusLabels[row.status] ?? row.status) },
   { title: '使用账号', key: 'usedUsername', minWidth: 140, render: row => row.usedUsername || '—' },
@@ -167,6 +235,64 @@ onMounted(load)
           >
             查询
           </NButton>
+          <NButton
+            secondary
+            :loading="busy"
+            @click="exportCodes()"
+          >
+            导出筛选结果
+          </NButton>
+        </NSpace>
+        <NSpace
+          v-if="checkedKeys.length > 0"
+          class="activation-batch"
+          align="center"
+        >
+          <span>已选 {{ checkedKeys.length }} 个</span>
+          <NPopconfirm
+            v-if="session.hasPermission('member:activation:revoke')"
+            @positive-click="runBatch('revoke')"
+          >
+            <template #trigger>
+              <NButton
+                size="small"
+                type="warning"
+                secondary
+              >
+                批量作废
+              </NButton>
+            </template>
+            确认作废所选的 {{ checkedKeys.length }} 个激活码？已使用或已作废的会跳过
+          </NPopconfirm>
+          <NPopconfirm
+            v-if="session.hasPermission('member:activation:delete')"
+            @positive-click="runBatch('delete')"
+          >
+            <template #trigger>
+              <NButton
+                size="small"
+                type="error"
+                secondary
+              >
+                批量删除
+              </NButton>
+            </template>
+            确认删除所选的 {{ checkedKeys.length }} 个激活码？删除后无法恢复，已使用的码保留注册记录不会删除
+          </NPopconfirm>
+          <NButton
+            size="small"
+            secondary
+            @click="exportCodes([...selectedRows.values()])"
+          >
+            导出所选
+          </NButton>
+          <NButton
+            size="small"
+            quaternary
+            @click="clearChecked"
+          >
+            取消选择
+          </NButton>
         </NSpace>
         <NDataTable
           remote
@@ -174,8 +300,10 @@ onMounted(load)
           :data="rows"
           :loading="busy"
           :row-key="row => row.id"
+          :checked-row-keys="checkedKeys"
           :pagination="pagination"
-          :scroll-x="1240"
+          :scroll-x="1290"
+          @update:checked-row-keys="onChecked"
           @update:page="page => { pagination.page = page; load() }"
           @update:page-size="size => { pagination.pageSize = size; pagination.page = 1; load() }"
         />
@@ -283,6 +411,13 @@ onMounted(load)
 </template>
 
 <style scoped>
+.activation-batch {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.06);
+}
+
 .activation-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   letter-spacing: 0.04em;

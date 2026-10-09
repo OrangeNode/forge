@@ -3,11 +3,13 @@ package cn.orangenode.forge.member.service;
 import java.util.List;
 
 import cn.orangenode.forge.core.page.PageResponse;
+import cn.orangenode.forge.member.request.MemberActivationBatchRequest;
 import cn.orangenode.forge.member.request.MemberActivationCreateRequest;
+import cn.orangenode.forge.member.response.MemberActivationBatchResponse;
 import cn.orangenode.forge.member.response.MemberActivationCodeResponse;
 
 /**
- * 注册激活码用例：后台生成、查询、作废，注册时核销。
+ * 注册激活码用例：后台生成、查询、作废、删除与导出，注册时核销。
  */
 public interface MemberActivationService {
 
@@ -39,6 +41,32 @@ public interface MemberActivationService {
      * @return 作废后的激活码
      */
     MemberActivationCodeResponse revoke(Long id);
+
+    /**
+     * 批量作废：只处理未使用的码（含旧数据中已过期的），其余跳过。
+     *
+     * @param request 激活码 ID
+     * @return 作废与跳过数量
+     */
+    MemberActivationBatchResponse revokeBatch(MemberActivationBatchRequest request);
+
+    /**
+     * 批量删除：物理删除未使用、已作废或已过期的码；已使用的码保留注册记录，跳过不删。
+     *
+     * @param request 激活码 ID
+     * @return 删除与跳过数量
+     */
+    MemberActivationBatchResponse deleteBatch(MemberActivationBatchRequest request);
+
+    /**
+     * 按筛选条件导出全部匹配的激活码，按生成时间倒序；超过导出上限返回 400。
+     *
+     * @param keyword 激活码或使用者用户名关键字
+     * @param status  状态，为空不限
+     * @param remark  备注关键字
+     * @return 匹配的激活码
+     */
+    List<MemberActivationCodeResponse> export(String keyword, String status, String remark);
 
     /**
      * 注册前校验激活码可用，不可用时抛出 400 并计入来源地址的失败次数。

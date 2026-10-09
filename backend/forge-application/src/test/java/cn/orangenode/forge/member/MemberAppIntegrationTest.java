@@ -33,6 +33,7 @@ import cn.orangenode.forge.app.service.AppReleaseService;
 import cn.orangenode.forge.app.service.AppSettingsService;
 import cn.orangenode.forge.framework.storage.StoredFileContent;
 import cn.orangenode.forge.framework.storage.StoredFileReader;
+import cn.orangenode.forge.member.request.MemberActivationBatchRequest;
 import cn.orangenode.forge.member.request.MemberActivationCreateRequest;
 import cn.orangenode.forge.member.request.MemberVipExtendRequest;
 import cn.orangenode.forge.member.service.MemberActivationService;
@@ -207,6 +208,30 @@ class MemberAppIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM member_user", Integer.class)).isEqualTo(1);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.create(
                 new MemberActivationCreateRequest(501, 30, null))).hasMessageContaining("一次最多生成 500 个");
+    }
+
+    /**
+     * 批量作废只处理未使用的码；批量删除跳过已使用的码；导出与列表筛选一致；超过单次上限 400。
+     */
+    @Test
+    void revokesDeletesAndExportsInBatch() {
+        var generated = activations.create(new MemberActivationCreateRequest(4, 90, "批量"));
+        List<String> ids = generated.stream().map(item -> item.id()).toList();
+        assertThat(registerWithCode("batch_user", "device-b1", generated.get(0).code()).path("code").asInt()).isZero();
+        var revoked = activations.revokeBatch(new MemberActivationBatchRequest(List.of(ids.get(0), ids.get(1), ids.get(2))));
+        assertThat(revoked.succeeded()).isEqualTo(2);
+        assertThat(revoked.skipped()).isEqualTo(1);
+        assertThat(activations.export(null, "REVOKED", "批量")).hasSize(2);
+        assertThat(activations.export(null, null, "批量")).extracting(item -> item.vipDays()).containsOnly(90);
+        var deleted = activations.deleteBatch(new MemberActivationBatchRequest(ids));
+        assertThat(deleted.succeeded()).isEqualTo(3);
+        assertThat(deleted.skipped()).isEqualTo(1);
+        var left = activations.export(null, null, "批量");
+        assertThat(left).hasSize(1);
+        assertThat(left.get(0).usedUsername()).isEqualTo("batch_user");
+        List<String> tooMany = java.util.stream.IntStream.rangeClosed(1, 501).mapToObj(String::valueOf).toList();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> activations.deleteBatch(
+                new MemberActivationBatchRequest(tooMany))).hasMessageContaining("一次最多处理 500 个");
     }
 
     /**

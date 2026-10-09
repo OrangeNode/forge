@@ -28,7 +28,9 @@ import cn.orangenode.forge.member.config.MemberProperties;
 import cn.orangenode.forge.member.converter.MemberConverter;
 import cn.orangenode.forge.member.entity.MemberActivationCodeEntity;
 import cn.orangenode.forge.member.mapper.MemberActivationCodeMapper;
+import cn.orangenode.forge.member.request.MemberActivationBatchRequest;
 import cn.orangenode.forge.member.request.MemberActivationCreateRequest;
+import cn.orangenode.forge.member.response.MemberActivationBatchResponse;
 import cn.orangenode.forge.member.response.MemberActivationCodeResponse;
 import cn.orangenode.forge.member.service.MemberActivationService;
 import cn.orangenode.forge.member.support.MemberActivationStatus;
@@ -66,6 +68,73 @@ public class MemberActivationServiceImpl implements MemberActivationService {
     @Override
     public PageResponse<MemberActivationCodeResponse> page(Integer pageNum, Integer pageSize, String keyword,
             String status, String remark) {
+        Page<MemberActivationCodeEntity> page = codes.selectPage(paging.page(pageNum, pageSize),
+                filterQuery(keyword, status, remark).orderByDesc(MemberActivationCodeEntity::getId));
+        return new PageResponse<>(page.getRecords().stream().map(converter::activation).toList(), page.getTotal(),
+                (int) page.getCurrent(), (int) page.getSize());
+    }
+
+    /**
+     * 与列表相同的筛选条件导出全部匹配项；超过上限返回 400，避免一次读出过多数据。
+     */
+    @Override
+    public List<MemberActivationCodeResponse> export(String keyword, String status, String remark) {
+        int max = properties.getActivation().getExportMax();
+        if (codes.selectCount(filterQuery(keyword, status, remark)) > max) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "一次最多导出 " + max + " 个激活码，请缩小筛选范围");
+        }
+        return codes.selectList(filterQuery(keyword, status, remark).orderByDesc(MemberActivationCodeEntity::getId))
+                .stream().map(converter::activation).toList();
+    }
+
+    /**
+     * 条件更新只作废仍未使用的码，已使用、已作废或已不存在的计为跳过。
+     */
+    @Override
+    @Transactional
+    public MemberActivationBatchResponse revokeBatch(MemberActivationBatchRequest request) {
+        List<Long> ids = batchIds(request);
+        LocalDateTime now = MemberValues.now();
+        int changed = codes.update(null, Wrappers.<MemberActivationCodeEntity>lambdaUpdate()
+                .set(MemberActivationCodeEntity::getStatus, MemberActivationStatus.REVOKED.name())
+                .set(MemberActivationCodeEntity::getRevokedAt, now)
+                .set(MemberActivationCodeEntity::getUpdatedAt, now)
+                .in(MemberActivationCodeEntity::getId, ids)
+                .eq(MemberActivationCodeEntity::getStatus, MemberActivationStatus.UNUSED.name()));
+        log.info("批量作废激活码：作废 {} 个，跳过 {} 个，管理员 ID={}", changed, ids.size() - changed, currentAdminId());
+        return new MemberActivationBatchResponse(changed, ids.size() - changed);
+    }
+
+    /**
+     * 物理删除未被使用过的码；已使用的码关联着注册账号，保留不删并计为跳过。
+     */
+    @Override
+    @Transactional
+    public MemberActivationBatchResponse deleteBatch(MemberActivationBatchRequest request) {
+        List<Long> ids = batchIds(request);
+        int deleted = codes.delete(Wrappers.<MemberActivationCodeEntity>lambdaQuery()
+                .in(MemberActivationCodeEntity::getId, ids)
+                .ne(MemberActivationCodeEntity::getStatus, MemberActivationStatus.USED.name()));
+        log.info("批量删除激活码：删除 {} 个，跳过 {} 个，管理员 ID={}", deleted, ids.size() - deleted, currentAdminId());
+        return new MemberActivationBatchResponse(deleted, ids.size() - deleted);
+    }
+
+    /**
+     * 解析并去重批量操作的 ID，数量超过上限返回 400。
+     */
+    private List<Long> batchIds(MemberActivationBatchRequest request) {
+        List<Long> ids = request.ids().stream().map(MemberValues::id).distinct().toList();
+        int max = properties.getActivation().getBatchMax();
+        if (ids.size() > max) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "一次最多处理 " + max + " 个激活码");
+        }
+        return ids;
+    }
+
+    /**
+     * 按关键字（激活码或使用者用户名）、状态与备注构造查询条件，不含排序（计数查询不能带排序）。
+     */
+    private LambdaQueryWrapper<MemberActivationCodeEntity> filterQuery(String keyword, String status, String remark) {
         MemberActivationStatus filter = status(MemberValues.clean(status));
         LocalDateTime now = MemberValues.now();
         LambdaQueryWrapper<MemberActivationCodeEntity> query = Wrappers.lambdaQuery();
@@ -87,10 +156,7 @@ public class MemberActivationServiceImpl implements MemberActivationService {
         } else if (filter != null) {
             query.eq(MemberActivationCodeEntity::getStatus, filter.name());
         }
-        query.orderByDesc(MemberActivationCodeEntity::getId);
-        Page<MemberActivationCodeEntity> page = codes.selectPage(paging.page(pageNum, pageSize), query);
-        return new PageResponse<>(page.getRecords().stream().map(converter::activation).toList(), page.getTotal(),
-                (int) page.getCurrent(), (int) page.getSize());
+        return query;
     }
 
     /**

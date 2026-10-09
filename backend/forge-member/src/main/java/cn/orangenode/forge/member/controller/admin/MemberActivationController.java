@@ -16,7 +16,9 @@ import cn.orangenode.forge.core.response.ApiResponse;
 import cn.orangenode.forge.framework.audit.AuditOperation;
 import cn.orangenode.forge.framework.audit.AuditResourceId;
 import cn.orangenode.forge.framework.web.TraceIdFilter;
+import cn.orangenode.forge.member.request.MemberActivationBatchRequest;
 import cn.orangenode.forge.member.request.MemberActivationCreateRequest;
+import cn.orangenode.forge.member.response.MemberActivationBatchResponse;
 import cn.orangenode.forge.member.response.MemberActivationCodeResponse;
 import cn.orangenode.forge.member.service.MemberActivationService;
 import cn.orangenode.forge.member.support.MemberValues;
@@ -30,7 +32,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 后台注册激活码接口。
  */
-@Tag(name = "注册激活码", description = "批量生成、查询与作废注册激活码，查看每个码被哪个账号使用")
+@Tag(name = "注册激活码", description = "批量生成、查询、作废、删除与导出注册激活码，查看每个码被哪个账号使用")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/v1/member/activation-codes")
@@ -62,6 +64,43 @@ public class MemberActivationController {
     public ApiResponse<List<MemberActivationCodeResponse>> create(
             @Valid @RequestBody MemberActivationCreateRequest request, HttpServletRequest http) {
         return ApiResponse.successWithTrace(service.create(request), TraceIdFilter.currentTraceId(http));
+    }
+
+    /**
+     * 按筛选条件导出激活码。
+     */
+    @Operation(summary = "导出激活码", description = "筛选条件同列表，返回全部匹配项；超过导出上限 400")
+    @PreAuthorize("hasAuthority('member:activation:view')")
+    @AuditOperation(action = "member:activation:export", resourceType = "member_activation_code")
+    @GetMapping("/export")
+    public ApiResponse<List<MemberActivationCodeResponse>> export(@RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status, @RequestParam(required = false) String remark,
+            HttpServletRequest http) {
+        return ApiResponse.successWithTrace(service.export(keyword, status, remark), TraceIdFilter.currentTraceId(http));
+    }
+
+    /**
+     * 批量作废激活码。
+     */
+    @Operation(summary = "批量作废激活码", description = "只作废未使用的码，已使用或已作废的跳过；超过单次上限 400")
+    @PreAuthorize("hasAuthority('member:activation:revoke')")
+    @AuditOperation(action = "member:activation:revoke", resourceType = "member_activation_code")
+    @PostMapping("/batch-revoke")
+    public ApiResponse<MemberActivationBatchResponse> revokeBatch(
+            @Valid @RequestBody MemberActivationBatchRequest request, HttpServletRequest http) {
+        return ApiResponse.successWithTrace(service.revokeBatch(request), TraceIdFilter.currentTraceId(http));
+    }
+
+    /**
+     * 批量删除激活码。
+     */
+    @Operation(summary = "批量删除激活码", description = "物理删除未使用、已作废或已过期的码；已使用的码保留注册记录并跳过；超过单次上限 400")
+    @PreAuthorize("hasAuthority('member:activation:delete')")
+    @AuditOperation(action = "member:activation:delete", resourceType = "member_activation_code")
+    @PostMapping("/batch-delete")
+    public ApiResponse<MemberActivationBatchResponse> deleteBatch(
+            @Valid @RequestBody MemberActivationBatchRequest request, HttpServletRequest http) {
+        return ApiResponse.successWithTrace(service.deleteBatch(request), TraceIdFilter.currentTraceId(http));
     }
 
     /**

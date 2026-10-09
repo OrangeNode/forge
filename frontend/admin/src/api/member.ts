@@ -8,6 +8,7 @@ export type MemberVipLog = Required<Schemas['MemberVipLogResponse']>
 export type MemberCreateInput = Schemas['MemberCreateRequest']
 export type MemberActivationCode = Required<Schemas['MemberActivationCodeResponse']>
 export type MemberActivationCreateInput = Schemas['MemberActivationCreateRequest']
+export type MemberActivationBatchResult = Required<Schemas['MemberActivationBatchResponse']>
 type Query = PageQuery & Record<string, string | number | boolean | undefined>
 const base = `${API_PREFIX}/member`
 
@@ -34,6 +35,11 @@ export const memberApi = {
   createActivationCodes: (body: MemberActivationCreateInput) =>
     request.post<MemberActivationCode[]>(`${base}/activation-codes`, { body }),
   revokeActivationCode: (id: string) => request.post<MemberActivationCode>(`${base}/activation-codes/${id}/revoke`),
+  revokeActivationCodes: (ids: string[]) =>
+    request.post<MemberActivationBatchResult>(`${base}/activation-codes/batch-revoke`, { body: { ids } }),
+  deleteActivationCodes: (ids: string[]) =>
+    request.post<MemberActivationBatchResult>(`${base}/activation-codes/batch-delete`, { body: { ids } }),
+  exportActivationCodes: (query: Query) => request.get<MemberActivationCode[]>(`${base}/activation-codes/export`, { query }),
 }
 
 /** 激活码常用会员时长（天），会员时间从用户注册成功时开始计算。 */

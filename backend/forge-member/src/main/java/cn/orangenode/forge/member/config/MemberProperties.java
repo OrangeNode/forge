@@ -65,10 +65,16 @@ public class MemberProperties {
         private int codeLength = 12;
 
         /**
-         * 后台一次最多生成的数量。
+         * 后台一次最多生成的数量，也是一次批量作废或删除的上限。
          */
         @Min(1)
         private int batchMax = 500;
+
+        /**
+         * 按筛选条件一次最多导出的数量。
+         */
+        @Min(1)
+        private int exportMax = 10000;
 
         /**
          * 同一来源地址每天最多输错激活码的次数。

@@ -183,6 +183,8 @@ forge:
       code-length: ${FORGE_MEMBER_ACTIVATION_CODE_LENGTH:12}
       # 后台一次最多生成的激活码数量
       batch-max: ${FORGE_MEMBER_ACTIVATION_BATCH_MAX:500}
+      # 按筛选条件一次最多导出的激活码数量，超过时提示缩小筛选范围
+      export-max: ${FORGE_MEMBER_ACTIVATION_EXPORT_MAX:10000}
       # 同一来源地址每天最多输错激活码的次数，超过后当天不能再注册，防止穷举
       ip-daily-fail-limit: ${FORGE_MEMBER_ACTIVATION_IP_DAILY_FAIL_LIMIT:20}
     # 每个用户保留并展示的最近观看记录条数（手机与电视共用），超出的旧记录在上报进度时删除
