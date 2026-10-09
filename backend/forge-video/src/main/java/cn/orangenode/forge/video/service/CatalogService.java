@@ -2,6 +2,7 @@ package cn.orangenode.forge.video.service;
 
 import java.util.List;
 import cn.orangenode.forge.core.page.PageResponse;
+import cn.orangenode.forge.video.collector.RemoteImage;
 import cn.orangenode.forge.video.request.CategoryRequest;
 import cn.orangenode.forge.video.request.SourceRequest;
 import cn.orangenode.forge.video.request.MappingRequest;
@@ -56,6 +57,11 @@ public interface CatalogService {
      * 查询管理端影片及播放数据。
      */
     VideoDetailResponse detail(Long id);
+
+    /**
+     * 代取影片海报图片，供后台按模板生成轮播图；影片不存在 404，没有海报 400，远程失败 503。
+     */
+    RemoteImage poster(Long id);
 
     /**
      * 查询公开影片详情。

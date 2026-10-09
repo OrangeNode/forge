@@ -113,6 +113,22 @@ class MacCmsParserTest {
     }
 
     /**
+     * 代取海报与采集共用地址校验，内网、本机与非 HTTP 地址在发起请求前即被拒绝。
+     */
+    @Test
+    void posterRejectsPrivateAndNonHttpUrls() {
+        VideoProperties properties = new VideoProperties();
+        properties.setConnectTimeoutSeconds(1);
+        properties.setRequestTimeoutSeconds(1);
+        properties.setMaxPosterBytes(1024);
+        properties.setUserAgent("test");
+        MacCmsClient client = new MacCmsClient(properties);
+        assertThatThrownBy(() -> client.image("http://127.0.0.1/poster.jpg")).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> client.image("http://192.168.1.10/poster.jpg")).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> client.image("file:///etc/passwd")).isInstanceOf(BusinessException.class);
+    }
+
+    /**
      * 人员按集合比较，名称保留年份和季数差异。
      */
     @Test

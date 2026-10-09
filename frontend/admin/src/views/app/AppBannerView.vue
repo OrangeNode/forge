@@ -3,6 +3,9 @@ import { computed, h, onMounted, reactive, ref } from 'vue'
 import { NButton, NCard, NDataTable, NDatePicker, NForm, NFormItem, NInput, NInputNumber, NModal, NPopconfirm, NRadioButton, NRadioGroup, NSelect, NSpace, NSwitch, NTag, type DataTableColumns } from 'naive-ui'
 import { appConfigApi, imageSrc, windowText, type Banner } from '@/api/app-config'
 import { videoApi, type Category } from '@/api/video'
+import { uploadFile } from '@/api/files'
+import { fetchBinary } from '@/utils/download'
+import { defaultTagline, renderBanner } from './banner-template'
 import ImageFilePicker from '@/components/ImageFilePicker.vue'
 import PageBody from '@/components/PageBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -13,6 +16,9 @@ import '@/views/video/video.css'
 
 const session = useSessionStore()
 const { busy, errors, act } = useVideoActions()
+const generating = ref(false)
+const tagline = ref('')
+const pickerKey = ref(0)
 const rows = ref<Banner[]>([])
 const categories = ref<Category[]>([])
 const categorySelect = computed(() => categoryOptions(categories.value))
@@ -49,6 +55,7 @@ async function searchVideos(keyword: string) {
  */
 function edit(row?: Banner) {
   editingId.value = row?.id
+  tagline.value = ''
   preview.value = imageSrc(row?.imageUrl)
   videoSelect.value = row?.targetType === 'VIDEO' && row.targetId ? [{ label: row.targetName ?? row.targetId, value: row.targetId }] : []
   Object.assign(form, {
@@ -57,6 +64,33 @@ function edit(row?: Banner) {
     endAt: row?.endAt ? new Date(row.endAt).getTime() : null, enabled: row?.enabled ?? true, sortNo: row?.sortNo ?? 0,
   })
   show.value = true
+}
+
+/**
+ * 按模板为所选影片生成轮播图：后端代取海报，浏览器画布绘制后上传到文件管理并回填图片。
+ * 标题为空时同时填入片名。
+ */
+async function generateImage() {
+  const videoId = form.targetId
+  if (!videoId || generating.value) return
+  generating.value = true
+  await act(async () => {
+    const { video } = await videoApi.detail(videoId)
+    const poster = await (await fetchBinary(`/video/videos/${videoId}/poster`)).blob()
+    const categoryName = categorySelect.value.find(option => option.value === video.categoryId)?.label.split(' / ').pop()
+    const blob = await renderBanner({
+      poster,
+      title: video.name,
+      tagline: tagline.value.trim() || defaultTagline(video.description),
+      meta: [categoryName ?? video.area, video.year].filter(Boolean).join(' · '),
+    })
+    const result = await uploadFile(new File([blob], `banner-${video.id}.jpg`, { type: 'image/jpeg' }))
+    form.imageFileId = result.id ?? ''
+    preview.value = URL.createObjectURL(blob)
+    pickerKey.value++
+    if (!form.title) form.title = video.name
+  }, '已按模板生成图片')
+  generating.value = false
 }
 
 /**
@@ -162,6 +196,7 @@ onMounted(load)
         </div>
         <NFormItem label="图片">
           <ImageFilePicker
+            :key="pickerKey"
             v-model="form.imageFileId"
             :preview-src="preview"
           />
@@ -198,6 +233,31 @@ onMounted(load)
             placeholder="输入片名搜索"
             @search="searchVideos"
           />
+        </NFormItem>
+        <NFormItem
+          v-if="form.targetType === 'VIDEO' && form.targetId"
+          label="按模板生成图片（用影片海报与信息，生成后自动填入上方图片）"
+        >
+          <NSpace
+            align="center"
+            :wrap="false"
+            style="width: 100%"
+          >
+            <NInput
+              v-model:value="tagline"
+              maxlength="30"
+              placeholder="宣传语，留空则取简介第一句"
+              style="min-width: 260px"
+            />
+            <NButton
+              type="primary"
+              secondary
+              :loading="generating"
+              @click="generateImage"
+            >
+              {{ form.imageFileId ? '重新生成' : '生成图片' }}
+            </NButton>
+          </NSpace>
         </NFormItem>
         <NFormItem
           v-if="form.targetType === 'URL'"

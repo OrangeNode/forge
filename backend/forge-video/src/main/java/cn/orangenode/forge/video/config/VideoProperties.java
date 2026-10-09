@@ -26,6 +26,8 @@ public class VideoProperties {
     private int retryCount;
     @Min(1024)
     private int maxResponseBytes;
+    @Min(1024)
+    private int maxPosterBytes;
     @Min(1)
     private int scanIntervalSeconds;
     @Min(1)

@@ -28,6 +28,10 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class MacCmsClient {
+    /**
+     * 允许代取的海报类型；SVG 可携带脚本，同源返回给后台不安全，因此不在其中。
+     */
+    private static final List<String> POSTER_TYPES = List.of("image/jpeg", "image/png", "image/webp", "image/gif");
     private final VideoProperties properties;
 
     /**
@@ -87,18 +91,7 @@ public class MacCmsClient {
      * 请求 JSON，完整正文和重试次数均受配置限制，取消超时请求。
      */
     public String get(String url) {
-        HttpClient.Builder builder = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(Duration.ofSeconds(properties.getConnectTimeoutSeconds()))
-                .followRedirects(HttpClient.Redirect.NEVER);
-        if (properties.getProxyUrl() != null && !properties.getProxyUrl().isBlank()) {
-            URI proxy = URI.create(properties.getProxyUrl());
-            if (!"http".equalsIgnoreCase(proxy.getScheme()) || proxy.getHost() == null || proxy.getPort() < 1
-                    || proxy.getUserInfo() != null) {
-                throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "采集代理配置不合法，需要无凭据 HTTP 代理地址和端口");
-            }
-            builder.proxy(java.net.ProxySelector.of(new java.net.InetSocketAddress(proxy.getHost(), proxy.getPort())));
-        }
-        HttpClient client = builder.build();
+        HttpClient client = newClient();
         try {
             for (int attempt = 0; attempt <= properties.getRetryCount(); attempt++) {
                 CompletableFuture<HttpResponse<byte[]>> future = null;
@@ -132,6 +125,60 @@ public class MacCmsClient {
         } finally {
             client.shutdownNow();
         }
+    }
+
+    /**
+     * 代取公开海报图片，地址校验、超时、代理与采集请求一致，正文受海报大小上限约束。
+     * 只接受 HTTP 200 且声明为 JPEG、PNG、WebP 或 GIF 的响应（排除 SVG 等可执行脚本的类型），不跟随重定向、不重试。
+     */
+    public RemoteImage image(String url) {
+        URI uri = validateUrl(url);
+        HttpClient client = newClient();
+        CompletableFuture<HttpResponse<byte[]>> future = null;
+        try {
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .timeout(Duration.ofSeconds(properties.getRequestTimeoutSeconds()))
+                    .header("Accept", "image/*").header("User-Agent", properties.getUserAgent()).GET().build();
+            future = client.sendAsync(request, info -> new BoundedBody(properties.getMaxPosterBytes()));
+            HttpResponse<byte[]> response = future.get(properties.getRequestTimeoutSeconds(), TimeUnit.SECONDS);
+            String contentType = response.headers().firstValue("Content-Type").orElse("")
+                    .split(";", 2)[0].trim().toLowerCase(java.util.Locale.ROOT);
+            if (response.statusCode() != 200 || !POSTER_TYPES.contains(contentType)) {
+                throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "海报地址没有返回图片（HTTP " + response.statusCode() + "）");
+            }
+            return new RemoteImage(response.body(), contentType);
+        } catch (InterruptedException failure) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "海报请求已中断");
+        } catch (BusinessException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            if (future != null) {
+                future.cancel(true);
+            }
+            throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "海报获取失败：" + safeReason(failure));
+        } finally {
+            client.shutdownNow();
+        }
+    }
+
+    /**
+     * 创建不跟随重定向的 HTTP 客户端，配置了代理时只接受无凭据的 HTTP 代理。
+     */
+    private HttpClient newClient() {
+        HttpClient.Builder builder = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(properties.getConnectTimeoutSeconds()))
+                .followRedirects(HttpClient.Redirect.NEVER);
+        if (properties.getProxyUrl() != null && !properties.getProxyUrl().isBlank()) {
+            URI proxy = URI.create(properties.getProxyUrl());
+            if (!"http".equalsIgnoreCase(proxy.getScheme()) || proxy.getHost() == null || proxy.getPort() < 1
+                    || proxy.getUserInfo() != null) {
+                throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "采集代理配置不合法，需要无凭据 HTTP 代理地址和端口");
+            }
+            builder.proxy(java.net.ProxySelector.of(new java.net.InetSocketAddress(proxy.getHost(), proxy.getPort())));
+        }
+        return builder.build();
     }
 
     /**

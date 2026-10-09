@@ -1,5 +1,6 @@
 package cn.orangenode.forge.video.controller.admin;
 
+import java.io.IOException;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,11 +19,13 @@ import cn.orangenode.forge.framework.audit.AuditOperation;
 import cn.orangenode.forge.framework.web.TraceIdFilter;
 import cn.orangenode.forge.video.support.VideoValues;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import cn.orangenode.forge.video.service.CatalogService;
+import cn.orangenode.forge.video.collector.RemoteImage;
 import cn.orangenode.forge.video.request.VideoEditRequest;
 import cn.orangenode.forge.video.request.StatusRequest;
 import cn.orangenode.forge.video.request.PrimaryOriginRequest;
@@ -58,6 +61,22 @@ public class VideoController {
     @GetMapping("/{id}")
     public ApiResponse<VideoDetailResponse> detail(@PathVariable String id, HttpServletRequest http) {
         return ApiResponse.successWithTrace(service.detail(VideoValues.id(id)), TraceIdFilter.currentTraceId(http));
+    }
+
+    /**
+     * 代取影片海报，供后台画布按模板生成轮播图；同源返回避免浏览器跨域污染画布。
+     * 成功为二进制图片，失败发生在写出前，返回统一 JSON。
+     */
+    @Operation(summary = "影片海报", description = "服务端代取影片海报图片；影片不存在 404，没有海报 400，海报站不可用 503")
+    @PreAuthorize("hasAuthority('video:video:view')")
+    @GetMapping("/{id}/poster")
+    public void poster(@PathVariable String id, HttpServletResponse response) throws IOException {
+        RemoteImage image = service.poster(VideoValues.id(id));
+        response.setContentType(image.contentType());
+        response.setContentLength(image.bytes().length);
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader("Cache-Control", "private, no-store");
+        response.getOutputStream().write(image.bytes());
     }
 
     /**

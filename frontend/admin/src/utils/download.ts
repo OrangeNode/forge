@@ -6,9 +6,7 @@ import { readSessionToken } from '@/utils/session'
 /**
  * 文件下载。
  *
- * 下载成功是二进制流，失败同样是 HTTP 200 但响应体是统一 JSON：
- * 因此先按内容类型判断，识别出 JSON 错误体时抛出与请求工厂一致的业务异常，
- * 绝不把错误 JSON 保存成文件。
+ * 下载成功是二进制流，失败的统一 JSON 由 {@link fetchBinary} 识别，绝不把错误 JSON 保存成文件。
  *
  * @param fileId 文件 ID（字符串）
  * @param fallbackName 服务端未给出文件名时使用的名称
@@ -16,7 +14,23 @@ import { readSessionToken } from '@/utils/session'
  * @throws ApiError 业务失败、协议异常或传输失败
  */
 export async function downloadFile(fileId: string, fallbackName: string): Promise<void> {
-  const path = `/files/${fileId}/download`
+  const response = await fetchBinary(`/files/${fileId}/download`)
+  const blob = await response.blob()
+  const fileName = resolveFileName(response.headers.get('Content-Disposition'), fallbackName)
+  saveBlob(blob, fileName)
+}
+
+/**
+ * 带管理员令牌读取二进制接口。
+ *
+ * 成功是二进制流，失败同样是 HTTP 200 但响应体是统一 JSON：
+ * 因此先按内容类型判断，识别出 JSON 错误体时抛出与请求工厂一致的业务异常。
+ *
+ * @param path 管理接口前缀之后的路径
+ * @returns 已确认不是错误 JSON 的响应
+ * @throws ApiError 业务失败、协议异常或传输失败
+ */
+export async function fetchBinary(path: string): Promise<Response> {
   const token = readSessionToken()
   const headers: Record<string, string> = {}
   if (token) {
@@ -46,10 +60,7 @@ export async function downloadFile(fileId: string, fallbackName: string): Promis
     }
     throw new ApiError('protocol', 0, '服务返回数据格式异常，请稍后重试')
   }
-
-  const blob = await response.blob()
-  const fileName = resolveFileName(response.headers.get('Content-Disposition'), fallbackName)
-  saveBlob(blob, fileName)
+  return response
 }
 
 /**

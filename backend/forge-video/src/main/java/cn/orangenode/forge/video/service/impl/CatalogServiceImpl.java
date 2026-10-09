@@ -19,7 +19,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import cn.orangenode.forge.core.page.PageResponse;
 import cn.orangenode.forge.core.exception.BusinessException;
 import cn.orangenode.forge.core.response.ErrorCode;
+import cn.orangenode.forge.video.collector.MacCmsClient;
 import cn.orangenode.forge.video.collector.MacCmsParser;
+import cn.orangenode.forge.video.collector.RemoteImage;
 import cn.orangenode.forge.video.converter.VideoConverter;
 import cn.orangenode.forge.video.entity.CategoryEntity;
 import cn.orangenode.forge.video.entity.SourceCategoryEntity;
@@ -64,6 +66,7 @@ public class CatalogServiceImpl implements CatalogService {
     private final VideoPaging paging;
     private final MacCmsParser parser;
     private final TransactionTemplate transactions;
+    private final MacCmsClient client;
 
     /**
      * 按层级构造分类树，公开树过滤停用祖先的后代。
@@ -289,6 +292,18 @@ public class CatalogServiceImpl implements CatalogService {
                 .eq(OriginEntity::getVideoId, id).orderByAsc(OriginEntity::getId)).stream()
                 .map(e -> converter.origin(e, sourceName(e.getSourceId()))).toList();
         return new VideoDetailResponse(converter.video(video), origins, lines(id, false));
+    }
+
+    /**
+     * 按影片当前海报地址代取图片，不缓存、不落盘。
+     */
+    @Override
+    public RemoteImage poster(Long id) {
+        VideoEntity video = store.requireVideo(id);
+        if (video.getPosterUrl() == null || video.getPosterUrl().isBlank()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "该影片没有海报");
+        }
+        return client.image(video.getPosterUrl().trim());
     }
 
     /**

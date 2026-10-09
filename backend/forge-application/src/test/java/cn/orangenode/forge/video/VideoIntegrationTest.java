@@ -350,6 +350,21 @@ class VideoIntegrationTest {
     }
 
     /**
+     * 后台代取海报（2026-10-09 轮播图模板）：影片不存在 404，没有海报 400，海报地址指向内网时在请求前拒绝。
+     */
+    @Test
+    void posterRequiresExistingVideoAndPublicPosterUrl() {
+        collect(1, movie("1", "测试", 2026, "资料"), 1, 1);
+        assertThatThrownBy(() -> catalog.poster(999_999L)).isInstanceOf(BusinessException.class)
+                .hasMessage("影片不存在");
+        jdbc.update("UPDATE video_video SET poster_url = NULL");
+        assertThatThrownBy(() -> catalog.poster(videoId())).isInstanceOf(BusinessException.class)
+                .hasMessage("该影片没有海报");
+        jdbc.update("UPDATE video_video SET poster_url = 'http://127.0.0.1/poster.jpg'");
+        assertThatThrownBy(() -> catalog.poster(videoId())).isInstanceOf(BusinessException.class);
+    }
+
+    /**
      * 允许更新字段独立生效，更换主要来源后才采用该站资料。
      */
     @Test
