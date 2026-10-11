@@ -45,6 +45,7 @@
         <dynamic-datasource.version>4.5.0</dynamic-datasource.version>
         <springdoc.version>3.1.1</springdoc.version>
         <icu4j.version>78.3</icu4j.version>
+        <jsoup.version>1.23.2</jsoup.version>
         <awssdk.version>2.55.7</awssdk.version>
         <checkstyle.version>10.26.1</checkstyle.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
@@ -113,6 +114,13 @@
                 <groupId>com.ibm.icu</groupId>
                 <artifactId>icu4j</artifactId>
                 <version>${icu4j.version}</version>
+            </dependency>
+
+            <!-- App 公告 HTML 白名单过滤 -->
+            <dependency>
+                <groupId>org.jsoup</groupId>
+                <artifactId>jsoup</artifactId>
+                <version>${jsoup.version}</version>
             </dependency>
 
             <!-- API 文档 -->

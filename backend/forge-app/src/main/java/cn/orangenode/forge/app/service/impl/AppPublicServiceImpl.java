@@ -25,6 +25,7 @@ import cn.orangenode.forge.app.response.AppHomeSectionResponse;
 import cn.orangenode.forge.app.response.AppHotWordsResponse;
 import cn.orangenode.forge.app.response.AppLaunchResponse;
 import cn.orangenode.forge.app.response.AppLaunchSplashResponse;
+import cn.orangenode.forge.app.response.AppMarqueeResponse;
 import cn.orangenode.forge.app.response.AppVideoCardResponse;
 import cn.orangenode.forge.app.service.AppPublicService;
 import cn.orangenode.forge.app.support.AppValues;
@@ -105,6 +106,18 @@ public class AppPublicServiceImpl implements AppPublicService {
         return new AppHotWordsResponse(settings.words(s.getHotWords()).stream()
                 .filter(word -> blocked.stream().noneMatch(block -> word.toLowerCase(Locale.ROOT).contains(block)))
                 .toList());
+    }
+
+    /**
+     * 读取播放页滚动文字，未启用或文字为空时返回空。
+     */
+    @Override
+    public AppMarqueeResponse playerMarquee() {
+        AppSettingsEntity s = settings.require();
+        if (!Boolean.TRUE.equals(s.getMarqueeEnabled()) || s.getMarqueeText() == null || s.getMarqueeText().isBlank()) {
+            return null;
+        }
+        return new AppMarqueeResponse(true, s.getMarqueeText(), s.getMarqueeColor());
     }
 
     /**

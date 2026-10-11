@@ -221,6 +221,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/app/v1/app/announcement/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 公告已读
+         * @description 关闭弹窗时上报弹出时的版本，之后不再弹出该版本；公告不存在 404
+         */
+        post: operations["read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/app/v1/video/videos": {
         parameters: {
             query?: never;
@@ -353,6 +373,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/app/v1/app/player-marquee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 播放页滚动文字
+         * @description 未启用时 data 为空
+         */
+        get: operations["playerMarquee"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/app/v1/app/launch": {
         parameters: {
             query?: never;
@@ -425,6 +465,26 @@ export interface paths {
          * @description 在线轮播与推荐行；推荐行影片只含已上架影片，没有影片的行不返回
          */
         get: operations["home"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app/v1/app/announcement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 首页弹窗公告
+         * @description 生效中且当前用户没看过当前版本的公告里优先级最高的一条；没有时 data 为空
+         */
+        get: operations["announcement"];
         put?: never;
         post?: never;
         delete?: never;
@@ -518,6 +578,10 @@ export interface components {
             content: string;
             deviceName?: string;
             appVersion?: string;
+        };
+        AppAnnouncementReadRequest: {
+            /** Format: int32 */
+            revision: number;
         };
         ApiResponsePageResponseAppVideoResponse: {
             /** Format: int32 */
@@ -695,6 +759,18 @@ export interface components {
             loginAt?: string;
             lastActiveAt?: string;
         };
+        ApiResponseAppMarqueeResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppMarqueeResponse"];
+            traceId?: string;
+        };
+        AppMarqueeResponse: {
+            enabled?: boolean;
+            text?: string;
+            color?: string;
+        };
         ApiResponseAppLaunchResponse: {
             /** Format: int32 */
             code?: number;
@@ -774,6 +850,23 @@ export interface components {
             /** Format: int32 */
             year?: number;
             categoryId?: string;
+        };
+        ApiResponseAppAnnouncementPopupResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppAnnouncementPopupResponse"];
+            traceId?: string;
+        };
+        AppAnnouncementPopupResponse: {
+            id?: string;
+            /** Format: int32 */
+            revision?: number;
+            title?: string;
+            contentType?: string;
+            content?: string;
+            actionType?: string;
+            actionValue?: string;
         };
     };
     responses: never;
@@ -1126,6 +1219,32 @@ export interface operations {
             };
         };
     };
+    read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppAnnouncementReadRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     list: {
         parameters: {
             query?: {
@@ -1304,6 +1423,26 @@ export interface operations {
             };
         };
     };
+    playerMarquee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppMarqueeResponse"];
+                };
+            };
+        };
+    };
     launch: {
         parameters: {
             query?: never;
@@ -1380,6 +1519,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseAppHomeResponse"];
+                };
+            };
+        };
+    };
+    announcement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppAnnouncementPopupResponse"];
                 };
             };
         };

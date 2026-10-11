@@ -48,6 +48,21 @@ public class AppSettingsEntity {
     private String noticeText;
 
     /**
+     * 播放页滚动文字是否启用。
+     */
+    private Boolean marqueeEnabled;
+
+    /**
+     * 播放页滚动文字。
+     */
+    private String marqueeText;
+
+    /**
+     * 滚动文字颜色，{@code #RRGGBB}。
+     */
+    private String marqueeColor;
+
+    /**
      * 手动热搜词 JSON 数组。
      */
     private String hotWords;

@@ -14,10 +14,14 @@ export type FeatureInput = Schemas['AppFeatureRequest']
 export type Feedback = Required<Schemas['AppFeedbackResponse']>
 export type Release = Schemas['AppReleaseResponse']
 export type ReleasePublishInput = Schemas['AppReleasePublishRequest']
+export type Announcement = Required<Schemas['AppAnnouncementResponse']>
+export type AnnouncementInput = Schemas['AppAnnouncementRequest']
+export type Marquee = Schemas['AppMarqueeResponse']
+export type MarqueeInput = Schemas['AppMarqueeRequest']
 const base = `${API_PREFIX}/app`
 
 /**
- * App 管理接口：开屏、轮播、推荐位、热搜、功能开关、反馈处理与版本更新。
+ * App 管理接口：开屏、轮播、推荐位、公告、热搜、功能开关、播放页滚动文字、反馈处理与版本更新。
  */
 export const appConfigApi = {
   splashes: () => request.get<Splash[]>(`${base}/splashes`),
@@ -47,6 +51,13 @@ export const appConfigApi = {
   updateMinVersion: (minVersionCode: number | null) =>
     request.put<Release>(`${base}/release/min-version`, { body: { minVersionCode: minVersionCode ?? undefined } }),
   withdrawRelease: () => request.delete<Release>(`${base}/release`),
+  announcements: () => request.get<Announcement[]>(`${base}/announcements`),
+  saveAnnouncement: (id: string | undefined, body: AnnouncementInput) => id
+    ? request.put<Announcement>(`${base}/announcements/${id}`, { body })
+    : request.post<Announcement>(`${base}/announcements`, { body }),
+  deleteAnnouncement: (id: string) => request.delete<void>(`${base}/announcements/${id}`),
+  marquee: () => request.get<Marquee>(`${base}/marquee`),
+  saveMarquee: (body: MarqueeInput) => request.put<Marquee>(`${base}/marquee`, { body }),
 }
 
 /**

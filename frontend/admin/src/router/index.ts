@@ -9,6 +9,8 @@ import MemberUserView from '@/views/member/MemberUserView.vue'
 import MemberDeviceView from '@/views/member/MemberDeviceView.vue'
 import MemberActivationView from '@/views/member/MemberActivationView.vue'
 import AppSplashView from '@/views/app/AppSplashView.vue'
+import AppAnnouncementView from '@/views/app/AppAnnouncementView.vue'
+import AppMarqueeView from '@/views/app/AppMarqueeView.vue'
 import AppBannerView from '@/views/app/AppBannerView.vue'
 import AppSectionView from '@/views/app/AppSectionView.vue'
 import AppHotSearchView from '@/views/app/AppHotSearchView.vue'
@@ -88,6 +90,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'app/features', name: 'app-feature', component: AppFeatureView, meta: { title: '功能开关', description: 'VIP、注册、同时登录台数与客服公告' } },
       { path: 'app/feedbacks', name: 'app-feedback', component: AppFeedbackView, meta: { title: '反馈处理', description: '意见反馈与播放报错' } },
       { path: 'app/release', name: 'app-release', component: AppReleaseView, meta: { title: '版本更新', description: 'App 安装包发布与强制更新' } },
+      { path: 'app/announcements', name: 'app-announcement', component: AppAnnouncementView, meta: { title: '公告管理', description: 'App 首页弹窗公告' } },
+      { path: 'app/marquee', name: 'app-marquee', component: AppMarqueeView, meta: { title: '播放页滚动文字', description: '播放页线路上方的滚动提示' } },
       {
         path: '',
         name: 'home',

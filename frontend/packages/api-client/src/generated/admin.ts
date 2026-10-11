@@ -418,6 +418,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/app/marquee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取播放页滚动文字 */
+        get: operations["marquee"];
+        /**
+         * 修改播放页滚动文字
+         * @description 启用时文字不能为空；颜色为 #RRGGBB；App 下一次打开播放页生效
+         */
+        put: operations["updateMarquee"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/app/hot-search": {
         parameters: {
             query?: never;
@@ -479,6 +500,30 @@ export interface paths {
          * @description 逻辑删除；轮播不存在 404
          */
         delete: operations["deleteBanner"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/app/announcements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 修改公告
+         * @description 标题、内容或按钮变化时内容版本加一，已看过的用户会再看到一次；公告不存在 404
+         */
+        put: operations["update_7"];
+        post?: never;
+        /**
+         * 删除公告
+         * @description 逻辑删除；公告不存在 404
+         */
+        delete: operations["delete_7"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1218,6 +1263,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/app/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 公告列表 */
+        get: operations["list_3"];
+        put?: never;
+        /**
+         * 新增公告
+         * @description 时间区间非法、跳转影片不存在、链接不是 http(s) 或 HTML 过滤后为空返回 400
+         */
+        post: operations["create_9"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/video/videos/{id}/status": {
         parameters: {
             query?: never;
@@ -1303,7 +1369,7 @@ export interface paths {
             cookie?: never;
         };
         /** 视频管理：list */
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1391,7 +1457,7 @@ export interface paths {
             cookie?: never;
         };
         /** 采集记录：list */
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1740,7 +1806,7 @@ export interface paths {
          * 删除文件
          * @description 先清理存储对象再逻辑删除文件记录；对象清理失败返回 body.code=503 且记录保持不变，可重试
          */
-        delete: operations["delete_7"];
+        delete: operations["delete_8"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2198,6 +2264,23 @@ export interface components {
             updatedAt?: string;
             expectedPackage?: string;
         };
+        AppMarqueeRequest: {
+            enabled: boolean;
+            text?: string;
+            color: string;
+        };
+        ApiResponseAppMarqueeResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppMarqueeResponse"];
+            traceId?: string;
+        };
+        AppMarqueeResponse: {
+            enabled?: boolean;
+            text?: string;
+            color?: string;
+        };
         AppHotSearchRequest: {
             hotWords: string[];
             blockedWords: string[];
@@ -2273,6 +2356,45 @@ export interface components {
             sortNo?: number;
             active?: boolean;
             targetUrl?: string;
+        };
+        AppAnnouncementRequest: {
+            title: string;
+            contentType: string;
+            content: string;
+            actionType?: string;
+            actionValue?: string;
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            enabled: boolean;
+            /** Format: int32 */
+            sortNo: number;
+        };
+        ApiResponseAppAnnouncementResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppAnnouncementResponse"];
+            traceId?: string;
+        };
+        AppAnnouncementResponse: {
+            id?: string;
+            title?: string;
+            contentType?: string;
+            content?: string;
+            /** Format: int32 */
+            revision?: number;
+            actionType?: string;
+            actionValue?: string;
+            actionName?: string;
+            startAt?: string;
+            endAt?: string;
+            enabled?: boolean;
+            /** Format: int32 */
+            sortNo?: number;
+            active?: boolean;
+            updatedAt?: string;
         };
         CollectRequest: {
             sourceId: string;
@@ -3172,6 +3294,13 @@ export interface components {
             data?: components["schemas"]["AppBannerResponse"][];
             traceId?: string;
         };
+        ApiResponseListAppAnnouncementResponse: {
+            /** Format: int32 */
+            code?: number;
+            message?: string;
+            data?: components["schemas"]["AppAnnouncementResponse"][];
+            traceId?: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -4003,6 +4132,50 @@ export interface operations {
             };
         };
     };
+    marquee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppMarqueeResponse"];
+                };
+            };
+        };
+    };
+    updateMarquee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppMarqueeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppMarqueeResponse"];
+                };
+            };
+        };
+    };
     hotSearch: {
         parameters: {
             query?: never;
@@ -4118,6 +4291,54 @@ export interface operations {
         };
     };
     deleteBanner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    update_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppAnnouncementRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppAnnouncementResponse"];
+                };
+            };
+        };
+    };
+    delete_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -5361,6 +5582,50 @@ export interface operations {
             };
         };
     };
+    list_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAppAnnouncementResponse"];
+                };
+            };
+        };
+    };
+    create_9: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppAnnouncementRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAppAnnouncementResponse"];
+                };
+            };
+        };
+    };
     status: {
         parameters: {
             query?: never;
@@ -5465,7 +5730,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: {
                 pageNum?: number;
@@ -5583,7 +5848,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: {
                 pageNum?: number;
@@ -5982,7 +6247,7 @@ export interface operations {
             };
         };
     };
-    delete_7: {
+    delete_8: {
         parameters: {
             query?: never;
             header?: never;

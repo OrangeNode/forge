@@ -2,11 +2,13 @@ package cn.orangenode.forge.app.service;
 
 import cn.orangenode.forge.app.request.AppFeatureRequest;
 import cn.orangenode.forge.app.request.AppHotSearchRequest;
+import cn.orangenode.forge.app.request.AppMarqueeRequest;
 import cn.orangenode.forge.app.response.AppFeatureResponse;
 import cn.orangenode.forge.app.response.AppHotSearchResponse;
+import cn.orangenode.forge.app.response.AppMarqueeResponse;
 
 /**
- * 后台 App 全局设置用例：功能开关与热搜。
+ * 后台 App 全局设置用例：功能开关、热搜与播放页滚动文字。
  */
 public interface AppSettingsService {
 
@@ -29,4 +31,14 @@ public interface AppSettingsService {
      * 修改热搜设置。
      */
     AppHotSearchResponse updateHotSearch(AppHotSearchRequest request);
+
+    /**
+     * 读取播放页滚动文字。
+     */
+    AppMarqueeResponse marquee();
+
+    /**
+     * 修改播放页滚动文字，App 下一次打开播放页即生效。
+     */
+    AppMarqueeResponse updateMarquee(AppMarqueeRequest request);
 }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  forge-app：App 开屏、首页轮播与推荐位、热搜与功能开关，依赖基础模块，不依赖其他业务模块。
+  forge-app：App 开屏、首页轮播与推荐位、公告、播放页滚动文字、热搜与功能开关，依赖基础模块，不依赖其他业务模块。
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -21,6 +21,10 @@
         <dependency>
             <groupId>cn.orangenode</groupId>
             <artifactId>forge-framework</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
         </dependency>
     </dependencies>
 </project>

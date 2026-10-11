@@ -67,7 +67,7 @@ class MemberPersonalIntegrationTest {
         RuntimeSchema.recreateSystemAndAuditTables(jdbc);
         for (String table : List.of("member_activation_code", "member_watch_history", "member_favorite",
                 "member_vip_log", "member_device",
-                "member_user", "app_feedback", "app_splash", "app_banner", "app_section", "app_settings", "app_release")) {
+                "member_user", "app_feedback", "app_splash", "app_banner", "app_section", "app_settings", "app_release", "app_announcement", "app_announcement_read")) {
             jdbc.execute("DROP TABLE IF EXISTS " + table);
         }
         for (String table : List.of("category", "source", "source_category", "video", "origin", "play_line",
@@ -86,6 +86,7 @@ class MemberPersonalIntegrationTest {
         migrate("db/migration/app/V20261008120100__app_feedback.sql");
         migrate("db/migration/app/V20261008150100__app_feedback_username.sql");
         migrate("db/migration/app/V20261008170000__app_ads_and_release.sql");
+        migrate("db/migration/app/V20261009190000__app_announcement_and_marquee.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
                 + " VALUES (1,0,'电影',1,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         for (long id : List.of(10L, 11L, 12L)) {

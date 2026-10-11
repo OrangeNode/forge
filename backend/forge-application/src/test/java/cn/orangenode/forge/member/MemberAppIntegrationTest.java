@@ -21,13 +21,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
+import cn.orangenode.forge.app.request.AppAnnouncementRequest;
 import cn.orangenode.forge.app.request.AppBannerRequest;
 import cn.orangenode.forge.app.request.AppFeatureRequest;
 import cn.orangenode.forge.app.request.AppHotSearchRequest;
+import cn.orangenode.forge.app.request.AppMarqueeRequest;
 import cn.orangenode.forge.app.request.AppSectionRequest;
 import cn.orangenode.forge.app.request.AppReleaseMinVersionRequest;
 import cn.orangenode.forge.app.request.AppReleasePublishRequest;
 import cn.orangenode.forge.app.request.AppSplashRequest;
+import cn.orangenode.forge.app.service.AppAnnouncementService;
 import cn.orangenode.forge.app.service.AppContentService;
 import cn.orangenode.forge.app.service.AppReleaseService;
 import cn.orangenode.forge.app.service.AppSettingsService;
@@ -73,6 +76,8 @@ class MemberAppIntegrationTest {
     private AppSettingsService settings;
     @Autowired
     private AppReleaseService releases;
+    @Autowired
+    private AppAnnouncementService announcements;
     @MockitoBean
     private StringRedisTemplate redis;
     @MockitoBean
@@ -91,7 +96,7 @@ class MemberAppIntegrationTest {
         new RedisTestDouble(redis);
         RuntimeSchema.recreateSystemAndAuditTables(jdbc);
         for (String table : List.of("member_activation_code", "member_vip_log", "member_device", "member_user", "app_splash", "app_banner",
-                "app_section", "app_settings", "app_release")) {
+                "app_section", "app_settings", "app_release", "app_announcement", "app_announcement_read")) {
             jdbc.execute("DROP TABLE IF EXISTS " + table);
         }
         for (String table : List.of("category", "source", "source_category", "video", "origin", "play_line",
@@ -107,6 +112,7 @@ class MemberAppIntegrationTest {
         migrate("db/migration/member/V20261009120000__member_activation_used_for.sql");
         migrate("db/migration/app/V20261007121000__app_tables.sql");
         migrate("db/migration/app/V20261008170000__app_ads_and_release.sql");
+        migrate("db/migration/app/V20261009190000__app_announcement_and_marquee.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
                 + " VALUES (1,0,'电影',1,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
@@ -468,6 +474,82 @@ class MemberAppIntegrationTest {
                 new AppReleaseMinVersionRequest(2), 1L)).hasMessageContaining("不能高于");
         releases.withdraw(1L);
         assertThat(get("/api/app/v1/app/launch", null).path("data").path("release").isNull()).isTrue();
+    }
+
+    /**
+     * HTML 公告保存前去掉脚本与非 http 链接；每个用户同一版本只弹一次，修改内容后再弹，只改时间或开关不再弹；
+     * 多条生效时按优先级取第一条没看过的；停用、过期与未登录不返回。
+     */
+    @Test
+    void popsAnnouncementOncePerRevision() {
+        var html = announcements.save(null, new AppAnnouncementRequest("国庆公告", "HTML",
+                "<p onclick=\"x()\">放假<b>七天</b></p><script>alert(1)</script><a href=\"javascript:alert(1)\">坏</a>"
+                        + "<a href=\"https://example.com/a\">好</a><img src=\"/api/public/v1/files/t/a.png\">",
+                "VIDEO", String.valueOf(videoId), null, null, true, 1));
+        assertThat(html.content()).doesNotContain("script", "onclick", "javascript").contains("<b>七天</b>",
+                "href=\"https://example.com/a\"", "src=\"/api/public/v1/files/t/a.png\"");
+        assertThat(html.revision()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> announcements.save(null, new AppAnnouncementRequest(
+                "空", "HTML", "<script>alert(1)</script>", null, null, null, null, true, 0)))
+                .hasMessageContaining("过滤后为空");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> announcements.save(null, new AppAnnouncementRequest(
+                "坏链接", "TEXT", "内容", "URL", "javascript:alert(1)", null, null, true, 0)))
+                .hasMessageContaining("http");
+        announcements.save(null, new AppAnnouncementRequest("已过期", "TEXT", "旧", null, null, null,
+                java.time.Instant.parse("2020-01-01T00:00:00Z"), true, 0));
+        var text = announcements.save(null, new AppAnnouncementRequest("维护通知", "TEXT", "今晚维护", "URL",
+                "https://example.com/m", null, null, true, 2));
+        assertThat(get("/api/app/v1/app/announcement", null).path("code").asInt()).isEqualTo(401);
+        String token = newMember("notice_user", "device-n1");
+        JsonNode first = get("/api/app/v1/app/announcement", token).path("data");
+        assertThat(first.path("id").asText()).isEqualTo(html.id());
+        assertThat(first.path("actionType").asText()).isEqualTo("VIDEO");
+        assertThat(first.path("actionValue").asText()).isEqualTo(String.valueOf(videoId));
+        assertThat(post("/api/app/v1/app/announcement/" + html.id() + "/read", token, Map.of("revision", 1))
+                .path("code").asInt()).isZero();
+        JsonNode second = get("/api/app/v1/app/announcement", token).path("data");
+        assertThat(second.path("id").asText()).isEqualTo(text.id());
+        assertThat(second.path("contentType").asText()).isEqualTo("TEXT");
+        post("/api/app/v1/app/announcement/" + text.id() + "/read", token, Map.of("revision", 1));
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").isNull()).isTrue();
+        var moved = announcements.save(Long.valueOf(text.id()), new AppAnnouncementRequest(
+                "维护通知", "TEXT", "今晚维护", "URL", "https://example.com/m", null,
+                java.time.Instant.parse("2099-01-01T00:00:00Z"), true, 2));
+        assertThat(moved.revision()).isEqualTo(1);
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").isNull()).isTrue();
+        var edited = announcements.save(Long.valueOf(text.id()), new AppAnnouncementRequest("维护通知", "TEXT",
+                "改到明晚维护", "NONE", null, null, null, true, 2));
+        assertThat(edited.revision()).isEqualTo(2);
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").path("revision").asInt()).isEqualTo(2);
+        assertThat(post("/api/app/v1/app/announcement/" + text.id() + "/read", token, Map.of("revision", 9))
+                .path("code").asInt()).isZero();
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").isNull()).isTrue();
+        assertThat(post("/api/app/v1/app/announcement/99999/read", token, Map.of("revision", 1)).path("code").asInt())
+                .isEqualTo(404);
+        String other = newMember("notice_user2", "device-n2");
+        assertThat(get("/api/app/v1/app/announcement", other).path("data").path("id").asText()).isEqualTo(html.id());
+        announcements.delete(Long.valueOf(html.id()));
+        assertThat(get("/api/app/v1/app/announcement", other).path("data").path("id").asText()).isEqualTo(text.id());
+    }
+
+    /**
+     * 播放页滚动文字：启用后 App 读到文字与颜色，停用后为空；启用时文字为空被拒绝，未登录 401。
+     */
+    @Test
+    void servesPlayerMarquee() {
+        String token = newMember("marquee_user", "device-m1");
+        assertThat(get("/api/app/v1/app/player-marquee", null).path("code").asInt()).isEqualTo(401);
+        assertThat(get("/api/app/v1/app/player-marquee", token).path("data").isNull()).isTrue();
+        assertThat(settings.updateMarquee(new AppMarqueeRequest(true, " 请勿相信视频中的广告 ", "#ff3b30")).color())
+                .isEqualTo("#FF3B30");
+        JsonNode marquee = get("/api/app/v1/app/player-marquee", token).path("data");
+        assertThat(marquee.path("text").asText()).isEqualTo("请勿相信视频中的广告");
+        assertThat(marquee.path("color").asText()).isEqualTo("#FF3B30");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> settings.updateMarquee(
+                new AppMarqueeRequest(true, " ", "#FF3B30"))).hasMessageContaining("请输入文字");
+        settings.updateMarquee(new AppMarqueeRequest(false, "请勿相信视频中的广告", "#FF3B30"));
+        assertThat(get("/api/app/v1/app/player-marquee", token).path("data").isNull()).isTrue();
+        assertThat(settings.marquee().text()).isEqualTo("请勿相信视频中的广告");
     }
 
     /**
