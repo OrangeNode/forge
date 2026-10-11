@@ -31,3 +31,10 @@
 
 - 管理端页面未在浏览器登录操作（登录需要图形验证码）。
 - App 未在电视模拟器上连后端看电视轮播图实际效果。
+
+## 3. 部署（2026-10-11）
+
+| 操作 | 结果 |
+| --- | --- |
+| 部署测试服务器（HEAD `d5f80d8`，用户确认后上传 `app.jar` 与 `web/dist`，旧包留作 `app.jar.prev`、`dist.prev`；`docker compose up -d --build --wait backend web`，未改 compose.yaml、nginx 配置与 .env） | 四个容器健康；Flyway 执行 `V20261011120000`，`app_banner.tv_image_file_id` 已存在，App 管理菜单排序为 1—9；39280 上 `launch` 返回 code=0、`home` 未登录返回 code=401；47120 后台页面可打开 |
+| App 1.0.6(7) 正式签名包（`config/test.json`，SHA-256 `AC827093EF8B83275792136B37983959EAD507095C0A7F932B3FF747B9C1C209`） | 已打包，待用户登录后台在“功能与版本 → 版本更新”上传发布。打包时 Gradle 同样需要 `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=E:\tmp\jdk-uds` |
