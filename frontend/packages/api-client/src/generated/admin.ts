@@ -2176,6 +2176,7 @@ export interface components {
             sortNo: number;
             targetType?: string;
             targetValue?: string;
+            tvImageFileId?: string;
         };
         ApiResponseAppSplashResponse: {
             /** Format: int32 */
@@ -2201,6 +2202,8 @@ export interface components {
             targetType?: string;
             targetValue?: string;
             targetName?: string;
+            tvImageFileId?: string;
+            tvImageUrl?: string;
         };
         AppSectionRequest: {
             title: string;

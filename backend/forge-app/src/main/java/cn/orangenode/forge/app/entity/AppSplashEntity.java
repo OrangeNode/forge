@@ -34,6 +34,11 @@ public class AppSplashEntity {
     private Long imageFileId;
 
     /**
+     * 电视端封面图文件主键，为空时电视端使用手机封面图。
+     */
+    private Long tvImageFileId;
+
+    /**
      * 停留秒数。
      */
     private Integer durationSeconds;

@@ -114,6 +114,7 @@ class MemberAppIntegrationTest {
         migrate("db/migration/app/V20261008170000__app_ads_and_release.sql");
         migrate("db/migration/app/V20261009190000__app_announcement_and_marquee.sql");
         migrate("db/migration/app/V20261011120000__app_banner_tv_image_and_menu_order.sql");
+        migrate("db/migration/app/V20261011150000__app_splash_tv_image.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
                 + " VALUES (1,0,'电影',1,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
@@ -399,9 +400,9 @@ class MemberAppIntegrationTest {
     @Test
     void servesConfiguredHomeContent() {
         content.saveSplash(null, new AppSplashRequest("国庆", "501", 5, true, null, null, true, 0, "URL",
-                "https://ad.example.com/landing"));
+                "https://ad.example.com/landing", "508"));
         content.saveSplash(null, new AppSplashRequest("已过期", "502", 3, false, null,
-                java.time.Instant.parse("2020-01-01T00:00:00Z"), true, 0, null, null));
+                java.time.Instant.parse("2020-01-01T00:00:00Z"), true, 0, null, null, null));
         content.saveBanner(null, new AppBannerRequest("热映", "503", "VIDEO", String.valueOf(videoId), null, null, true, 1,
                 null, "507"));
         content.saveBanner(null, new AppBannerRequest("广告", "504", "URL", null, null, null, true, 2,
@@ -409,7 +410,7 @@ class MemberAppIntegrationTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> content.saveBanner(null, new AppBannerRequest("坏链接",
                 "505", "URL", null, null, null, true, 3, "javascript:alert(1)", null))).hasMessageContaining("http");
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> content.saveSplash(null, new AppSplashRequest("坏影片",
-                "506", 3, true, null, null, true, 1, "VIDEO", "99999"))).hasMessageContaining("影片不存在");
+                "506", 3, true, null, null, true, 1, "VIDEO", "99999", null))).hasMessageContaining("影片不存在");
         content.saveSection(null, new AppSectionRequest("热播电影", "CATEGORY", String.valueOf(categoryId), null, 10,
                 true, 1));
         content.saveSection(null, new AppSectionRequest("编辑推荐", "MANUAL", null, List.of(String.valueOf(videoId)), 5,
@@ -420,6 +421,7 @@ class MemberAppIntegrationTest {
         assertThat(launch.path("code").asInt()).isZero();
         assertThat(launch.path("data").path("splash").path("imageUrl").asText()).isEqualTo("/api/app/v1/app/images/501");
         assertThat(launch.path("data").path("splash").path("durationSeconds").asInt()).isEqualTo(5);
+        assertThat(launch.path("data").path("splash").path("tvImageUrl").asText()).isEqualTo("/api/app/v1/app/images/508");
         assertThat(launch.path("data").path("splash").path("targetType").asText()).isEqualTo("URL");
         assertThat(launch.path("data").path("splash").path("targetValue").asText())
                 .isEqualTo("https://ad.example.com/landing");
@@ -438,6 +440,7 @@ class MemberAppIntegrationTest {
         assertThat(get("/api/app/v1/app/hot-search", token).path("data").path("words").toString())
                 .isEqualTo("[\"测试影片\",\"庆余年\"]");
         http.get().uri("/api/app/v1/app/images/507").exchange().expectStatus().isOk();
+        http.get().uri("/api/app/v1/app/images/508").exchange().expectStatus().isOk();
         byte[] image = http.get().uri("/api/app/v1/app/images/503").exchange().expectStatus().isOk()
                 .expectHeader().contentType(MediaType.IMAGE_PNG).expectBody(byte[].class).returnResult()
                 .getResponseBody();

@@ -16,7 +16,9 @@ const rows = ref<Splash[]>([])
 const show = ref(false)
 const editingId = ref<string>()
 const preview = ref('')
-const form = reactive({ name: '', imageFileId: '', durationSeconds: 5, skippable: true, startAt: null as number | null, endAt: null as number | null, enabled: true, sortNo: 0, targetType: 'NONE', targetValue: null as string | null })
+const tvPreview = ref('')
+const tvPickerKey = ref(0)
+const form = reactive({ name: '', imageFileId: '', tvImageFileId: '', durationSeconds: 5, skippable: true, startAt: null as number | null, endAt: null as number | null, enabled: true, sortNo: 0, targetType: 'NONE', targetValue: null as string | null })
 const videoSelect = ref<{ label: string; value: string }[]>([])
 
 /**
@@ -52,8 +54,10 @@ async function load() {
 function edit(row?: Splash) {
   editingId.value = row?.id
   preview.value = imageSrc(row?.imageUrl)
+  tvPreview.value = imageSrc(row?.tvImageUrl)
+  tvPickerKey.value++
   Object.assign(form, {
-    name: row?.name ?? '', imageFileId: row?.imageFileId ?? '', durationSeconds: row?.durationSeconds ?? 5,
+    name: row?.name ?? '', imageFileId: row?.imageFileId ?? '', tvImageFileId: row?.tvImageFileId ?? '', durationSeconds: row?.durationSeconds ?? 5,
     skippable: row?.skippable ?? true, startAt: row?.startAt ? new Date(row.startAt).getTime() : null,
     endAt: row?.endAt ? new Date(row.endAt).getTime() : null, enabled: row?.enabled ?? true, sortNo: row?.sortNo ?? 0,
     targetType: row?.targetType ?? 'NONE', targetValue: row?.targetValue ?? null,
@@ -70,6 +74,7 @@ async function save() {
   const ok = await act(() => appConfigApi.saveSplash(editingId.value, {
     ...form,
     targetValue: form.targetType === 'NONE' ? undefined : form.targetValue?.trim() || undefined,
+    tvImageFileId: form.tvImageFileId || undefined,
     startAt: form.startAt ? new Date(form.startAt).toISOString() : undefined,
     endAt: form.endAt ? new Date(form.endAt).toISOString() : undefined,
   }), '开屏已保存')
@@ -84,7 +89,8 @@ async function remove(id: string) {
 }
 
 const columns: DataTableColumns<Splash> = [
-  { title: '封面', key: 'imageUrl', width: 120, render: row => h('img', { src: imageSrc(row.imageUrl), alt: row.name, style: 'width:96px;height:54px;object-fit:cover;border-radius:6px' }) },
+  { title: '手机封面', key: 'imageUrl', width: 120, render: row => h('img', { src: imageSrc(row.imageUrl), alt: row.name, style: 'width:96px;height:54px;object-fit:cover;border-radius:6px' }) },
+  { title: '电视封面', key: 'tvImageUrl', width: 120, render: row => row.tvImageUrl ? h('img', { src: imageSrc(row.tvImageUrl), alt: row.name, style: 'width:96px;height:54px;object-fit:cover;border-radius:6px' }) : h('span', { class: 'video-muted' }, '同手机封面') },
   { title: '名称', key: 'name', minWidth: 140 },
   { title: '停留', key: 'durationSeconds', width: 80, render: row => `${row.durationSeconds} 秒` },
   { title: '可跳过', key: 'skippable', width: 80, render: row => row.skippable ? '是' : '否' },
@@ -164,16 +170,38 @@ onMounted(load)
             />
           </NFormItem>
         </div>
-        <NFormItem
-          label="封面图"
-          :feedback="errors.imageFileId"
-          :validation-status="errors.imageFileId ? 'error' : undefined"
-        >
-          <ImageFilePicker
-            v-model="form.imageFileId"
-            :preview-src="preview"
-          />
-        </NFormItem>
+        <div class="video-form-grid">
+          <NFormItem
+            label="手机封面图（竖版，建议 1080×1920）"
+            :feedback="errors.imageFileId"
+            :validation-status="errors.imageFileId ? 'error' : undefined"
+          >
+            <ImageFilePicker
+              v-model="form.imageFileId"
+              :preview-src="preview"
+            />
+          </NFormItem>
+          <NFormItem label="电视封面图（横版，建议 1920×1080，可不传，不传时电视用手机封面图）">
+            <NSpace
+              vertical
+              :size="8"
+            >
+              <ImageFilePicker
+                :key="tvPickerKey"
+                v-model="form.tvImageFileId"
+                :preview-src="tvPreview"
+              />
+              <NButton
+                v-if="form.tvImageFileId"
+                size="small"
+                quaternary
+                @click="form.tvImageFileId = ''; tvPreview = ''; tvPickerKey++"
+              >
+                不用电视封面图
+              </NButton>
+            </NSpace>
+          </NFormItem>
+        </div>
         <NFormItem label="点击跳转">
           <NRadioGroup
             v-model:value="form.targetType"

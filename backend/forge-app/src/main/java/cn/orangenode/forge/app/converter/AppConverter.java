@@ -33,7 +33,8 @@ public class AppConverter {
                 AppValues.imageUrl(e.getImageFileId()), e.getDurationSeconds(), Boolean.TRUE.equals(e.getSkippable()),
                 AppValues.time(e.getStartAt()), AppValues.time(e.getEndAt()), Boolean.TRUE.equals(e.getEnabled()),
                 e.getSortNo(), AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), AppValues.now()),
-                e.getTargetType(), e.getTargetValue(), targetName);
+                e.getTargetType(), e.getTargetValue(), targetName, AppValues.textId(e.getTvImageFileId()),
+                AppValues.imageUrl(e.getTvImageFileId()));
     }
 
     /**

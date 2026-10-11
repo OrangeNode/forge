@@ -17,8 +17,10 @@ package cn.orangenode.forge.app.response;
  * @param targetType      点击跳转类型 NONE / VIDEO / URL
  * @param targetValue     跳转影片 ID 或外部链接
  * @param targetName      跳转影片名称，非影片或影片已删除时为空
+ * @param tvImageFileId   电视端封面图文件 ID，未单独配置时为空
+ * @param tvImageUrl      电视端封面图地址，未单独配置时为空
  */
 public record AppSplashResponse(String id, String name, String imageFileId, String imageUrl, int durationSeconds,
         boolean skippable, String startAt, String endAt, boolean enabled, int sortNo, boolean active,
-        String targetType, String targetValue, String targetName) {
+        String targetType, String targetValue, String targetName, String tvImageFileId, String tvImageUrl) {
 }

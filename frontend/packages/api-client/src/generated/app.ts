@@ -805,6 +805,7 @@ export interface components {
             skippable?: boolean;
             targetType?: string;
             targetValue?: string;
+            tvImageUrl?: string;
         };
         ApiResponseAppHotWordsResponse: {
             /** Format: int32 */

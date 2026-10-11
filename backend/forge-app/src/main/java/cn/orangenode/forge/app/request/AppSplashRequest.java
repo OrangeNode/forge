@@ -22,6 +22,7 @@ import jakarta.validation.constraints.Size;
  * @param sortNo          优先顺序，越小越优先
  * @param targetType      点击跳转类型 NONE / VIDEO / URL，为空按 NONE
  * @param targetValue     跳转影片 ID 或外部链接（http/https）
+ * @param tvImageFileId   电视端封面图文件 ID，可为空；为空时电视端使用手机封面图
  */
 public record AppSplashRequest(
         @NotBlank(message = "请输入名称") @Size(max = 64, message = "名称不能超过 64 个字符") String name,
@@ -34,5 +35,6 @@ public record AppSplashRequest(
         @NotNull(message = "请选择是否启用") Boolean enabled,
         @NotNull(message = "请输入顺序") @Min(value = 0, message = "顺序不能为负数") Integer sortNo,
         @Pattern(regexp = "NONE|VIDEO|URL", message = "跳转类型只能是 NONE、VIDEO 或 URL") String targetType,
-        @Size(max = 512, message = "跳转目标不能超过 512 个字符") String targetValue) {
+        @Size(max = 512, message = "跳转目标不能超过 512 个字符") String targetValue,
+        String tvImageFileId) {
 }

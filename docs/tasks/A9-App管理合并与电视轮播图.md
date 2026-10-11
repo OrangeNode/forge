@@ -38,3 +38,16 @@
 | --- | --- |
 | 部署测试服务器（HEAD `d5f80d8`，用户确认后上传 `app.jar` 与 `web/dist`，旧包留作 `app.jar.prev`、`dist.prev`；`docker compose up -d --build --wait backend web`，未改 compose.yaml、nginx 配置与 .env） | 四个容器健康；Flyway 执行 `V20261011120000`，`app_banner.tv_image_file_id` 已存在，App 管理菜单排序为 1—9；39280 上 `launch` 返回 code=0、`home` 未登录返回 code=401；47120 后台页面可打开 |
 | App 1.0.6(7) 正式签名包（`config/test.json`，SHA-256 `AC827093EF8B83275792136B37983959EAD507095C0A7F932B3FF747B9C1C209`） | 用户登录后台并选择安装包后，以其会话在合并后的“功能与版本 → 版本更新”上传发布，强制更新（最低可用版本 7）；启动配置返回版本 7；经 39280 公开外链完整下载，SHA-256 一致。打包时 Gradle 同样需要 `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=E:\tmp\jdk-uds` |
+
+## 4. 更正：电视开屏图（2026-10-11）
+
+用户说明原意是“电视的首页开屏图”单独配置，此前误做成了首页轮播电视图。轮播电视图保留（可不传，不影响现有轮播），另按同样方式补做开屏：
+
+| 项 | 实现 |
+| --- | --- |
+| 数据 | 迁移 `V20261011150000`：`app_splash` 增加可空 `tv_image_file_id` |
+| 接口 | 后台开屏请求与响应增加 `tvImageFileId`（响应另有 `tvImageUrl`）；`/api/app/v1/app/launch` 的 `splash.tvImageUrl` 为电视封面图，未配置时返回手机封面图地址；公开图片接口同时接受被电视封面图引用的文件 |
+| 管理端 | 开屏表单并排上传手机封面图（竖版，建议 1080×1920）与电视封面图（横版，建议 1920×1080，可不传、可清除）；列表增加“电视封面”列 |
+| App | 1.0.7+8：`SplashConfig` 增加可空 `tvImageUrl`，电视开屏预加载与显示都优先用它，旧服务端不返回时回退手机图 |
+
+验证（本机）：`backend` `clean verify` BUILD SUCCESS（185 个用例，3 个按设计跳过；首页用例新增启动配置返回电视封面图地址、电视封面图可经公开图片接口读取）；`frontend` type-check、lint、22 个用例与 `admin` 构建通过；OpenAPI 类型按同样方式离线生成，只多出 4 处字段；`orange-app` `flutter analyze` 无问题、38 个用例通过。

@@ -64,7 +64,10 @@ public class AppPublicServiceImpl implements AppPublicService {
                 .orderByDesc(AppSplashEntity::getId)).stream()
                 .filter(e -> AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), now)).findFirst()
                 .map(e -> new AppLaunchSplashResponse(AppValues.imageUrl(e.getImageFileId()), e.getDurationSeconds(),
-                        Boolean.TRUE.equals(e.getSkippable()), e.getTargetType(), e.getTargetValue())).orElse(null);
+                        Boolean.TRUE.equals(e.getSkippable()), e.getTargetType(), e.getTargetValue(),
+                        AppValues.imageUrl(e.getTvImageFileId() == null ? e.getImageFileId()
+                                : e.getTvImageFileId())))
+                .orElse(null);
         AppSettingsEntity s = settings.require();
         AppReleaseEntity r = releases.selectById(AppReleaseServiceImpl.RELEASE_ID);
         AppLaunchReleaseResponse release = r == null || r.getVersionCode() == null ? null
@@ -127,7 +130,8 @@ public class AppPublicServiceImpl implements AppPublicService {
     @Override
     public StoredFileContent image(Long fileId) {
         boolean referenced = splashes.selectCount(Wrappers.<AppSplashEntity>lambdaQuery()
-                .eq(AppSplashEntity::getImageFileId, fileId)) > 0
+                .and(w -> w.eq(AppSplashEntity::getImageFileId, fileId).or()
+                        .eq(AppSplashEntity::getTvImageFileId, fileId))) > 0
                 || banners.selectCount(Wrappers.<AppBannerEntity>lambdaQuery()
                 .and(w -> w.eq(AppBannerEntity::getImageFileId, fileId).or()
                         .eq(AppBannerEntity::getTvImageFileId, fileId))) > 0;

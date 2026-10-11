@@ -71,6 +71,8 @@ public class AppContentServiceImpl implements AppContentService {
         AppSplashEntity e = id == null ? new AppSplashEntity() : requireSplash(id);
         e.setName(r.name().strip());
         e.setImageFileId(requireImage(r.imageFileId()));
+        e.setTvImageFileId(r.tvImageFileId() == null || r.tvImageFileId().isBlank() ? null
+                : requireImage(r.tvImageFileId()));
         e.setDurationSeconds(r.durationSeconds());
         e.setSkippable(r.skippable());
         e.setStartAt(AppValues.utc(r.startAt()));
@@ -93,6 +95,7 @@ public class AppContentServiceImpl implements AppContentService {
                     .set(AppSplashEntity::getSortNo, e.getSortNo()).set(AppSplashEntity::getUpdatedAt, e.getUpdatedAt())
                     .set(AppSplashEntity::getTargetType, e.getTargetType())
                     .set(AppSplashEntity::getTargetValue, e.getTargetValue())
+                    .set(AppSplashEntity::getTvImageFileId, e.getTvImageFileId())
                     .eq(AppSplashEntity::getId, id));
         }
         AppSplashEntity saved = requireSplash(e.getId());
