@@ -20,6 +20,7 @@ import jakarta.validation.constraints.Size;
  * @param enabled     是否启用
  * @param sortNo      显示顺序
  * @param targetUrl   跳转类型为 URL 时的外部链接（http/https）
+ * @param tvImageFileId 电视端图片文件 ID，可为空；为空时电视端使用手机图片
  */
 public record AppBannerRequest(
         @NotBlank(message = "请输入标题") @Size(max = 64, message = "标题不能超过 64 个字符") String title,
@@ -31,5 +32,6 @@ public record AppBannerRequest(
         Instant endAt,
         @NotNull(message = "请选择是否启用") Boolean enabled,
         @NotNull(message = "请输入顺序") @Min(value = 0, message = "顺序不能为负数") Integer sortNo,
-        @Size(max = 512, message = "外部链接不能超过 512 个字符") String targetUrl) {
+        @Size(max = 512, message = "外部链接不能超过 512 个字符") String targetUrl,
+        String tvImageFileId) {
 }

@@ -1,3 +1,5 @@
+import AppGroupView from '@/views/app/AppGroupView.vue'
+import AppFeedbackView from '@/views/app/AppFeedbackView.vue'
 import SourceListView from '@/views/video/SourceListView.vue'
 import CategoryListView from '@/views/video/CategoryListView.vue'
 import VideoListView from '@/views/video/VideoListView.vue'
@@ -8,15 +10,6 @@ import VideoSearchView from '@/views/video/VideoSearchView.vue'
 import MemberUserView from '@/views/member/MemberUserView.vue'
 import MemberDeviceView from '@/views/member/MemberDeviceView.vue'
 import MemberActivationView from '@/views/member/MemberActivationView.vue'
-import AppSplashView from '@/views/app/AppSplashView.vue'
-import AppAnnouncementView from '@/views/app/AppAnnouncementView.vue'
-import AppMarqueeView from '@/views/app/AppMarqueeView.vue'
-import AppBannerView from '@/views/app/AppBannerView.vue'
-import AppSectionView from '@/views/app/AppSectionView.vue'
-import AppHotSearchView from '@/views/app/AppHotSearchView.vue'
-import AppFeatureView from '@/views/app/AppFeatureView.vue'
-import AppFeedbackView from '@/views/app/AppFeedbackView.vue'
-import AppReleaseView from '@/views/app/AppReleaseView.vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 import AdminLayout from '@/layouts/AdminLayout.vue'
@@ -83,15 +76,19 @@ const routes: RouteRecordRaw[] = [
       { path: 'member/users', name: 'member-user', component: MemberUserView, meta: { title: '用户列表', description: 'App 普通用户、VIP 与登录设备' } },
       { path: 'member/devices', name: 'member-device', component: MemberDeviceView, meta: { title: '登录设备', description: '普通用户登录设备与强制下线' } },
       { path: 'member/activation-codes', name: 'member-activation', component: MemberActivationView, meta: { title: '激活码', description: '注册激活码的生成、使用记录与作废' } },
-      { path: 'app/splash', name: 'app-splash', component: AppSplashView, meta: { title: '开屏设置', description: 'App 开屏广告' } },
-      { path: 'app/banners', name: 'app-banner', component: AppBannerView, meta: { title: '首页轮播', description: 'App 首页顶部轮播' } },
-      { path: 'app/sections', name: 'app-section', component: AppSectionView, meta: { title: '首页推荐位', description: 'App 首页推荐行' } },
-      { path: 'app/hot-search', name: 'app-hot-search', component: AppHotSearchView, meta: { title: '热搜设置', description: '热搜词与屏蔽词' } },
-      { path: 'app/features', name: 'app-feature', component: AppFeatureView, meta: { title: '功能开关', description: 'VIP、注册、同时登录台数与客服公告' } },
+      { path: 'app/home', name: 'app-home', component: AppGroupView, props: { group: 'app-home' }, meta: { title: '首页与开屏' } },
+      { path: 'app/notice', name: 'app-notice', component: AppGroupView, props: { group: 'app-notice' }, meta: { title: '公告与提示' } },
+      { path: 'app/operation', name: 'app-operation', component: AppGroupView, props: { group: 'app-operation' }, meta: { title: '功能与版本' } },
       { path: 'app/feedbacks', name: 'app-feedback', component: AppFeedbackView, meta: { title: '反馈处理', description: '意见反馈与播放报错' } },
-      { path: 'app/release', name: 'app-release', component: AppReleaseView, meta: { title: '版本更新', description: 'App 安装包发布与强制更新' } },
-      { path: 'app/announcements', name: 'app-announcement', component: AppAnnouncementView, meta: { title: '公告管理', description: 'App 首页弹窗公告' } },
-      { path: 'app/marquee', name: 'app-marquee', component: AppMarqueeView, meta: { title: '播放页滚动文字', description: '播放页线路上方的滚动提示' } },
+      // 2026-10-11 合并前的旧地址，跳转到合并页面对应标签
+      { path: 'app/splash', redirect: { name: 'app-home', query: { tab: 'app-splash' } } },
+      { path: 'app/banners', redirect: { name: 'app-home', query: { tab: 'app-banner' } } },
+      { path: 'app/sections', redirect: { name: 'app-home', query: { tab: 'app-section' } } },
+      { path: 'app/hot-search', redirect: { name: 'app-home', query: { tab: 'app-hot-search' } } },
+      { path: 'app/announcements', redirect: { name: 'app-notice', query: { tab: 'app-announcement' } } },
+      { path: 'app/marquee', redirect: { name: 'app-notice', query: { tab: 'app-marquee' } } },
+      { path: 'app/features', redirect: { name: 'app-operation', query: { tab: 'app-feature' } } },
+      { path: 'app/release', redirect: { name: 'app-operation', query: { tab: 'app-release' } } },
       {
         path: '',
         name: 'home',

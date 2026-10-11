@@ -113,6 +113,7 @@ class MemberAppIntegrationTest {
         migrate("db/migration/app/V20261007121000__app_tables.sql");
         migrate("db/migration/app/V20261008170000__app_ads_and_release.sql");
         migrate("db/migration/app/V20261009190000__app_announcement_and_marquee.sql");
+        migrate("db/migration/app/V20261011120000__app_banner_tv_image_and_menu_order.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
                 + " VALUES (1,0,'电影',1,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
@@ -402,11 +403,11 @@ class MemberAppIntegrationTest {
         content.saveSplash(null, new AppSplashRequest("已过期", "502", 3, false, null,
                 java.time.Instant.parse("2020-01-01T00:00:00Z"), true, 0, null, null));
         content.saveBanner(null, new AppBannerRequest("热映", "503", "VIDEO", String.valueOf(videoId), null, null, true, 1,
-                null));
+                null, "507"));
         content.saveBanner(null, new AppBannerRequest("广告", "504", "URL", null, null, null, true, 2,
-                "https://ad.example.com/banner"));
+                "https://ad.example.com/banner", null));
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> content.saveBanner(null, new AppBannerRequest("坏链接",
-                "505", "URL", null, null, null, true, 3, "javascript:alert(1)"))).hasMessageContaining("http");
+                "505", "URL", null, null, null, true, 3, "javascript:alert(1)", null))).hasMessageContaining("http");
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> content.saveSplash(null, new AppSplashRequest("坏影片",
                 "506", 3, true, null, null, true, 1, "VIDEO", "99999"))).hasMessageContaining("影片不存在");
         content.saveSection(null, new AppSectionRequest("热播电影", "CATEGORY", String.valueOf(categoryId), null, 10,
@@ -430,10 +431,13 @@ class MemberAppIntegrationTest {
         assertThat(home.path("banners").get(0).path("targetId").asText()).isEqualTo(String.valueOf(videoId));
         assertThat(home.path("banners").get(1).path("targetType").asText()).isEqualTo("URL");
         assertThat(home.path("banners").get(1).path("targetUrl").asText()).isEqualTo("https://ad.example.com/banner");
+        assertThat(home.path("banners").get(0).path("tvImageUrl").asText()).isEqualTo("/api/app/v1/app/images/507");
+        assertThat(home.path("banners").get(1).path("tvImageUrl").asText()).isEqualTo("/api/app/v1/app/images/504");
         assertThat(home.path("sections")).hasSize(2);
         assertThat(home.path("sections").get(0).path("videos").get(0).path("name").asText()).isEqualTo("测试影片");
         assertThat(get("/api/app/v1/app/hot-search", token).path("data").path("words").toString())
                 .isEqualTo("[\"测试影片\",\"庆余年\"]");
+        http.get().uri("/api/app/v1/app/images/507").exchange().expectStatus().isOk();
         byte[] image = http.get().uri("/api/app/v1/app/images/503").exchange().expectStatus().isOk()
                 .expectHeader().contentType(MediaType.IMAGE_PNG).expectBody(byte[].class).returnResult()
                 .getResponseBody();

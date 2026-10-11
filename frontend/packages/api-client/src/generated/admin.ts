@@ -2333,6 +2333,7 @@ export interface components {
             /** Format: int32 */
             sortNo: number;
             targetUrl?: string;
+            tvImageFileId?: string;
         };
         ApiResponseAppBannerResponse: {
             /** Format: int32 */
@@ -2356,6 +2357,8 @@ export interface components {
             sortNo?: number;
             active?: boolean;
             targetUrl?: string;
+            tvImageFileId?: string;
+            tvImageUrl?: string;
         };
         AppAnnouncementRequest: {
             title: string;

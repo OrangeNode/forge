@@ -34,6 +34,11 @@ public class AppBannerEntity {
     private Long imageFileId;
 
     /**
+     * 电视端图片文件主键，为空时电视端使用手机图片。
+     */
+    private Long tvImageFileId;
+
+    /**
      * 跳转类型 NONE/VIDEO/CATEGORY。
      */
     private String targetType;

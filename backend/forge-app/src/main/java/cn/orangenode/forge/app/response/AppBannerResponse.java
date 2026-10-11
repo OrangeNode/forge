@@ -16,8 +16,10 @@ package cn.orangenode.forge.app.response;
  * @param sortNo      显示顺序
  * @param active      当前是否在线
  * @param targetUrl   跳转类型为 URL 时的外部链接
+ * @param tvImageFileId 电视端图片文件 ID，未单独配置时为空
+ * @param tvImageUrl  电视端图片地址，未单独配置时为空
  */
 public record AppBannerResponse(String id, String title, String imageFileId, String imageUrl, String targetType,
         String targetId, String targetName, String startAt, String endAt, boolean enabled, int sortNo,
-        boolean active, String targetUrl) {
+        boolean active, String targetUrl, String tvImageFileId, String tvImageUrl) {
 }

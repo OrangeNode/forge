@@ -830,6 +830,7 @@ export interface components {
             targetType?: string;
             targetId?: string;
             targetUrl?: string;
+            tvImageUrl?: string;
         };
         AppHomeResponse: {
             banners?: components["schemas"]["AppHomeBannerResponse"][];

@@ -168,12 +168,13 @@ function registerCurrentTab(): void {
 }
 
 /**
- * 标签条请求切换页面：按标签键跳转。
+ * 标签条请求切换页面：回到该标签最后停留的地址（保留合并页面的子标签），没有记录时按路由名跳转。
  *
  * @param key 标签键，即本地路由名
  */
 function handleTabSwitch(key: string): void {
-  void router.push({ name: key })
+  const path = tabsStore.tabs.find((tab) => tab.key === key)?.path
+  void router.push(path ?? { name: key })
 }
 
 watch(() => route.fullPath, registerCurrentTab, { immediate: true })

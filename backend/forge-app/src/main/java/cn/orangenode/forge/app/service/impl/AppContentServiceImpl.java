@@ -135,6 +135,8 @@ public class AppContentServiceImpl implements AppContentService {
         }
         e.setTitle(r.title().strip());
         e.setImageFileId(requireImage(r.imageFileId()));
+        e.setTvImageFileId(r.tvImageFileId() == null || r.tvImageFileId().isBlank() ? null
+                : requireImage(r.tvImageFileId()));
         e.setTargetType(r.targetType());
         e.setTargetId(targetId);
         e.setTargetUrl(targetUrl);
@@ -152,6 +154,7 @@ public class AppContentServiceImpl implements AppContentService {
                     .set(AppBannerEntity::getTitle, e.getTitle()).set(AppBannerEntity::getImageFileId, e.getImageFileId())
                     .set(AppBannerEntity::getTargetType, e.getTargetType()).set(AppBannerEntity::getTargetId, targetId)
                     .set(AppBannerEntity::getTargetUrl, targetUrl)
+                    .set(AppBannerEntity::getTvImageFileId, e.getTvImageFileId())
                     .set(AppBannerEntity::getStartAt, e.getStartAt()).set(AppBannerEntity::getEndAt, e.getEndAt())
                     .set(AppBannerEntity::getEnabled, e.getEnabled()).set(AppBannerEntity::getSortNo, e.getSortNo())
                     .set(AppBannerEntity::getUpdatedAt, e.getUpdatedAt()).eq(AppBannerEntity::getId, id));

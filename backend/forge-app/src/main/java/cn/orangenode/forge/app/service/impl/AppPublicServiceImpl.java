@@ -86,7 +86,8 @@ public class AppPublicServiceImpl implements AppPublicService {
                 .filter(e -> AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), now))
                 .map(e -> new AppHomeBannerResponse(AppValues.textId(e.getId()), e.getTitle(),
                         AppValues.imageUrl(e.getImageFileId()), e.getTargetType(), AppValues.textId(e.getTargetId()),
-                        e.getTargetUrl()))
+                        e.getTargetUrl(), AppValues.imageUrl(e.getTvImageFileId() == null ? e.getImageFileId()
+                                : e.getTvImageFileId())))
                 .toList();
         List<AppHomeSectionResponse> sectionList = sections.selectList(Wrappers.<AppSectionEntity>lambdaQuery()
                 .eq(AppSectionEntity::getEnabled, true).orderByAsc(AppSectionEntity::getSortNo)
@@ -128,7 +129,8 @@ public class AppPublicServiceImpl implements AppPublicService {
         boolean referenced = splashes.selectCount(Wrappers.<AppSplashEntity>lambdaQuery()
                 .eq(AppSplashEntity::getImageFileId, fileId)) > 0
                 || banners.selectCount(Wrappers.<AppBannerEntity>lambdaQuery()
-                .eq(AppBannerEntity::getImageFileId, fileId)) > 0;
+                .and(w -> w.eq(AppBannerEntity::getImageFileId, fileId).or()
+                        .eq(AppBannerEntity::getTvImageFileId, fileId))) > 0;
         if (!referenced) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "图片不存在");
         }

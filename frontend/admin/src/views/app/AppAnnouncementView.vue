@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import { useSessionStore } from '@/stores/session'
 import { useVideoActions } from '@/composables/use-video-actions'
 import { API_BASE_URL } from '@/api/request'
+import { ANNOUNCEMENT_TEMPLATES, type AnnouncementTemplate } from './announcement-templates'
 import '@/views/video/video.css'
 
 const session = useSessionStore()
@@ -21,15 +22,38 @@ const form = reactive({
 })
 const videoSelect = ref<{ label: string; value: string }[]>([])
 
+const showTemplates = ref(false)
+
 /**
- * HTML 预览：放进不允许脚本的沙箱框架里显示，站内相对地址按接口地址补全。
+ * 生成预览页面：放进不允许脚本的沙箱框架里显示，配色与 App 深色公告弹窗一致，站内相对地址按接口地址补全。
+ *
+ * @param body 公告 HTML 片段
+ * @returns 完整的预览页面
  */
-const previewDoc = computed(() => {
-  const body = form.contentType === 'HTML' ? form.content : escapeHtml(form.content).replace(/\n/g, '<br>')
+function previewPage(body: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><base href="${API_BASE_URL || location.origin}/">`
-    + '<style>body{font:14px/1.6 system-ui,sans-serif;margin:12px;color:#222}img{max-width:100%}</style></head>'
+    + '<style>body{font:14px/1.5 system-ui,sans-serif;margin:12px;color:#F2F4F7;background:#1A1F27}'
+    + 'img{max-width:100%}a{color:#FF8A00}h1,h2,h3,h4,p,ul,ol{margin:0 0 8px}hr{border:0;border-top:1px solid #4a515c}'
+    + 'blockquote{margin:0 0 8px;padding-left:10px;border-left:3px solid #FF8A00;opacity:.85}</style></head>'
     + `<body>${body}</body></html>`
-})
+}
+
+/**
+ * 当前编辑内容的预览。
+ */
+const previewDoc = computed(() => previewPage(form.contentType === 'HTML' ? form.content : escapeHtml(form.content).replace(/\n/g, '<br>')))
+
+/**
+ * 选用模板：内容切换为 HTML 并填入模板，标题为空时一并填入模板标题。
+ *
+ * @param template 选中的模板
+ */
+function useTemplate(template: AnnouncementTemplate): void {
+  form.contentType = 'HTML'
+  form.content = template.html
+  if (!form.title.trim()) form.title = template.title
+  showTemplates.value = false
+}
 
 /**
  * 转义纯文本，用于预览。
@@ -189,14 +213,23 @@ onMounted(load)
           </NFormItem>
         </div>
         <NFormItem label="内容格式">
-          <NRadioGroup v-model:value="form.contentType">
-            <NRadioButton value="TEXT">
-              纯文本
-            </NRadioButton>
-            <NRadioButton value="HTML">
-              HTML
-            </NRadioButton>
-          </NRadioGroup>
+          <NSpace align="center">
+            <NRadioGroup v-model:value="form.contentType">
+              <NRadioButton value="TEXT">
+                纯文本
+              </NRadioButton>
+              <NRadioButton value="HTML">
+                HTML
+              </NRadioButton>
+            </NRadioGroup>
+            <NButton
+              secondary
+              type="primary"
+              @click="showTemplates = true"
+            >
+              从样例模板选择
+            </NButton>
+          </NSpace>
         </NFormItem>
         <NFormItem
           :label="form.contentType === 'HTML'
@@ -222,7 +255,7 @@ onMounted(load)
             :srcdoc="previewDoc"
             sandbox=""
             title="公告预览"
-            style="width: 100%; height: 220px; border: 1px solid var(--n-border-color, #ddd); border-radius: 6px; background: #fff"
+            style="width: 100%; height: 260px; border: 1px solid var(--n-border-color, #ddd); border-radius: 6px; background: #1A1F27"
           />
         </NFormItem>
         <NFormItem label="按钮（“知道了”始终显示）">
@@ -303,5 +336,89 @@ onMounted(load)
         </NSpace>
       </template>
     </NModal>
+    <NModal
+      v-model:show="showTemplates"
+      preset="card"
+      title="公告样例模板"
+      style="width: min(1080px, 96vw)"
+    >
+      <NAlert
+        type="info"
+        :bordered="false"
+        style="margin-bottom: 14px"
+      >
+        预览按 App 公告弹窗的深色配色显示。选用后内容会替换为模板，再在编辑框里改成自己的文字。
+      </NAlert>
+      <div class="template-grid">
+        <div
+          v-for="template in ANNOUNCEMENT_TEMPLATES"
+          :key="template.key"
+          class="template-card"
+        >
+          <div class="template-card__head">
+            <b>{{ template.name }}</b>
+            <NPopconfirm
+              v-if="form.content.trim()"
+              @positive-click="useTemplate(template)"
+            >
+              <template #trigger>
+                <NButton
+                  size="small"
+                  type="primary"
+                >
+                  使用此模板
+                </NButton>
+              </template>
+              当前内容会被模板替换，确定吗？
+            </NPopconfirm>
+            <NButton
+              v-else
+              size="small"
+              type="primary"
+              @click="useTemplate(template)"
+            >
+              使用此模板
+            </NButton>
+          </div>
+          <iframe
+            :srcdoc="previewPage(template.html)"
+            sandbox=""
+            :title="`${template.name}预览`"
+            class="template-card__preview"
+          />
+        </div>
+      </div>
+    </NModal>
   </PageBody>
 </template>
+
+<style scoped>
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e3e8ef;
+  border-radius: 10px;
+}
+
+.template-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.template-card__preview {
+  width: 100%;
+  height: 240px;
+  border: 0;
+  border-radius: 8px;
+  background: #1A1F27;
+}
+</style>
