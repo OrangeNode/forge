@@ -72,5 +72,6 @@
 | 部署（HEAD `ddcb1f1`） | 服务器配置备份到 `/opt/orange-forge/backup-202610120043/`；`.env` 删除 `LEGACY_HTTP_*`，增加两个域名与 `HTTP_BIND=0.0.0.0`；`ufw allow 80/tcp`；只重建 web 容器 |
 | 公网验证 | `http://admin.orangenode.cn/` 200；`http://api.orangenode.cn/api/app/v1/app/launch` code=0，安装包外链经该域名分段下载 206；后台域名不提供 App 接口（404）；直接访问 IP 的 80 端口无响应；旧地址 `:47120`、`:39280` 仍为 200 |
 | App 1.0.8(9) | `config/test.json` 改为 `http://api.orangenode.cn`（Android 已允许明文 HTTP）；正式签名 release 包 SHA-256 `2EF487BEA732E2E0150EC846B503EEE055AF1ED2501BD31626C9EFA856F7A2E3`，包内不含旧端口 |
+| 发布 1.0.8(9) | 用户在后台（经 `admin.orangenode.cn`）选择安装包发布，强制更新（最低可用版本 9）；经 `api.orangenode.cn` 读取启动配置为版本 9，公开外链完整下载 SHA-256 与打包一致 |
 
-未执行：1.0.8 尚未在后台发布（需用户登录后台选择安装包）；未在真机上验证 1.0.8。
+未执行：未在真机上验证 1.0.8。
