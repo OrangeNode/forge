@@ -6,6 +6,8 @@ Orange Forge：基于 Java 21、Spring Boot、Vue 3 与 TypeScript 的可复用�
 - [本地开发指南](docs/本地开发指南.md)
 - [里程碑与进度](docs/里程碑与进度.md)
 
+使用教程：[服务器部署](docs/服务器部署教程.md)、[域名与 nginx](docs/域名与nginx配置教程.md)、[后台使用](docs/后台使用教程.md)、[常用命令](docs/常用命令.md)。App 客户端在 [orange-app](https://github.com/OrangeNode/orange-app) 仓库，打包签名与版本号教程在该仓库 `docs/`。
+
 当前 M0—M5 已完成，另新增 [视频采集业务](docs/tasks/V1-视频采集与接口.md)，M6 尚未开始；具体能力与验证范围以项目文档为准。
 2026-09-29 结构调整：前端由双端收敛为单一后台管理前端，身份由管理员/普通用户双身份收敛为单一管理员身份，详见[架构设计](docs/架构设计.md)第 8 节变更记录。
 2026-10-07 恢复普通用户体系（T1 / [A1 任务](docs/tasks/A1-App后台与普通用户.md)）：新增 `forge-member`（注册、登录、VIP、登录设备；2026-10-08 起改为用户名登录，不再使用邮箱）与 `forge-app`（开屏、首页轮播与推荐位、热搜、功能开关），App 视频接口改为必须登录、播放线路需 VIP；管理端仍是唯一前端，App 客户端在独立仓库。

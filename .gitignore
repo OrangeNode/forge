@@ -67,3 +67,7 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# 本机 AI 工具与浏览器自动化的临时文件
+.claude/
+.playwright-mcp/
