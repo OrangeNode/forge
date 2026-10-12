@@ -1,5 +1,5 @@
 # 测试服务器部署：MySQL、Redis、后端、管理端（nginx）一套 Compose。
-# 只有 web 服务的端口对外开放：后台入口、App 入口与过渡用的旧 80 端口，/api 由 nginx 反向代理到后端。
+# 只有 web 服务的端口对外开放：后台、App 两个高位端口与按域名分流的 80 端口，/api 由 nginx 反向代理到后端。
 # 注意 Docker 发布的端口不受 ufw 控制，要关闭某个入口必须改这里的端口绑定。
 # 凭据全部来自同目录 .env（模板 .env.example，服务器上 chmod 600，不进入版本库）。
 # 部署步骤见 docs/部署指南.md。
@@ -111,13 +111,16 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    environment:
+      # 80 端口按 Host 分流的两个域名，由 nginx 模板在容器启动时替换（见 web/nginx.conf）。
+      FORGE_ADMIN_HOST: ${ADMIN_HOST:?请在 .env 中设置 ADMIN_HOST}
+      FORGE_API_HOST: ${API_HOST:?请在 .env 中设置 API_HOST}
     ports:
-      # 后台入口与 App 入口使用高位端口，端口号只在服务器 .env 中设置。
+      # 后台入口与 App 入口使用高位端口，端口号只在服务器 .env 中设置（1.0.7 及更早的 App 用 App 高位端口）。
       - "${ADMIN_PORT:?请在 .env 中设置 ADMIN_PORT}:8081"
       - "${APP_PORT:?请在 .env 中设置 APP_PORT}:8082"
-      # 旧 80 端口只为 1.0.2 及更早的 App 过渡（只有 App 接口与安装包下载）。
-      # 确认用户都已升级后在 .env 设 LEGACY_HTTP_BIND=127.0.0.1 即对外关闭。
-      - "${LEGACY_HTTP_BIND:-0.0.0.0}:${LEGACY_HTTP_PORT:-80}:80"
+      # 80 端口域名入口：ADMIN_HOST → 后台，API_HOST → App 接口，其他 Host 断开连接。
+      - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:80"
     security_opt:
       - no-new-privileges:true
     logging:
