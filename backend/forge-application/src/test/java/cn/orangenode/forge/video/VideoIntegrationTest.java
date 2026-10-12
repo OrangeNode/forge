@@ -33,6 +33,7 @@ import cn.orangenode.forge.video.request.PendingResolveRequest;
 import cn.orangenode.forge.video.request.TaskRequest;
 import cn.orangenode.forge.video.request.VideoEditRequest;
 import cn.orangenode.forge.video.response.PendingResponse;
+import cn.orangenode.forge.video.response.PlayLineResponse;
 import cn.orangenode.forge.video.response.VideoDetailResponse;
 import cn.orangenode.forge.video.service.CatalogService;
 import cn.orangenode.forge.video.service.CollectionService;
@@ -290,6 +291,30 @@ class VideoIntegrationTest {
         var run = collections.runs(1, 20, null).records().getFirst();
         assertThat(run.status()).isEqualTo("QUEUED");
         assertThat(run.warning()).contains("超过采集窗口");
+    }
+
+    /**
+     * 公开线路名不带采集站线路代码：用来源名、同名加序号、后台改名优先、来源名为空时兜底“线路N”，后台仍看到原始代码。
+     */
+    @Test
+    void namesPublicLinesInChineseWithoutCode() {
+        CollectedVideo two = new CollectedVideo("1", "6", "测试", 2026, "中国", "中文", "导演", "演员", null,
+                "资料", "更新说明", 1, null, null, List.of(
+                        new CollectedLine("lzm3u8", List.of(new CollectedEpisode("第1集", "https://example.com/1.m3u8", "M3U8"))),
+                        new CollectedLine("liangzi", List.of(new CollectedEpisode("第1集", "https://example.com/2.m3u8", "M3U8")))));
+        collect(1, two, 1, 1);
+        collect(2, movie("9", "测试", 2026, "其他来源"), 1, 1);
+        Long id = videoId();
+        assertThat(catalog.lines(id, true)).extracting(PlayLineResponse::name)
+                .containsExactly("测试来源1", "测试来源1 2", "测试来源2");
+        assertThat(catalog.lines(id, true)).allMatch(l -> l.sourceName().isEmpty());
+        assertThat(catalog.lines(id, false)).extracting(PlayLineResponse::name)
+                .containsExactly("lzm3u8", "liangzi", "m3u8");
+        Long second = Long.valueOf(catalog.lines(id, false).get(1).id());
+        catalog.editLine(second, new LineEditRequest("高清", 1, true));
+        jdbc.update("UPDATE video_source SET name='' WHERE id=2");
+        assertThat(catalog.lines(id, true)).extracting(PlayLineResponse::name)
+                .containsExactly("测试来源1", "高清", "线路3");
     }
 
     /**

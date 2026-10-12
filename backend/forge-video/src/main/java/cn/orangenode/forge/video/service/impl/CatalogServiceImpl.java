@@ -363,6 +363,33 @@ public class CatalogServiceImpl implements CatalogService {
                         Boolean.TRUE.equals(line.getEnabled()), episodes.size(), episodes));
             }
         }
+        return publicOnly ? appLineNames(result) : List.copyOf(result);
+    }
+
+    /**
+     * 把公开线路名换成只含中文的展示名，旧版 App 按“名称 · 来源”拼接，因此同时清空来源名。
+     * 后台手工改过的线路名优先；否则用来源名，同一影片同名的依次加序号；都没有时兜底为“线路N”。
+     */
+    private List<PlayLineResponse> appLineNames(List<PlayLineResponse> lines) {
+        List<String> bases = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            PlayLineResponse line = lines.get(i);
+            String custom = line.name() == null ? "" : line.name().strip();
+            String source = line.sourceName() == null ? "" : line.sourceName().strip();
+            String base = !custom.isEmpty() && !custom.equals(line.code()) ? custom
+                    : !source.isEmpty() ? source : "线路" + (i + 1);
+            bases.add(base);
+        }
+        Map<String, Integer> seen = new HashMap<>();
+        List<PlayLineResponse> result = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            PlayLineResponse line = lines.get(i);
+            String base = bases.get(i);
+            int index = seen.merge(base, 1, Integer::sum);
+            String name = index > 1 ? base + " " + index : base;
+            result.add(new PlayLineResponse(line.id(), line.originId(), "", line.code(), name, line.sortNo(),
+                    line.enabled(), line.availableEpisodeCount(), line.episodes()));
+        }
         return List.copyOf(result);
     }
 

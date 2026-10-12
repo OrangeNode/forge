@@ -69,7 +69,7 @@ public interface CatalogService {
     AppVideoResponse appDetail(Long id);
 
     /**
-     * 查询结构化播放线路及分集。
+     * 查询结构化播放线路及分集；公开查询的线路名只给中文展示名，来源名置空。
      */
     List<PlayLineResponse> lines(Long id, boolean publicOnly);
 
