@@ -1,10 +1,13 @@
 package cn.orangenode.forge.app.service.impl;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DuplicateKeyException;
@@ -13,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 
+import cn.orangenode.forge.app.config.AppProperties;
 import cn.orangenode.forge.app.entity.AppAnnouncementEntity;
 import cn.orangenode.forge.app.entity.AppAnnouncementReadEntity;
 import cn.orangenode.forge.app.mapper.AppAnnouncementMapper;
@@ -30,7 +34,8 @@ import cn.orangenode.forge.framework.catalog.VideoCatalogPort;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 公告实现：HTML 保存前白名单过滤；已读按“用户 + 公告”记录看过的版本，内容修改后版本加一会再弹一次。
+ * 公告实现：HTML 保存前白名单过滤；已读按“用户 + 公告”记录看过的版本与最近关闭时间，内容修改后版本加一会再弹一次；
+ * 弹出频率在服务端判断：只弹一次、每天一次（按配置时区的自然日）或每次进入 App 都弹。
  */
 @Service
 @RequiredArgsConstructor
@@ -39,9 +44,13 @@ public class AppAnnouncementServiceImpl implements AppAnnouncementService {
     private static final String ACTION_NONE = "NONE";
     private static final String ACTION_VIDEO = "VIDEO";
     private static final String ACTION_URL = "URL";
+    private static final String FREQUENCY_ONCE = "ONCE";
+    private static final String FREQUENCY_DAILY = "DAILY";
+    private static final String FREQUENCY_EVERY_LAUNCH = "EVERY_LAUNCH";
     private final AppAnnouncementMapper announcements;
     private final AppAnnouncementReadMapper reads;
     private final VideoCatalogPort catalog;
+    private final AppProperties properties;
 
     /**
      * 查询全部公告，优先级高的在前，同优先级新建的在前。
@@ -68,6 +77,7 @@ public class AppAnnouncementServiceImpl implements AppAnnouncementService {
         String actionType = r.actionType() == null ? ACTION_NONE : r.actionType();
         String actionValue = actionValue(actionType, r.actionValue());
         String title = r.title().strip();
+        String frequency = r.popupFrequency() == null ? FREQUENCY_ONCE : r.popupFrequency();
         boolean changed = id == null || !title.equals(e.getTitle()) || !r.contentType().equals(e.getContentType())
                 || !content.equals(e.getContent()) || !actionType.equals(e.getActionType())
                 || !Objects.equals(actionValue, e.getActionValue());
@@ -80,6 +90,7 @@ public class AppAnnouncementServiceImpl implements AppAnnouncementService {
             e.setRevision(revision);
             e.setActionType(actionType);
             e.setActionValue(actionValue);
+            e.setPopupFrequency(frequency);
             e.setStartAt(AppValues.utc(r.startAt()));
             e.setEndAt(AppValues.utc(r.endAt()));
             e.setEnabled(r.enabled());
@@ -96,6 +107,7 @@ public class AppAnnouncementServiceImpl implements AppAnnouncementService {
                     .set(AppAnnouncementEntity::getRevision, revision)
                     .set(AppAnnouncementEntity::getActionType, actionType)
                     .set(AppAnnouncementEntity::getActionValue, actionValue)
+                    .set(AppAnnouncementEntity::getPopupFrequency, frequency)
                     .set(AppAnnouncementEntity::getStartAt, AppValues.utc(r.startAt()))
                     .set(AppAnnouncementEntity::getEndAt, AppValues.utc(r.endAt()))
                     .set(AppAnnouncementEntity::getEnabled, r.enabled())
@@ -117,7 +129,7 @@ public class AppAnnouncementServiceImpl implements AppAnnouncementService {
     }
 
     /**
-     * 读取要弹出的公告；跳转影片已被删除时不显示“去了解”。
+     * 读取要弹出的公告：按优先级取第一条该弹的；跳转影片已被删除时不显示“去了解”。
      */
     @Override
     public Optional<AppAnnouncementPopupResponse> popup(Long memberId) {
@@ -129,18 +141,39 @@ public class AppAnnouncementServiceImpl implements AppAnnouncementService {
         if (active.isEmpty()) {
             return Optional.empty();
         }
-        Map<Long, Integer> seen = reads.selectList(Wrappers.<AppAnnouncementReadEntity>lambdaQuery()
+        Map<Long, AppAnnouncementReadEntity> seen = reads.selectList(Wrappers.<AppAnnouncementReadEntity>lambdaQuery()
                 .eq(AppAnnouncementReadEntity::getMemberId, memberId)
                 .in(AppAnnouncementReadEntity::getAnnouncementId, active.stream().map(AppAnnouncementEntity::getId)
                         .toList()))
-                .stream().collect(Collectors.toMap(AppAnnouncementReadEntity::getAnnouncementId,
-                        AppAnnouncementReadEntity::getRevision, Math::max));
-        return active.stream().filter(e -> seen.getOrDefault(e.getId(), 0) < e.getRevision()).findFirst()
-                .map(this::popupResponse);
+                .stream().collect(Collectors.toMap(AppAnnouncementReadEntity::getAnnouncementId, Function.identity()));
+        LocalDate today = day(now);
+        return active.stream().filter(e -> due(e, seen.get(e.getId()), today)).findFirst().map(this::popupResponse);
     }
 
     /**
-     * 记录已看过的版本；上报的版本高于当前版本时按当前版本记录，低于已记录的版本时不回退。
+     * 判断公告对当前用户是否该弹：当前版本没看过的一定弹；看过的按频率决定，
+     * 每次进入 App 的总是弹，每天一次的在上次关闭不是今天时弹，只弹一次的不再弹。
+     */
+    private boolean due(AppAnnouncementEntity e, AppAnnouncementReadEntity read, LocalDate today) {
+        if (read == null || read.getRevision() < e.getRevision()) {
+            return true;
+        }
+        return switch (e.getPopupFrequency()) {
+            case FREQUENCY_EVERY_LAUNCH -> true;
+            case FREQUENCY_DAILY -> day(read.getReadAt()).isBefore(today);
+            default -> false;
+        };
+    }
+
+    /**
+     * UTC 数据库时间换算为配置时区的自然日。
+     */
+    private LocalDate day(LocalDateTime utc) {
+        return utc.atOffset(ZoneOffset.UTC).atZoneSameInstant(properties.getAnnouncementDayZone()).toLocalDate();
+    }
+
+    /**
+     * 记录已看过的版本与关闭时间；上报的版本高于当前版本时按当前版本记录，低于已记录的版本时不回退也不刷新时间。
      */
     @Override
     @Transactional
@@ -176,7 +209,7 @@ public class AppAnnouncementServiceImpl implements AppAnnouncementService {
                     .set(AppAnnouncementReadEntity::getReadAt, now)
                     .eq(AppAnnouncementReadEntity::getMemberId, memberId)
                     .eq(AppAnnouncementReadEntity::getAnnouncementId, announcementId)
-                    .lt(AppAnnouncementReadEntity::getRevision, revision));
+                    .le(AppAnnouncementReadEntity::getRevision, revision));
         }
         return matched;
     }
@@ -202,7 +235,7 @@ public class AppAnnouncementServiceImpl implements AppAnnouncementService {
         String actionName = ACTION_VIDEO.equals(e.getActionType()) && e.getActionValue() != null
                 ? catalog.videoName(Long.valueOf(e.getActionValue())).orElse(null) : null;
         return new AppAnnouncementResponse(AppValues.textId(e.getId()), e.getTitle(), e.getContentType(),
-                e.getContent(), e.getRevision(), e.getActionType(), e.getActionValue(), actionName,
+                e.getContent(), e.getRevision(), e.getActionType(), e.getActionValue(), e.getPopupFrequency(), actionName,
                 AppValues.time(e.getStartAt()), AppValues.time(e.getEndAt()), Boolean.TRUE.equals(e.getEnabled()),
                 e.getSortNo(), AppValues.active(e.getEnabled(), e.getStartAt(), e.getEndAt(), AppValues.now()),
                 AppValues.time(e.getUpdatedAt()));

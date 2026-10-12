@@ -1,11 +1,14 @@
 package cn.orangenode.forge.app.config;
 
+import java.time.ZoneId;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -37,4 +40,10 @@ public class AppProperties {
      */
     @NotBlank
     private String packageName = "cn.orangenode.orange_app";
+
+    /**
+     * “每天弹一次”的公告按该时区的自然日计算“今天”。
+     */
+    @NotNull
+    private ZoneId announcementDayZone = ZoneId.of("Asia/Shanghai");
 }

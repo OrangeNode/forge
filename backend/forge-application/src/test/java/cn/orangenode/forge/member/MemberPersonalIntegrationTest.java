@@ -89,6 +89,7 @@ class MemberPersonalIntegrationTest {
         migrate("db/migration/app/V20261009190000__app_announcement_and_marquee.sql");
         migrate("db/migration/app/V20261011120000__app_banner_tv_image_and_menu_order.sql");
         migrate("db/migration/app/V20261011150000__app_splash_tv_image.sql");
+        migrate("db/migration/app/V20261012100000__app_announcement_popup_frequency.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
                 + " VALUES (1,0,'电影',1,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         for (long id : List.of(10L, 11L, 12L)) {

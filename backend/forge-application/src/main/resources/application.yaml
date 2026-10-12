@@ -197,6 +197,8 @@ forge:
     feedback-daily-limit: ${FORGE_APP_FEEDBACK_DAILY_LIMIT:20}
     # 版本更新只接受该包名的 APK（手机与电视共用一个安装包）
     package-name: ${FORGE_APP_PACKAGE_NAME:cn.orangenode.orange_app}
+    # “每天弹一次”的公告按该时区的自然日计算，过了当地零点再弹
+    announcement-day-zone: ${FORGE_APP_ANNOUNCEMENT_DAY_ZONE:Asia/Shanghai}
 
   # 视频采集：单实例队列，所有可调参数集中于此。
   video:

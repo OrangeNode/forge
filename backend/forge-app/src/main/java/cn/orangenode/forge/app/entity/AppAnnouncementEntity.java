@@ -54,6 +54,11 @@ public class AppAnnouncementEntity {
     private String actionValue;
 
     /**
+     * 弹出频率：ONCE 每个用户只弹一次 / DAILY 每天一次 / EVERY_LAUNCH 每次进入 App。
+     */
+    private String popupFrequency;
+
+    /**
      * 生效开始时间，UTC，空表示立即。
      */
     private LocalDateTime startAt;

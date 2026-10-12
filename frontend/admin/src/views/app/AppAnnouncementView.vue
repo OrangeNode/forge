@@ -18,7 +18,7 @@ const show = ref(false)
 const editingId = ref<string>()
 const form = reactive({
   title: '', contentType: 'TEXT', content: '', actionType: 'NONE', actionValue: null as string | null,
-  startAt: null as number | null, endAt: null as number | null, enabled: true, sortNo: 0,
+  startAt: null as number | null, endAt: null as number | null, enabled: true, sortNo: 0, popupFrequency: 'ONCE',
 })
 const videoSelect = ref<{ label: string; value: string }[]>([])
 
@@ -74,6 +74,15 @@ async function searchVideos(keyword: string) {
 }
 
 /**
+ * 弹出频率选项，值与后端一致。
+ */
+const FREQUENCY_TEXT: Record<string, string> = {
+  ONCE: '每个用户只弹一次',
+  DAILY: '每天弹一次',
+  EVERY_LAUNCH: '每次进入 App 都弹',
+}
+
+/**
  * 列表中的按钮说明。
  */
 function actionText(row: Announcement): string {
@@ -98,7 +107,7 @@ function edit(row?: Announcement) {
     title: row?.title ?? '', contentType: row?.contentType ?? 'TEXT', content: row?.content ?? '',
     actionType: row?.actionType ?? 'NONE', actionValue: row?.actionValue ?? null,
     startAt: row?.startAt ? new Date(row.startAt).getTime() : null, endAt: row?.endAt ? new Date(row.endAt).getTime() : null,
-    enabled: row?.enabled ?? true, sortNo: row?.sortNo ?? 0,
+    enabled: row?.enabled ?? true, sortNo: row?.sortNo ?? 0, popupFrequency: row?.popupFrequency ?? 'ONCE',
   })
   videoSelect.value = row?.actionType === 'VIDEO' && row.actionValue ? [{ label: row.actionName ?? row.actionValue, value: row.actionValue }] : []
   show.value = true
@@ -130,6 +139,7 @@ const columns: DataTableColumns<Announcement> = [
   { title: '格式', key: 'contentType', width: 80, render: row => row.contentType === 'HTML' ? 'HTML' : '纯文本' },
   { title: '按钮', key: 'actionType', minWidth: 200, ellipsis: { tooltip: true }, render: row => actionText(row) },
   { title: '生效时间', key: 'startAt', minWidth: 260, render: row => windowText(row.startAt, row.endAt) },
+  { title: '弹出频率', key: 'popupFrequency', width: 150, render: row => FREQUENCY_TEXT[row.popupFrequency] ?? row.popupFrequency },
   { title: '优先级', key: 'sortNo', width: 80 },
   { title: '版本', key: 'revision', width: 70 },
   { title: '状态', key: 'active', width: 100, render: row => h(NTag, { type: row.active ? 'success' : 'default', bordered: false }, () => row.active ? '生效中' : (row.enabled ? '不在时段' : '停用')) },
@@ -149,7 +159,7 @@ onMounted(load)
     >
       <PageHeader
         title="公告管理"
-        description="App 进入首页后弹出的公告；同一条公告每个用户只弹一次，修改标题、内容或按钮后会再弹一次"
+        description="App 进入首页后弹出的公告；每条公告可单独设置弹出频率，无论哪种频率，修改标题、内容或按钮后都会再弹一次"
         icon="message"
       >
         <template #actions>
@@ -176,14 +186,14 @@ onMounted(load)
           :bordered="false"
           class="video-filters"
         >
-          多条同时生效时，每次进入首页只弹一条：按优先级（数字越小越优先）取用户还没看过的第一条。只改生效时间、开关或优先级不会让看过的用户再看一次。
+          多条同时生效时，每次进入首页只弹一条：按优先级（数字越小越优先）取当前该弹的第一条。“每次进入 App 都弹”的公告优先级排在前面时，会一直挡住后面的公告。“每天弹一次”按北京时间零点换日。只改生效时间、开关、优先级或频率不算修改内容，不会让只弹一次的公告再弹。
         </NAlert>
         <NDataTable
           :columns="columns"
           :data="rows"
           :loading="busy"
           :row-key="row => row.id"
-          :scroll-x="1080"
+          :scroll-x="1230"
         />
       </div>
     </NCard>
@@ -299,6 +309,17 @@ onMounted(load)
             maxlength="512"
             placeholder="https://"
           />
+        </NFormItem>
+        <NFormItem label="弹出频率">
+          <NRadioGroup v-model:value="form.popupFrequency">
+            <NRadioButton
+              v-for="(text, value) in FREQUENCY_TEXT"
+              :key="value"
+              :value="value"
+            >
+              {{ text }}
+            </NRadioButton>
+          </NRadioGroup>
         </NFormItem>
         <div class="video-form-grid">
           <NFormItem label="开始时间（空表示立即）">

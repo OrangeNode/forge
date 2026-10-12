@@ -115,6 +115,7 @@ class MemberAppIntegrationTest {
         migrate("db/migration/app/V20261009190000__app_announcement_and_marquee.sql");
         migrate("db/migration/app/V20261011120000__app_banner_tv_image_and_menu_order.sql");
         migrate("db/migration/app/V20261011150000__app_splash_tv_image.sql");
+        migrate("db/migration/app/V20261012100000__app_announcement_popup_frequency.sql");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
                 + " VALUES (1,0,'电影',1,1,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO video_category (id,parent_id,name,sort_no,enabled,deleted,created_at,updated_at)"
@@ -492,20 +493,20 @@ class MemberAppIntegrationTest {
         var html = announcements.save(null, new AppAnnouncementRequest("国庆公告", "HTML",
                 "<p onclick=\"x()\">放假<b>七天</b></p><script>alert(1)</script><a href=\"javascript:alert(1)\">坏</a>"
                         + "<a href=\"https://example.com/a\">好</a><img src=\"/api/public/v1/files/t/a.png\">",
-                "VIDEO", String.valueOf(videoId), null, null, true, 1));
+                "VIDEO", String.valueOf(videoId), null, null, true, 1, null));
         assertThat(html.content()).doesNotContain("script", "onclick", "javascript").contains("<b>七天</b>",
                 "href=\"https://example.com/a\"", "src=\"/api/public/v1/files/t/a.png\"");
         assertThat(html.revision()).isEqualTo(1);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> announcements.save(null, new AppAnnouncementRequest(
-                "空", "HTML", "<script>alert(1)</script>", null, null, null, null, true, 0)))
+                "空", "HTML", "<script>alert(1)</script>", null, null, null, null, true, 0, null)))
                 .hasMessageContaining("过滤后为空");
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> announcements.save(null, new AppAnnouncementRequest(
-                "坏链接", "TEXT", "内容", "URL", "javascript:alert(1)", null, null, true, 0)))
+                "坏链接", "TEXT", "内容", "URL", "javascript:alert(1)", null, null, true, 0, null)))
                 .hasMessageContaining("http");
         announcements.save(null, new AppAnnouncementRequest("已过期", "TEXT", "旧", null, null, null,
-                java.time.Instant.parse("2020-01-01T00:00:00Z"), true, 0));
+                java.time.Instant.parse("2020-01-01T00:00:00Z"), true, 0, null));
         var text = announcements.save(null, new AppAnnouncementRequest("维护通知", "TEXT", "今晚维护", "URL",
-                "https://example.com/m", null, null, true, 2));
+                "https://example.com/m", null, null, true, 2, null));
         assertThat(get("/api/app/v1/app/announcement", null).path("code").asInt()).isEqualTo(401);
         String token = newMember("notice_user", "device-n1");
         JsonNode first = get("/api/app/v1/app/announcement", token).path("data");
@@ -521,11 +522,11 @@ class MemberAppIntegrationTest {
         assertThat(get("/api/app/v1/app/announcement", token).path("data").isNull()).isTrue();
         var moved = announcements.save(Long.valueOf(text.id()), new AppAnnouncementRequest(
                 "维护通知", "TEXT", "今晚维护", "URL", "https://example.com/m", null,
-                java.time.Instant.parse("2099-01-01T00:00:00Z"), true, 2));
+                java.time.Instant.parse("2099-01-01T00:00:00Z"), true, 2, null));
         assertThat(moved.revision()).isEqualTo(1);
         assertThat(get("/api/app/v1/app/announcement", token).path("data").isNull()).isTrue();
         var edited = announcements.save(Long.valueOf(text.id()), new AppAnnouncementRequest("维护通知", "TEXT",
-                "改到明晚维护", "NONE", null, null, null, true, 2));
+                "改到明晚维护", "NONE", null, null, null, true, 2, null));
         assertThat(edited.revision()).isEqualTo(2);
         assertThat(get("/api/app/v1/app/announcement", token).path("data").path("revision").asInt()).isEqualTo(2);
         assertThat(post("/api/app/v1/app/announcement/" + text.id() + "/read", token, Map.of("revision", 9))
@@ -537,6 +538,36 @@ class MemberAppIntegrationTest {
         assertThat(get("/api/app/v1/app/announcement", other).path("data").path("id").asText()).isEqualTo(html.id());
         announcements.delete(Long.valueOf(html.id()));
         assertThat(get("/api/app/v1/app/announcement", other).path("data").path("id").asText()).isEqualTo(text.id());
+    }
+
+    /**
+     * 弹出频率：不填按只弹一次；每天一次的当天关闭后不再弹、跨过当地零点再弹；每次进入 App 的关闭后仍然弹；
+     * 只改频率不加版本。
+     */
+    @Test
+    void popsAnnouncementByFrequency() {
+        var daily = announcements.save(null, new AppAnnouncementRequest("每日提示", "TEXT", "每天看一次", null, null,
+                null, null, true, 1, "DAILY"));
+        var always = announcements.save(null, new AppAnnouncementRequest("常驻提示", "TEXT", "每次都看", null, null,
+                null, null, true, 2, "EVERY_LAUNCH"));
+        assertThat(daily.popupFrequency()).isEqualTo("DAILY");
+        assertThat(announcements.announcements()).extracting("popupFrequency").containsExactly("DAILY", "EVERY_LAUNCH");
+        String token = newMember("freq_user", "device-f1");
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").path("id").asText()).isEqualTo(daily.id());
+        post("/api/app/v1/app/announcement/" + daily.id() + "/read", token, Map.of("revision", 1));
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").path("id").asText()).isEqualTo(always.id());
+        post("/api/app/v1/app/announcement/" + always.id() + "/read", token, Map.of("revision", 1));
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").path("id").asText()).isEqualTo(always.id());
+        jdbc.update("UPDATE app_announcement_read SET read_at=? WHERE announcement_id=?",
+                java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(1), Long.valueOf(daily.id()));
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").path("id").asText()).isEqualTo(daily.id());
+        post("/api/app/v1/app/announcement/" + daily.id() + "/read", token, Map.of("revision", 1));
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").path("id").asText()).isEqualTo(always.id());
+        var once = announcements.save(Long.valueOf(always.id()), new AppAnnouncementRequest("常驻提示", "TEXT", "每次都看",
+                null, null, null, null, true, 2, null));
+        assertThat(once.popupFrequency()).isEqualTo("ONCE");
+        assertThat(once.revision()).isEqualTo(1);
+        assertThat(get("/api/app/v1/app/announcement", token).path("data").isNull()).isTrue();
     }
 
     /**

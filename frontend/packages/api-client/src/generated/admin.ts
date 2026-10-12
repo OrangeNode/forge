@@ -2376,6 +2376,7 @@ export interface components {
             enabled: boolean;
             /** Format: int32 */
             sortNo: number;
+            popupFrequency?: string;
         };
         ApiResponseAppAnnouncementResponse: {
             /** Format: int32 */
@@ -2393,6 +2394,7 @@ export interface components {
             revision?: number;
             actionType?: string;
             actionValue?: string;
+            popupFrequency?: string;
             actionName?: string;
             startAt?: string;
             endAt?: string;

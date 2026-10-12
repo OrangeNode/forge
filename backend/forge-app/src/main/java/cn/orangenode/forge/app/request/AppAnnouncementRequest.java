@@ -20,6 +20,7 @@ import jakarta.validation.constraints.Size;
  * @param endAt       生效结束时间，可为空
  * @param enabled     是否启用
  * @param sortNo      优先级，越小越优先
+ * @param popupFrequency 弹出频率 ONCE 每人一次 / DAILY 每天一次 / EVERY_LAUNCH 每次进入 App，为空按 ONCE
  */
 public record AppAnnouncementRequest(
         @NotBlank(message = "请输入标题") @Size(max = 64, message = "标题不能超过 64 个字符") String title,
@@ -31,5 +32,7 @@ public record AppAnnouncementRequest(
         Instant startAt,
         Instant endAt,
         @NotNull(message = "请选择是否启用") Boolean enabled,
-        @NotNull(message = "请输入优先级") @Min(value = 0, message = "优先级不能为负数") Integer sortNo) {
+        @NotNull(message = "请输入优先级") @Min(value = 0, message = "优先级不能为负数") Integer sortNo,
+        @Pattern(regexp = "ONCE|DAILY|EVERY_LAUNCH", message = "弹出频率只能是 ONCE、DAILY 或 EVERY_LAUNCH")
+        String popupFrequency) {
 }
